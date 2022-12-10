@@ -6,3 +6,7 @@ No longer need to aim with your mouse to a small dot.
 Simplification of connection of nodes.
 
 Works in any node editor, including editors from other addons.
+
+Contact the author (RU):
+mail: StaunerRu@gmail.com
+discord: ugorek#6434
