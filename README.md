@@ -1,7 +1,7 @@
 # VoronoiLinker
 Blender Addon for Node Editor.
 
-Increases the cursor's reach to the socket.
+Increases the cursor's reach to a socket.
 No longer need to aim with your mouse to a small dot.
 Simplification of connection of nodes.
 
