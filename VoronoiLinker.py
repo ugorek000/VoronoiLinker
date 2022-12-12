@@ -16,7 +16,7 @@ def DrawWay(vtxs,vcol,siz):
     bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); shader[0].bind();
     bgl.glLineWidth(siz); batch_for_shader(shader[0],'LINE_STRIP',{'pos':vtxs,'color':vcol}).draw(shader[0])
 def DrawArea(vtxs,col):
-    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); shader[1].bind();
+    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_POLYGON_SMOOTH); shader[1].bind();
     shader[1].uniform_float('color',col); batch_for_shader(shader[1],'TRI_FAN',{'pos':vtxs}).draw(shader[1])
 def DrawLine(ps1,ps2,sz=1,cl=(1.0,1.0,1.0,0.75),fs=[0,0]): DrawWay(((ps1[0]+fs[0],ps1[1]+fs[1]),(ps2[0]+fs[0],ps2[1]+fs[1])),(cl,cl),sz)
 def DrawCircleOuter(pos,rd,siz=1,col=(1.0,1.0,1.0,0.75),resolution=16):
