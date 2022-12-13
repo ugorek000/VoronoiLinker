@@ -2,8 +2,8 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,1,4),'blender':(3,3,1), #09.12.2022
-        'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,3,0),'blender':(3,4,0), #13.12.2022
+        'description':'Simplification of create node links.','location':'Node Editor','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
@@ -11,62 +11,29 @@ from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, at
 
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
-shader = [None,None]; uiFac = [1.0]
+shader = [None,None]; uiFac = [1.0]; VoronoiColorSettings = [True,False,False,False]; VoronoiDrawSettings = [True,True,True,False,20]
 def DrawWay(vtxs,vcol,siz):
-    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); shader[0].bind();
+    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); shader[0].bind()
     bgl.glLineWidth(siz); batch_for_shader(shader[0],'LINE_STRIP',{'pos':vtxs,'color':vcol}).draw(shader[0])
-def DrawArea(vtxs,col):
-    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_POLYGON_SMOOTH); shader[1].bind();
+def DrawAreaFan(vtxs,col):
+    bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_POLYGON_SMOOTH); shader[1].bind()
     shader[1].uniform_float('color',col); batch_for_shader(shader[1],'TRI_FAN',{'pos':vtxs}).draw(shader[1])
-def DrawLine(ps1,ps2,sz=1,cl=(1.0,1.0,1.0,0.75),fs=[0,0]): DrawWay(((ps1[0]+fs[0],ps1[1]+fs[1]),(ps2[0]+fs[0],ps2[1]+fs[1])),(cl,cl),sz)
+def DrawLine(ps1,ps2,sz=1,cl1=(1.0,1.0,1.0,0.75),cl2=(1.0,1.0,1.0,0.75),fs=[0,0]): DrawWay(((ps1[0]+fs[0],ps1[1]+fs[1]),(ps2[0]+fs[0],ps2[1]+fs[1])),(cl1,cl2),sz)
 def DrawCircleOuter(pos,rd,siz=1,col=(1.0,1.0,1.0,0.75),resolution=16):
     vtxs = []; vcol = []
     for cyc in range(resolution+1): vtxs.append((rd*cos(cyc*2*pi/resolution)+pos[0],rd*sin(cyc*2*pi/resolution)+pos[1])); vcol.append(col)
     DrawWay(vtxs,vcol,siz)
-def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=16): DrawArea([(rd*cos(i*2*pi/resl)+pos[0],rd*sin(i*2*pi/resl)+pos[1]) for i in range(resl)],col)
-def DrawWidePoint(pos,rd):
-    rd = sqrt(rd*rd+10); cols = [(0.5,0.5,0.5,0.4),(0.5,0.5,0.5,0.4),(1.0,1.0,1.0,1.0)]; DrawCircle(pos,rd+3,cols[0]); DrawCircle(pos,rd,cols[1]); DrawCircle(pos,rd/1.5,cols[2])
-def DrawRectangle(ps1,ps2,cl): DrawArea([(ps1[0],ps1[1]),(ps2[0],ps1[1]),(ps2[0],ps2[1]),(ps1[0],ps2[1])],cl)
-def DrawRectangleOnSocket(context,sk,stEn,col=(1.0,1.0,1.0,0.075)):
-    loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0])
-    pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*uiFac[0]); DrawRectangle(pos1,pos2,col)
+def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=54): DrawAreaFan([(pos[0],pos[1]),*[(rd*cos(i*2*pi/resl)+pos[0],rd*sin(i*2*pi/resl)+pos[1]) for i in range(resl+1)]],col)
+def DrawWidePoint(pos,rd,colfac=Vector((1.0,1.0,1.0,1.0))):
+    col1 = Vector((0.5,0.5,0.5,0.4)); col2 = Vector((0.5,0.5,0.5,0.4)); col3 = Vector((1.0,1.0,1.0,1.0))
+    colfac = colfac if VoronoiColorSettings[1] else Vector((1.0,1.0,1.0,1.0)); rd = sqrt(rd*rd+10)
+    DrawCircle(pos,rd+3,col1*colfac); DrawCircle(pos,rd,col2*colfac); DrawCircle(pos,rd/1.5,col3*colfac)
+def DrawRectangle(ps1,ps2,cl): DrawAreaFan([(ps1[0],ps1[1]),(ps2[0],ps1[1]),(ps2[0],ps2[1]),(ps1[0],ps2[1])],cl)
+def DrawRectangleOnSocket(context,sk,stEn,colfac=Vector((1.0,1.0,1.0,1.0))):
+    if VoronoiDrawSettings[3]==False: return
+    loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0]); colfac = colfac if VoronoiColorSettings[3] else Vector((1.0,1.0,1.0,1.0))
+    pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*uiFac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
 fontId = [0]; where = [None]
-def VoronoiLinkerDrawCallback(sender,context):
-    if where[0]!=context.space_data: return
-    shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    def MucDrawText(pos,ofs,Sk):
-        try: skCol = Sk.draw_color(context,Sk.node)
-        except: skCol = (1,0,0,1)
-        txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'; pos = [pos[0]-(len(txt)*15+5)*(ofs[0]<0),pos[1]]; pw = 1/1.975
-        pos1 = [pos[0]+ofs[0]-2,pos[1]+ofs[1]-8]; pos2 = [pos[0]+ofs[0]+len(txt)*15+2,pos[1]+ofs[1]+21]; list = [.4,.55,.8,.9,1]; uh = 1/len(list)*29
-        for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(skCol[0]/2,skCol[1]/2,skCol[2]/2,list[cyc]))
-        col = (skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1)
-        DrawLine(pos1,[pos2[0],pos1[1]],1,col); DrawLine([pos2[0],pos1[1]],pos2,1,col); DrawLine(pos2,[pos1[0],pos2[1]],1,col); DrawLine([pos1[0],pos2[1]],pos1,1,col)
-        col = (col[0],col[1],col[2],.375); thS = 2
-        DrawLine(pos1,[pos2[0],pos1[1]],1,col,[0,-thS]); DrawLine([pos2[0],pos1[1]],pos2,1,col,[+thS,0])
-        DrawLine(pos2,[pos1[0],pos2[1]],1,col,[0,+thS]); DrawLine([pos1[0],pos2[1]],pos1,1,col,[-thS,0])
-        DrawLine([pos1[0]-thS,pos1[1]],[pos1[0],pos1[1]-thS],1,col); DrawLine([pos2[0]+thS,pos1[1]],[pos2[0],pos1[1]-thS],1,col)
-        DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col)
-        blf.position(fontId[0],pos[0]+ofs[0],pos[1]+ofs[1],0); blf.size(fontId[0],28,72); blf.color(fontId[0],skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1.0); blf.draw(fontId[0],txt)
-        return len(txt)*15
-    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y)
-    def MucDrawWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6,loc.y)[0]-pos[0]; DrawWidePoint(pos,rd); return pos
-    def MucDrawIsLinked(loc,offset,skCol):
-        vec = PosViewToReg(loc.x,loc.y); gc = 0.65; col1 = (0,0,0,0.5); col2 = (gc,gc,gc,max(max(skCol[0],skCol[1]),skCol[2])*.9); col3 = (skCol[0],skCol[1],skCol[2],.925)
-        DrawCircleOuter([vec[0]+offset+1.5,vec[1]+3.5],9.0,3.0,col1); DrawCircleOuter([vec[0]+offset-3.5,vec[1]-5],9.0,3.0,col1)
-        DrawCircleOuter([vec[0]+offset,vec[1]+5],9.0,3.0,col2); DrawCircleOuter([vec[0]+offset-5,vec[1]-3.5],9.0,3.0,col2)
-        DrawCircleOuter([vec[0]+offset,vec[1]+5],9.0,1.0,col3); DrawCircleOuter([vec[0]+offset-5,vec[1]-3.5],9.0,1.0,col3)
-    def MucDrawSk(Sk,lh):
-        txtlen = MucDrawText(mouseRegionPs,[-20*(Sk.is_output*2-1),-5],Sk)
-        if Sk.is_linked: MucDrawIsLinked(mousePos,(-txtlen-48)*(Sk.is_output*2-1),Sk.draw_color(context,Sk.node))
-    if (sender.sockOutSk==None): MucDrawWP(mousePos,-15); MucDrawWP(mousePos,+15)
-    elif (sender.sockOutSk!=None)and(sender.sockInSk==None):
-        MucDrawWP(sender.sockOutPs*uiFac[0],+20); MucDrawWP(mousePos,0);
-        DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH); MucDrawSk(sender.sockOutSk,sender.sockOutLH)
-    else:
-        DrawLine(MucDrawWP(sender.sockOutPs*uiFac[0],+20),MucDrawWP(sender.sockInPs*uiFac[0],-20),1,(1.0,1.0,1.0,0.4))
-        DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH); DrawRectangleOnSocket(context,sender.sockInSk,sender.sockInLH);
-        MucDrawSk(sender.sockOutSk,sender.sockOutLH); MucDrawSk(sender.sockInSk,sender.sockInLH)
 
 def RecrGetNodeFinalLoc(node): return node.location if node.parent==None else node.location+RecrGetNodeFinalLoc(node.parent)
 def GetNearestNodeInRegionMouse(context):
@@ -97,16 +64,75 @@ def GetNearestSocketInRegionMouse(context,getOut,skOut):
                     if str(wh.bl_rna).find('VectorDirection')!=-1: skLoc[1] += 20*2; muv = 2
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): skLoc[1] += 30*2; muv = 3
                 if skOut!=None:
-                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or(wh.bl_idname=='NodeSocketVirtual')
+                    # not getOut чтобы не присасываться реальным к виртуальным при миксере (getOut=True)
+                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut))
                     tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)
-                if getOut or tgl:
+                    if getOut: tgl = (tgl)and(not((skOut.bl_idname=='NodeSocketVirtual')and(wh.bl_idname=='NodeSocketVirtual'))or(skOut==wh))
+                if ((getOut)and(skOut==None))or(tgl): # skOut==None чтобы учитывать влияние tgl при skOut!=None
                     fieldXY = mousePs-skLoc; fieldL = fieldXY.length
                     if fieldL<minLen: minLen = fieldL; goalSk = wh; goalPs = skLoc.copy(); skHigLigHei = (goalPs[1]-11-muv*20,goalPs[1]+11+max(len(wh.links)-2,0)*5)
                 skLoc[1] += 22*(1-getOut*2)
         return goalSk, goalPs, minLen, skHigLigHei
     return MucGet(nd.outputs if getOut else reversed(nd.inputs),getOut)
+def GetSkCol(Sk): return Sk.draw_color(bpy.context,Sk.node)
+def Vec4Pow(vec,pw): return Vector((vec.x**pw,vec.y**pw,vec.z**pw,vec.w**pw))
+def GetSkVecCol(Sk,apw): return Vec4Pow(Vector(Sk.draw_color(bpy.context,Sk.node)),1/apw)
+
+def SetCurDrawSettings():
+    prefs = bpy.context.preferences.addons['VoronoiLinker' if __name__=='__main__' else __name__].preferences; VoronoiDrawSettings[4] = prefs.pointOffsetX
+    VoronoiDrawSettings[0] = prefs.drawText; VoronoiColorSettings[0] = prefs.coloredText; VoronoiDrawSettings[1] = prefs.drawPoint; VoronoiColorSettings[1] = prefs.coloredPoints
+    VoronoiDrawSettings[2] = prefs.drawLine; VoronoiColorSettings[2] = prefs.coloredLine;VoronoiDrawSettings[3] = prefs.drawArea; VoronoiColorSettings[3] = prefs.coloredArea
+
+def VoronoiLinkerDrawCallback(sender,context):
+    if where[0]!=context.space_data: return
+    shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
+    def MucDrawText(pos,ofs,Sk):
+        if VoronoiDrawSettings[0]==False: return 0
+        try: skCol = GetSkCol(Sk)
+        except: skCol = (1,0,0,1)
+        skCol = skCol if VoronoiColorSettings[0] else (.9,.9,.9,1)
+        txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'; pos = [pos[0]-(len(txt)*15+5)*(ofs[0]<0),pos[1]]; pw = 1/1.975
+        pos1 = [pos[0]+ofs[0]-2,pos[1]+ofs[1]-9]; pos2 = [pos[0]+ofs[0]+len(txt)*15+2,pos[1]+ofs[1]+23]; list = [.4,.55,.8,.9,1]; uh = 1/len(list)*32
+        for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(skCol[0]/2,skCol[1]/2,skCol[2]/2,list[cyc]))
+        col = (skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1)
+        DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col); DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
+        col = (col[0],col[1],col[2],.375); thS = 2
+        DrawLine(pos1,[pos2[0],pos1[1]],1,col,col,[0,-thS]); DrawLine([pos2[0],pos1[1]],pos2,1,col,col,[+thS,0])
+        DrawLine(pos2,[pos1[0],pos2[1]],1,col,col,[0,+thS]); DrawLine([pos1[0],pos2[1]],pos1,1,col,col,[-thS,0])
+        DrawLine([pos1[0]-thS,pos1[1]],[pos1[0],pos1[1]-thS],1,col,col); DrawLine([pos2[0]+thS,pos1[1]],[pos2[0],pos1[1]-thS],1,col,col)
+        DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col,col)
+        blf.position(fontId[0],pos[0]+ofs[0],pos[1]+ofs[1],0); blf.size(fontId[0],28,72); blf.color(fontId[0],skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1.0); blf.draw(fontId[0],txt)
+        return len(txt)*15
+    mousePos = context.space_data.cursor_location*uiFac[0]
+    def MucGetWP(loc,offsetx):
+        pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6,loc.y)[0]-pos[0]; return pos,rd
+    def MucDrawIsLinked(loc,offset,skCol):
+        if VoronoiDrawSettings[0]==False: return
+        vec = PosViewToReg(loc.x,loc.y); gc = 0.65; col1 = (0,0,0,0.5); col2 = (gc,gc,gc,max(max(skCol[0],skCol[1]),skCol[2])*.9); col3 = (skCol[0],skCol[1],skCol[2],.925)
+        DrawCircleOuter([vec[0]+offset+1.5,vec[1]+3.5],9.0,3.0,col1); DrawCircleOuter([vec[0]+offset-3.5,vec[1]-5],9.0,3.0,col1)
+        DrawCircleOuter([vec[0]+offset,vec[1]+5],9.0,3.0,col2); DrawCircleOuter([vec[0]+offset-5,vec[1]-3.5],9.0,3.0,col2)
+        DrawCircleOuter([vec[0]+offset,vec[1]+5],9.0,1.0,col3); DrawCircleOuter([vec[0]+offset-5,vec[1]-3.5],9.0,1.0,col3)
+    def MucDrawSk(Sk,lh):
+        txtlen = MucDrawText(PosViewToReg(mousePos.x,mousePos.y),[-20*(Sk.is_output*2-1),-5],Sk)
+        if Sk.is_linked: MucDrawIsLinked(mousePos,(-txtlen-48)*(Sk.is_output*2-1),GetSkCol(Sk))
+    if (sender.sockOutSk==None):
+        if VoronoiDrawSettings[1]: wp1 = MucGetWP(mousePos,-VoronoiDrawSettings[4]*.75); wp2 = MucGetWP(mousePos,VoronoiDrawSettings[4]*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+    elif (sender.sockOutSk!=None)and(sender.sockInSk==None):
+        DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
+        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],VoronoiDrawSettings[4]); wp2 = MucGetWP(mousePos,0)
+        if VoronoiDrawSettings[1]: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1])
+        MucDrawSk(sender.sockOutSk,sender.sockOutLH)
+    else:
+        DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
+        DrawRectangleOnSocket(context,sender.sockInSk,sender.sockInLH,GetSkVecCol(sender.sockInSk,2.2))
+        if VoronoiColorSettings[2]: col1 = GetSkCol(sender.sockOutSk); col2 = GetSkCol(sender.sockInSk)
+        else: col1 = (1.0,1.0,1.0,1.0); col2 = (1.0,1.0,1.0,1.0)
+        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],VoronoiDrawSettings[4]); wp2 = MucGetWP(sender.sockInPs*uiFac[0],-VoronoiDrawSettings[4])
+        if VoronoiDrawSettings[2]: DrawLine(wp1[0],wp2[0],1,col1,col2)
+        if VoronoiDrawSettings[1]: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockInSk,2.2))
+        MucDrawSk(sender.sockOutSk,sender.sockOutLH); MucDrawSk(sender.sockInSk,sender.sockInLH)
 class VoronoiLinker(bpy.types.Operator):
-    bl_idname = 'node.voronoi_linker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
+    bl_idname = 'node.a_voronoi_linker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
     def MucAssign(sender,context):
         muc = GetNearestSocketInRegionMouse(context,False,sender.sockOutSk); sender.sockInSk = muc[0]; sender.sockInPs = muc[1]; sender.sockInLH = muc[3]
         if (sender.sockOutSk!=None)and(sender.sockInSk!=None)and(sender.sockOutSk.node==sender.sockInSk.node):
@@ -138,20 +164,136 @@ class VoronoiLinker(bpy.types.Operator):
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
         else:
             muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOutSk = muc[0]; self.sockOutPs = muc[1]; self.sockOutLH = muc[3]
-            VoronoiLinker.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data
+            VoronoiLinker.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetCurDrawSettings()
             self._handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiLinkerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
 
+def VoronoiMixerDrawCallback(sender,context):
+    if where[0]!=context.space_data: return
+    shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
+    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y)
+    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6,loc.y)[0]-pos[0]; return pos,rd
+    if (sender.sockOut1Sk==None):
+        if VoronoiDrawSettings[1]: wp1 = MucGetWP(mousePos,-VoronoiDrawSettings[4]*.75); wp2 = MucGetWP(mousePos,VoronoiDrawSettings[4]*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+    elif (sender.sockOut1Sk!=None)and(sender.sockOut2Sk==None):
+        DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
+        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],VoronoiDrawSettings[4]); wp2 = MucGetWP(mousePos,0); col = Vector((1.0,1.0,1.0,1.0))
+        if VoronoiDrawSettings[2]: DrawLine(wp1[0],mouseRegionPs,1,GetSkCol(sender.sockOut1Sk) if VoronoiColorSettings[2] else col,col)
+        if VoronoiDrawSettings[1]: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1])
+    else:
+        DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
+        DrawRectangleOnSocket(context,sender.sockOut2Sk,sender.sockOut2LH,GetSkVecCol(sender.sockOut2Sk,2.2))
+        if VoronoiColorSettings[2]: col1 = GetSkCol(sender.sockOut1Sk); col2 = GetSkCol(sender.sockOut2Sk)
+        else: col1 = (1.0,1.0,1.0,1.0); col2 = (1.0,1.0,1.0,1.0)
+        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],VoronoiDrawSettings[4]); wp2 = MucGetWP(sender.sockOut2Ps*uiFac[0],VoronoiDrawSettings[4])
+        if VoronoiDrawSettings[2]: DrawLine(mouseRegionPs,wp2[0],1,col2,col2); DrawLine(wp1[0],mouseRegionPs,1,col1,col1)
+        if VoronoiDrawSettings[1]: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockOut2Sk,2.2))
+class VoronoiMixer(bpy.types.Operator):
+    bl_idname = 'node.a_voronoi_mixer'; bl_label = 'Voronoi Mixer'; bl_options = {'UNDO'}
+    def MucAssign(sender,context):
+        muc = GetNearestSocketInRegionMouse(context,True,sender.sockOut1Sk); sender.sockOut2Sk = muc[0]; sender.sockOut2Ps = muc[1]; sender.sockOut2LH = muc[3]
+        if (sender.sockOut1Sk!=None)and(sender.sockOut2Sk!=None)and(sender.sockOut1Sk==sender.sockOut2Sk): sender.sockOut2Sk = None; sender.sockOut2Ps = None
+    def modal(self,context,event):
+        context.area.tag_redraw()
+        match event.type:
+            case 'MOUSEMOVE': VoronoiMixer.MucAssign(self,context)
+            case 'RIGHTMOUSE'|'ESC':
+                bpy.types.SpaceNodeEditor.draw_handler_remove(self._handle,'WINDOW')
+                if (event.value=='RELEASE')and(self.sockOut1Sk!=None)and(self.sockOut2Sk!=None):
+                    mixerSk1[0] = self.sockOut1Sk; mixerSk2[0] = self.sockOut2Sk; mixerSkTyp[0] = mixerSk1[0].type if mixerSk1[0].type!='VIRTUAL' else mixerSk2[0].type
+                    try: bpy.ops.wm.call_menu_pie(name='node.VM_MT_voronoi_mixer_pie') if len(VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]])!=0 else None
+                    except:pass
+                    return {'FINISHED'}
+                else: return {'CANCELLED'}
+        return {'RUNNING_MODAL'}
+    def invoke(self,context,event):
+        context.area.tag_redraw()
+        if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
+        else:
+            muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOut1Sk = muc[0]; self.sockOut1Ps = muc[1]; self.sockOut1LH = muc[3]
+            VoronoiMixer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetCurDrawSettings()
+            self._handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiMixerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
+            context.window_manager.modal_handler_add(self)
+            return {'RUNNING_MODAL'}
+mixerSk1 = [None]; mixerSk2 = [None]; mixerSkTyp = [None]
+VMMapDictMixersDefs = {'GeometryNodeSwitch':[-1,-1,'Switch'],'ShaderNodeMixShader':[1,2,'Mix'],'ShaderNodeAddShader':[0,1,'Add'],'ShaderNodeMixRGB':[1,2,'Mix'],
+        'ShaderNodeMath':[0,1,'Max'],'ShaderNodeVectorMath':[0,1,'Max'],'FunctionNodeBooleanMath':[0,1,'Or'],'FunctionNodeCompare':[-1,-1,'Compare'],
+        'GeometryNodeCurveToMesh':[0,1,'Curve to Mesh'],'GeometryNodeInstanceOnPoints':[0,2,'Instance on Points'],'GeometryNodeMeshBoolean':[0,1,'Boolean'],
+        'GeometryNodeStringJoin':[1,1,'Join'],'GeometryNodeJoinGeometry':[0,0,'Join'],'GeometryNodeGeometryToInstance':[0,0,'To Instance'],
+        'CompositorNodeMixRGB':[1,2,'Mix'],'CompositorNodeMath':[0,1,'Max'],'CompositorNodeSwitch':[0,1,'Switch'],'CompositorNodeAlphaOver':[1,2,'Alpha Over'],
+        'CompositorNodeSplitViewer':[0,1,'Split Viewer'],'CompositorNodeSwitchView':[0,1,'Switch View'],'TextureNodeMixRGB':[1,2,'Mix'],
+        'TextureNodeMath':[0,1,'Max'],'TextureNodeTexture':[0,1,'Texture'],'TextureNodeDistance':[0,1,'Distance']}
+VMMapDictSwitchType = {'VALUE':'FLOAT'}; VMMapDictUserSkName = {'VALUE':'Float','RGBA':'Color'}
+class VoronoiMixerMixer(bpy.types.Operator):
+    bl_idname = 'node.voronoi_mixer_mixer'; bl_label = 'Voronoi Mixer Mixer'; bl_options = {'UNDO'}
+    who: bpy.props.StringProperty()
+    def execute(self,context):
+        tree = context.space_data.edit_tree
+        if tree!=None:
+            bpy.ops.node.add_node('INVOKE_DEFAULT',type=self.who,use_transform=True); aNd = tree.nodes.active; aNd.width = 140
+            match aNd.bl_idname:
+                case 'ShaderNodeMath'|'ShaderNodeVectorMath'|'CompositorNodeMath'|'TextureNodeMath': aNd.operation = 'MAXIMUM'
+                case 'FunctionNodeBooleanMath': aNd.operation = 'OR'
+                case 'TextureNodeTexture': aNd.show_preview = False
+                case 'GeometryNodeSwitch': aNd.input_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
+                case 'FunctionNodeCompare':
+                    aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0]); aNd.operation = aNd.operation if aNd.data_type!='FLOAT' else 'EQUAL'
+            match aNd.bl_idname:
+                case 'GeometryNodeSwitch'|'FunctionNodeCompare':
+                    tgl = aNd.bl_idname=='GeometryNodeSwitch'; foundSkList = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==mixerSkTyp[0]]
+                    tree.links.new(mixerSk1[0],foundSkList[tgl]); tree.links.new(mixerSk2[0],foundSkList[not tgl])
+                case _:
+                    if aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]].is_multi_input: tree.links.new(mixerSk2[0],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][1]])
+                    tree.links.new(mixerSk1[0],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]])
+                    if aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]].is_multi_input==False: tree.links.new(mixerSk2[0],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][1]])
+        return {'FINISHED'}
+VMMapDictMain = {
+        'ShaderNodeTree':{'SHADER':['ShaderNodeMixShader','ShaderNodeAddShader'],'VALUE':['ShaderNodeMixRGB','ShaderNodeMath'],
+                'RGBA':['ShaderNodeMixRGB'],'VECTOR':['ShaderNodeMixRGB','ShaderNodeVectorMath'],'INT':['ShaderNodeMixRGB','ShaderNodeMath']},
+        'GeometryNodeTree':{'VALUE':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare','ShaderNodeMath'],
+                'RGBA':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare'],
+                'VECTOR':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare','ShaderNodeVectorMath'],
+                'STRING':['GeometryNodeSwitch','FunctionNodeCompare','GeometryNodeStringJoin'],
+                'INT':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare','ShaderNodeMath'],
+                'GEOMETRY':['GeometryNodeSwitch','GeometryNodeJoinGeometry','GeometryNodeInstanceOnPoints','GeometryNodeCurveToMesh','GeometryNodeMeshBoolean','GeometryNodeGeometryToInstance'],
+                'BOOLEAN':['GeometryNodeSwitch','ShaderNodeMixRGB','ShaderNodeMath','FunctionNodeBooleanMath'],'OBJECT':['GeometryNodeSwitch'],
+                'MATERIAL':['GeometryNodeSwitch'],'COLLECTION':['GeometryNodeSwitch'],'TEXTURE':['GeometryNodeSwitch'],'IMAGE':['GeometryNodeSwitch']},
+        'CompositorNodeTree':{'VALUE':['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath'],
+                'RGBA':['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeAlphaOver'],
+                'VECTOR':['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'],
+                'INT':['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath']},
+        'TextureNodeTree':{'VALUE':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture'],'RGBA':['TextureNodeMixRGB','TextureNodeTexture'],
+                'VECTOR':['TextureNodeMixRGB','TextureNodeDistance'],'INT':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture']}}
+class VoronoiMixerPie(bpy.types.Menu):
+    bl_idname = 'node.VM_MT_voronoi_mixer_pie'; bl_label = ''
+    def draw(self,context):
+        pie = self.layout.menu_pie(); pie.label(text=VMMapDictUserSkName.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
+        for li in VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]: pie.operator('node.voronoi_mixer_mixer',text=VMMapDictMixersDefs[li][2]).who=li
+
+class VoronoiAddonPrefs(bpy.types.AddonPreferences):
+    bl_idname = 'VoronoiLinker' if __name__=='__main__' else __name__
+    pointOffsetX: bpy.props.FloatProperty(name='Point offset X',default=20,min=-50,max=50)
+    drawText: bpy.props.BoolProperty(name='Draw Text',default=True); coloredText: bpy.props.BoolProperty(name='Colored Text',default=True)
+    drawPoint: bpy.props.BoolProperty(name='Draw Points',default=True); coloredPoints: bpy.props.BoolProperty(name='Colored Points',default=False)
+    drawLine: bpy.props.BoolProperty(name='Draw Line',default=True); coloredLine: bpy.props.BoolProperty(name='Colored Line',default=False)
+    drawArea: bpy.props.BoolProperty(name='Draw Socket Area',default=False); coloredArea: bpy.props.BoolProperty(name='Colored Socket Area',default=False)
+    def draw(self,context):
+        colm = self.layout.column(align=True); colm.prop(self,'pointOffsetX')
+        row = colm.row(align=True); row.prop(self,'drawText'); row.prop(self,'coloredText'); row = colm.row(align=True); row.prop(self,'drawPoint'); row.prop(self,'coloredPoints')
+        row = colm.row(align=True); row.prop(self,'drawLine'); row.prop(self,'coloredLine'); row = colm.row(align=True); row.prop(self,'drawArea'); row.prop(self,'coloredArea')
+
 addon_keymaps = []
+classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerPie,VoronoiAddonPrefs]
 def register():
+    for cl in classes: bpy.utils.register_class(cl)
+    fontId[0] = blf.load(r'C:\Windows\Fonts\consola.ttf'); fontId[0] = 0 if fontId[0]==-1 else fontId[0]
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor',space_type='NODE_EDITOR')
-    kmi = km.keymap_items.new(VoronoiLinker.bl_idname,type='RIGHTMOUSE',value='PRESS',alt=True,head=True)
-    bpy.utils.register_class(VoronoiLinker); addon_keymaps.append((km,kmi))
-    try: fontId[0] = blf.load(r'C:\Windows\Fonts\consola.ttf')
-    except:pass
+    kmi = km.keymap_items.new(VoronoiLinker.bl_idname,type='RIGHTMOUSE',value='PRESS',alt=True); addon_keymaps.append((km,kmi))
+    kmi = km.keymap_items.new(VoronoiMixer.bl_idname,type='RIGHTMOUSE',value='PRESS',shift=True,alt=True); addon_keymaps.append((km,kmi))
 def unregister():
+    for cl in reversed(classes): bpy.utils.unregister_class(cl)
     for km,kmi in addon_keymaps: km.keymap_items.remove(kmi)
-    bpy.utils.unregister_class(VoronoiLinker); addon_keymaps.clear()
+    addon_keymaps.clear()
 
 if __name__=='__main__': register()
