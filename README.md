@@ -1,5 +1,5 @@
 # VoronoiLinker
-Blender Addon for Node Editor.
+Blender Addon for Node Editor which adds three new features:
 
 === Voronoi Linker ===
 
@@ -15,6 +15,7 @@ Wide possibilities of mixing different sockets in different editors using power 
 === Voronoi Preview ===
 
 Auto-create links path from a socket to an outlet or an anchor.
+
 
 Contact the author (RU):
 mail: StaunerRu@gmail.com
