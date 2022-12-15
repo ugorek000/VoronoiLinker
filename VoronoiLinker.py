@@ -406,10 +406,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     DrLn:bpy.props.BoolProperty(name='Draw Line',default=True); ClLn:bpy.props.BoolProperty(name='Colored Line',default=False)
     DrAr:bpy.props.BoolProperty(name='Draw Socket Area',default=False); ClAr:bpy.props.BoolProperty(name='Colored Socket Area',default=False)
     TxSt:bpy.props.EnumProperty(name='Text Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
-    AlLn:bpy.props.BoolProperty(name='Always draw line',default=False); OnSp:bpy.props.BoolProperty(name='One Choise to skip',description='A',default=False)
+    AlLn:bpy.props.BoolProperty(name='Always draw line',default=False); PrIv:bpy.props.BoolProperty(name='Preview key inverse',default=False)
+    OnSp:bpy.props.BoolProperty(name='One Choise to skip',description='If the selection contains a single element, skip the selection and add it immediately',default=False)
     MxMnSt:bpy.props.EnumProperty(name='Mixer Menu Style',default='Pie',items={('Pie','Pie',''),('List','List','')})
     LvPr:bpy.props.BoolProperty(name='Live Preview',default=False); PrGm:bpy.props.BoolProperty(name='Preview in Geometry nodes',default=True)
-    PrIv:bpy.props.BoolProperty(name='Preview key inverse',default=False)
     def draw(self,context):
         col0 = self.layout.column(); box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw stiings'); row = col1.row(align=True)
         row.prop(self,'DrTx'); row.prop(self,'ClTx'); row = col1.row(align=True); row.prop(self,'DrMk'); row.prop(self,'ClMk'); row = col1.row(align=True)
