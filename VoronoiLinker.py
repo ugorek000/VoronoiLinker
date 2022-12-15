@@ -322,16 +322,17 @@ class VoronoiPreviewer(bpy.types.Operator):
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
-        if (event.type=='LEFTMOUSE')^GetDrawSettings('PrIv'):
-            nodes = context.space_data.edit_tree.nodes; nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
-            nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
-        elif (context.space_data.tree_type!='GeometryNodeTree')or(GetDrawSettings('PrGm')):
-            context.area.tag_redraw(); self.liveprew = GetDrawSettings('LvPr')
-            if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
+        if (context.space_data.tree_type!='GeometryNodeTree')or(GetDrawSettings('PrGm')):
+            if (event.type=='LEFTMOUSE')^GetDrawSettings('PrIv'):
+                nodes = context.space_data.edit_tree.nodes; nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
+                nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
             else:
-                VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
-                self._handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiPreviewerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
-                context.window_manager.modal_handler_add(self)
+                context.area.tag_redraw(); self.liveprew = GetDrawSettings('LvPr')
+                if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
+                else:
+                    VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
+                    self._handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiPreviewerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
+                    context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 ShaderShadersWithColor = ('BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
         'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER')
