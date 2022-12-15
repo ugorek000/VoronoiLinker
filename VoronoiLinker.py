@@ -33,7 +33,7 @@ def DrawRectangleOnSocket(context,sk,stEn,colfac=Vector((1,1,1,1))):
     if GetDrawSettings('DrAr')==False: return
     loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0]); colfac = colfac if GetDrawSettings('ClAr') else Vector((1,1,1,1))
     pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*uiFac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
-fontId = [0]; where = [None]
+fontId = [0]; where = [None]; IsPreview = [False]
 
 def RecrGetNodeFinalLoc(node): return node.location if node.parent==None else node.location+RecrGetNodeFinalLoc(node.parent)
 def GetNearestNodeInRegionMouse(context):
@@ -41,9 +41,8 @@ def GetNearestNodeInRegionMouse(context):
     def ToSign(vec2): return Vector((copysign(1,vec2[0]),copysign(1,vec2[1])))
     mousePs = context.space_data.cursor_location; nodes = context.space_data.edit_tree.nodes
     for nd in nodes:
-        if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute'))and((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')):
-            locNd = RecrGetNodeFinalLoc(nd)
-            sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
+        if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute'))and((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(not IsPreview[0])):
+            locNd = RecrGetNodeFinalLoc(nd); sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
             locNd = locNd-sizNd/2 if nd.bl_idname=='NodeReroute' else locNd-Vector((0,sizNd[1]))
             fieldUV = mousePs-(locNd+sizNd/2); fieldXY = Vector((abs(fieldUV.x),abs(fieldUV.y)))-sizNd/2
             fieldXY = Vector((max(fieldXY.x,0),max(fieldXY.y,0))); fieldL = fieldXY.length
@@ -165,7 +164,7 @@ class VoronoiLinker(bpy.types.Operator):
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
-        context.area.tag_redraw()
+        context.area.tag_redraw(); IsPreview[0] = False
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
         else:
             muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOutSk = muc[0]; self.sockOutPs = muc[1]; self.sockOutLH = muc[3]
@@ -224,7 +223,7 @@ class VoronoiMixer(bpy.types.Operator):
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
-        context.area.tag_redraw()
+        context.area.tag_redraw(); IsPreview[0] = False
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
         else:
             muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOut1Sk = muc[0]; self.sockOut1Ps = muc[1]; self.sockOut1LH = muc[3]
@@ -327,7 +326,7 @@ class VoronoiPreviewer(bpy.types.Operator):
                 nodes = context.space_data.edit_tree.nodes; nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
                 nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
             else:
-                context.area.tag_redraw(); self.liveprew = GetDrawSettings('LvPr')
+                context.area.tag_redraw(); IsPreview[0] = True; self.liveprew = GetDrawSettings('LvPr')
                 if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
                 else:
                     VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
@@ -342,8 +341,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
     def GetTreesWay(context,nd):
         way = []; nds = []; treeWyc = context.space_data.node_tree; lim = 0
         while (treeWyc!=context.space_data.edit_tree)and(lim<64): way.insert(0,treeWyc); nds.insert(0,treeWyc.nodes.active); treeWyc = treeWyc.nodes.active.node_tree; lim += 1
-        way.insert(0,treeWyc); nds.insert(0,nd)
-        return way, nds
+        way.insert(0,treeWyc); nds.insert(0,nd); return way, nds
     for ng in bpy.data.node_groups:
         if ng.type==context.space_data.node_tree.type:
             sk = ng.outputs.get('voronoi_preview')
