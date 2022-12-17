@@ -426,7 +426,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     FrOf:bpy.props.IntProperty(name='Text Frame Offset',default=0,min=0,max=24,subtype='FACTOR'); TxSz:bpy.props.IntProperty(name='Text Size',default=28,min=10,max=48)
     SwAd:bpy.props.BoolProperty(name='Display advanced options',default=False); CrDs:bpy.props.FloatProperty(name='Text distance from cursor',default=25,min=5,max=50)
     LFOf:bpy.props.FloatProperty(name='Text Line-frame offset',default=2,min=0,max=10); DrSd:bpy.props.BoolProperty(name='Draw Text Shadow',default=True)
-    SdCl:bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.75],size=4,min=0,max=1,subtype='COLOR')
+    SdCl:bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
     SdOf:bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
     SdBl:bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
     def draw(self,context):
