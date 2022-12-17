@@ -20,3 +20,5 @@ Auto-create links path from a socket to an outlet or an anchor.
 Contact the author (RU):
 mail: StaunerRu@gmail.com
 discord: ugorek#6434
+
+Addon created on 18/12/2022
