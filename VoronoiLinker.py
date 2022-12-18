@@ -413,7 +413,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
             if (sockOut!=None)and(sockIn!=None)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
             #Выделить нод предпросмотра:
             for nd in WayTr[0].nodes: nd.select = False
-            WayTr[0].nodes.active = goalSk.node
+            WayTr[0].nodes.active = goalSk.node; goalSk.node.select = True
         else: WayTr[cyc].links.new(goalSk,nd_va.inputs[0])
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
