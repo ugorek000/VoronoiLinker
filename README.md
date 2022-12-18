@@ -21,4 +21,4 @@ Contact the author (RU):
 mail: StaunerRu@gmail.com
 discord: ugorek#6434
 
-Addon created on 18/12/2022
+Version 1.6.1 created on 18/12/2022
