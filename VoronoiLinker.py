@@ -411,6 +411,9 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
             if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
                 if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
             if (sockOut!=None)and(sockIn!=None)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
+            #Выделить нод предпросмотра:
+            for nd in WayTr[0].nodes: nd.select = False
+            goalSk.node.select = True
         else: WayTr[cyc].links.new(goalSk,nd_va.inputs[0])
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
