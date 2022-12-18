@@ -2,10 +2,10 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,0),'blender':(3,4,0), #18.12.2022
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,1),'blender':(3,4,0), #18.12.2022
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
-#This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to.
+#This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
 
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
@@ -38,16 +38,17 @@ fontId = [0]; where = [None]; IsPreview = [False]
 
 def RecrGetNodeFinalLoc(node): return node.location if node.parent==None else node.location+RecrGetNodeFinalLoc(node.parent)
 def GetNearestNodeInRegionMouse(context):
-    goalNd, goalPs, minLen = None, None, inf
+    goalNd = None; goalPs = None; minLen = inf
     def ToSign(vec2): return Vector((copysign(1,vec2[0]),copysign(1,vec2[1])))
     mousePs = context.space_data.cursor_location; nodes = context.space_data.edit_tree.nodes
     for nd in nodes:
-        if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute'))and((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(not IsPreview[0])):
-            locNd = RecrGetNodeFinalLoc(nd); sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
-            locNd = locNd-sizNd/2 if nd.bl_idname=='NodeReroute' else locNd-Vector((0,sizNd[1]))
-            fieldUV = mousePs-(locNd+sizNd/2); fieldXY = Vector((abs(fieldUV.x),abs(fieldUV.y)))-sizNd/2
-            fieldXY = Vector((max(fieldXY.x,0),max(fieldXY.y,0))); fieldL = fieldXY.length
-            if fieldL<minLen: minLen = fieldL; goalNd = nd; goalPs = mousePs-fieldXY*ToSign(fieldUV)
+        if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute')):
+            if ((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(not IsPreview[0]))and((IsPreview[0]==False)or(len(nd.outputs)!=0)):
+                locNd = RecrGetNodeFinalLoc(nd); sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
+                locNd = locNd-sizNd/2 if nd.bl_idname=='NodeReroute' else locNd-Vector((0,sizNd[1]))
+                fieldUV = mousePs-(locNd+sizNd/2); fieldXY = Vector((abs(fieldUV.x),abs(fieldUV.y)))-sizNd/2
+                fieldXY = Vector((max(fieldXY.x,0),max(fieldXY.y,0))); fieldL = fieldXY.length
+                if fieldL<minLen: minLen = fieldL; goalNd = nd; goalPs = mousePs-fieldXY*ToSign(fieldUV)
     return goalNd, goalPs, minLen
 SkPerms = ['VALUE','RGBA','VECTOR','INT','BOOLEAN']
 def GetNearestSocketInRegionMouse(context,getOut,skOut):
@@ -404,6 +405,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 sockIn = WayTr[cyc].outputs.get('voronoi_preview')
                 if sockIn==None:
                     WayTr[cyc].outputs.new('NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry','voronoi_preview')
+                    if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
                     sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
             #Удобный сразу-в-шейдер
             if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
