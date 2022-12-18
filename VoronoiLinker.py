@@ -337,7 +337,9 @@ class VoronoiPreviewer(bpy.types.Operator):
     def invoke(self,context,event):
         if (context.space_data.tree_type!='GeometryNodeTree')or(GetDrawSettings('PrGm')):
             if (event.type=='RIGHTMOUSE')^GetDrawSettings('PrIv'):
-                nodes = context.space_data.edit_tree.nodes; nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
+                nodes = context.space_data.edit_tree.nodes
+                for nd in nodes: nd.select = False
+                nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
                 nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
             else:
                 context.area.tag_redraw(); IsPreview[0] = True; self.liveprew = GetDrawSettings('LvPr')
