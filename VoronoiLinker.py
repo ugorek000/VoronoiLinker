@@ -365,7 +365,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
             if sk!=None: ng.outputs.remove(sk)
     WayTr, WayNd = GetTreesWay(context,goalSk.node); hWyLen = len(WayTr)-1; ixSkLastUsed = -1; isZeroPreviewGen = True
     for cyc in range(hWyLen+1):
-        nodeIn = None; sockOut = None; sockIn = None;
+        nodeIn = None; sockOut = None; sockIn = None
         nd_va = WayTr[0].nodes.get('Voronoi_Anchor')
         if nd_va==None:
             #Найти принимающий нод текущего уровня
