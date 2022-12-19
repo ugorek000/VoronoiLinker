@@ -14,7 +14,7 @@ Wide possibilities of mixing different sockets in different editors using power 
 
 = Voronoi Preview =
 
-Auto-create links path from a socket to an outlet or an anchor.
+Auto-create link-path from a socket to an outlet or an anchor.
 
 
 Contact the author (RU):
