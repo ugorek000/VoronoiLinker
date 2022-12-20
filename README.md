@@ -1,17 +1,14 @@
 # VoronoiLinker
 Blender Addon for Node Editor which adds three new features:
 
-= Voronoi Linker =
-
+= Voronoi Linker =  
 Increases the cursor's reach to a socket. No longer need to aim with your mouse to a small dot.  
 Simplification of connection of nodes. Works in any node editor, including editors from other addons.  
 
-= Voronoi Mixer =
-
+= Voronoi Mixer =  
 Wide possibilities of mixing different sockets in different editors using power VoronoiLinker.
 
-= Voronoi Preview =
-
+= Voronoi Preview =  
 Auto-create link-path from a socket to an outlet or an anchor.
 
 ### Hotkeys
