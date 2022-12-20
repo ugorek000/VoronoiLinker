@@ -21,10 +21,10 @@ In classic Trees Editor:
  + Shift + Alt + RMB -> activate Voronoi Mixer
  + Ctrl + Shift + LMB -> activate Voronoi Preview  
 if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
- + Ctrl + Shift + RMB -> create and select Reroute "Voronoi Anchor"
+ + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
 ---
 Contact the author (RU):  
 mail: StaunerRu@gmail.com  discord: ugorek#6434
 
-Version 1.6.2 created on 20/12/2022
+Version 1.6.3 created on 20/12/2022
