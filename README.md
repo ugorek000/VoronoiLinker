@@ -11,6 +11,7 @@ Wide possibilities of mixing different sockets in different editors using power 
 = Voronoi Preview =  
 Auto-create link-path from a socket to an outlet or an anchor.
 
+---
 ### Hotkeys
 RMB = Right Mouse Button  
 LMB = Left Mouse Button
