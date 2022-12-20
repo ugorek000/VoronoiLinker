@@ -21,7 +21,7 @@ In classic Trees Editor:
 if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
  + Ctrl + Shift + RightMouseButton -> create and select Rerout "Voronoi Anchor"
 
-
+​
 Contact the author (RU):  
 mail: StaunerRu@gmail.com  
 discord: ugorek#6434
