@@ -10,16 +10,6 @@ bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,2),'blender'
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
 
-def viw(*data):
-    for area in bpy.context.screen.areas:
-        if area.type=='CONSOLE':
-            for space in area.spaces:
-                if space.type=='CONSOLE':
-                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
-                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
-import random
-def sol(): viw(random.random())
-
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
 shader = [None,None]; uiFac = [1.0]
@@ -70,8 +60,7 @@ def GetNearestSocketInRegionMouse(context,getOut,skOut):
     if nd.bl_idname=='NodeReroute': return nd.outputs[0] if getOut else nd.inputs[0], nd.location, Vector(mousePs-nd.location).length, (-1,-1)
     def MucGet(who,getOut):
         goalSk = None; goalPs = None; minLen = inf; skHigLigHei = (0,0); ndDim = nd.dimensions/uiFac[0]
-        if getOut:skLoc = Vector((locNd.x+ndDim[0],locNd.y-35))
-        else: skLoc = Vector((locNd.x,locNd.y-ndDim[1]+16))
+        skLoc = Vector((locNd.x+ndDim[0],locNd.y-35)) if getOut else Vector((locNd.x,locNd.y-ndDim[1]+16))
         for wh in who:
             if (wh.enabled)and(wh.hide==False):
                 muv = 0; tgl = False
@@ -79,9 +68,8 @@ def GetNearestSocketInRegionMouse(context,getOut,skOut):
                     if str(wh.bl_rna).find('VectorDirection')!=-1: skLoc[1] += 20*2; muv = 2
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): skLoc[1] += 30*2; muv = 3
                 if skOut!=None:
-                    # not getOut чтобы не присасываться реальными к виртуальным при миксере (getOut=True)
-                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut))
-                    tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)
+                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut)) # not getOut чтобы не присасываться реальными к виртуальным при миксере (getOut=True)
+                    tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)or(skOut.node.type=='REROUTE')
                     if getOut: tgl = (tgl)and(not((skOut.bl_idname=='NodeSocketVirtual')and(wh.bl_idname=='NodeSocketVirtual'))or(skOut==wh))
                 if ((getOut)and(skOut==None))or(tgl): # skOut==None чтобы учитывать влияние tgl при skOut!=None
                     fieldXY = mousePs-skLoc; fieldL = fieldXY.length
