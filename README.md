@@ -26,7 +26,6 @@ if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewe
 
 .  
 Contact the author (RU):  
-mail: StaunerRu@gmail.com  
-discord: ugorek#6434
+mail: StaunerRu@gmail.com  discord: ugorek#6434
 
 Version 1.6.2 created on 20/12/2022
