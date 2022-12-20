@@ -16,11 +16,11 @@ Auto-create link-path from a socket to an outlet or an anchor.
 
 Hotkeys:  
 In any Tree Editor:  
- + Alt + RightMouseButton  -> activate Voronoi Linker 
+ + Alt + RightMouseButton  -> activate Voronoi Linker  
 In classic Trees Editor:  
  + Shift + Alt + RightMouseButton -> activate Voronoi Mixer
  + Ctrl + Shift + LeftMouseButton -> activate Voronoi Preview
- + if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
+if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
  + Ctrl + Shift + RightMouseButton -> create and select Rerout "Voronoi Anchor"
 
 Contact the author (RU):
