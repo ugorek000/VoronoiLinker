@@ -18,11 +18,12 @@ In any Tree Editor:
 In classic Trees Editor:  
  + Shift + Alt + RightMouseButton -> activate Voronoi Mixer
  + Ctrl + Shift + LeftMouseButton -> activate Voronoi Preview  
-   if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
+if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
  + Ctrl + Shift + RightMouseButton -> create and select Rerout "Voronoi Anchor"
 
-Contact the author (RU):
-mail: StaunerRu@gmail.com
+
+Contact the author (RU):  
+mail: StaunerRu@gmail.com  
 discord: ugorek#6434
 
 Version 1.6.2 created on 20/12/2022
