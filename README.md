@@ -12,7 +12,8 @@ Wide possibilities of mixing different sockets in different editors using power 
 Auto-create link-path from a socket to an outlet or an anchor.
 
 ### Hotkeys  
-RMB = Right Mouse Button; LMB = Left Mouse Button
+RMB = Right Mouse Button  
+LMB = Left Mouse Button
 
 In any Tree Editor:  
  + Alt + RMB  -> activate Voronoi Linker  
