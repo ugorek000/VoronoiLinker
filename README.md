@@ -12,14 +12,15 @@ Wide possibilities of mixing different sockets in different editors using power 
 Auto-create link-path from a socket to an outlet or an anchor.
 
 ### Hotkeys
+RMB = Right Mouse Button; LMB = Left Mouse Button;
 In any Tree Editor:  
- + Alt + RightMouseButton  -> activate Voronoi Linker  
+ + Alt + RMB  -> activate Voronoi Linker  
 
 In classic Trees Editor:  
- + Shift + Alt + RightMouseButton -> activate Voronoi Mixer
- + Ctrl + Shift + LeftMouseButton -> activate Voronoi Preview  
+ + Shift + Alt + RMB -> activate Voronoi Mixer
+ + Ctrl + Shift + LMB -> activate Voronoi Preview  
 if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
- + Ctrl + Shift + RightMouseButton -> create and select Reroute "Voronoi Anchor"
+ + Ctrl + Shift + RMB -> create and select Reroute "Voronoi Anchor"
 
 .  
 Contact the author (RU):  
