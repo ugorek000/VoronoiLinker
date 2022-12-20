@@ -397,7 +397,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 else:
                     match context.space_data.tree_type:
                         case 'ShaderNodeTree':
-                            num = int(goalSk.node.type in ('VOLUME_ABSORPTION','VOLUME_SCATTER'))
+                            num = int(goalSk.node.type in ('VOLUME_ABSORPTION','VOLUME_SCATTER','PRINCIPLED_VOLUME'))
                             for nd in WayTr[hWyLen].nodes:
                                 if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']:
                                     sockIn = nd.inputs[num*(not(nd.type in ['OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']))] if nd.is_active_output else sockIn
