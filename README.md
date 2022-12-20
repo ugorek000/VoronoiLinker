@@ -14,7 +14,7 @@ Wide possibilities of mixing different sockets in different editors using power 
 
 Auto-create link-path from a socket to an outlet or an anchor.
 
-#### Hotkeys
+### Hotkeys
 In any Tree Editor:  
  + Alt + RightMouseButton  -> activate Voronoi Linker  
 
