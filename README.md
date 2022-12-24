@@ -20,7 +20,6 @@ In any Tree Editor:
 In classic Trees Editor:  
  + Shift + Alt + RMB -> activate Voronoi Mixer
  + Ctrl + Shift + LMB -> activate Voronoi Preview  
-if EditTree is GeometryNodeTree: click on Node used original Blender's NodeViewer. In all other use Voronoi Preview
  + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
 ---
