@@ -24,7 +24,7 @@ In classic Trees Editor:
 
 ---
 
-Version 1.6.4 created on 29/12/2022
+Version 1.6.4 created on 29.12.2022
 
 Reach to autor (Russian):  
 StaunerRu@gmail.com  
