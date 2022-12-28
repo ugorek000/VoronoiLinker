@@ -10,16 +10,6 @@ bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender'
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
 
-def viw(*data):
-    for area in bpy.context.screen.areas:
-        if area.type=='CONSOLE':
-            for space in area.spaces:
-                if space.type=='CONSOLE':
-                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
-                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
-import random
-def sol(): viw(random.random())
-
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
 shader = [None,None]; uiFac = [1.0]
