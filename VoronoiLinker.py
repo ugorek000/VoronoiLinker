@@ -10,6 +10,16 @@ bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender'
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
 
+def viw(*data):
+    for area in bpy.context.screen.areas:
+        if area.type=='CONSOLE':
+            for space in area.spaces:
+                if space.type=='CONSOLE':
+                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
+                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
+import random
+def sol(): viw(random.random())
+
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
 shader = [None,None]; uiFac = [1.0]
@@ -34,49 +44,74 @@ def DrawRectangleOnSocket(context,sk,stEn,colfac=Vector((1,1,1,1))):
     if DrawPrefs().dsIsDrawArea==False: return
     loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0]); colfac = colfac if DrawPrefs().dsIsColoredArea else Vector((1,1,1,1))
     pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*uiFac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
-fontId = [0]; where = [None]; IsPreview = [False]
+fontId = [0]; where = [None]; NowTool = [0]
 
 def RecrGetNodeFinalLoc(node): return node.location if node.parent==None else node.location+RecrGetNodeFinalLoc(node.parent)
-def GetNearestNodeInRegionMouse(context):
+def GetNearestNodeInRegionMouse(context): #Ищет ближайший нод к курсору. Честное поле расстояний. Спасибо RayMarching'у, без него я бы до такого не допёр.
     goalNd = None; goalPs = None; minLen = inf
-    def ToSign(vec2): return Vector((copysign(1,vec2[0]),copysign(1,vec2[1])))
+    def ToSign(vec2): return Vector((copysign(1,vec2[0]),copysign(1,vec2[1]))) #Для запоминания своего квадранта перед abs().
     mousePs = context.space_data.cursor_location; nodes = context.space_data.edit_tree.nodes
     for nd in nodes:
+        #Игнорировать рамки. Игнорировать свёрнутые ноды. Триггериться на рероуты, которые могут быть свёрнутыми
         if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute')):
-            if ((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(not IsPreview[0]))and((IsPreview[0]==False)or(len(nd.outputs)!=0)):
-                if (IsPreview[0])and(context.space_data.tree_type=='GeometryNodeTree'):
+            #Для инструмента Предпросмотра игнорировать свой собственный спец-рероут-якорь (полное совпадение имени и заголовка);
+            #Если Предпросмотр, то игнорировать ноды с пустыми выходами, чтобы точка не висела просто так и нод не мешал для удобного использования Предпросмотра
+            if ((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(NowTool[0]!=3))and((NowTool[0]!=3)or(len(nd.outputs)!=0)):
+                #Если Предпросмотр в геометрических нодах, триггериться только на ноды, содержащие выход геометрии
+                if (NowTool[0]==3)and(context.space_data.tree_type=='GeometryNodeTree'):
                     if [ndo for ndo in nd.outputs if ndo.type=='GEOMETRY']==[]: continue
+                #Расчехлить иерархию родителей и получить итоговую позицию нода. Подготовить размер нода
                 locNd = RecrGetNodeFinalLoc(nd); sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
+                #Для рероута позицию в центр, для нода позицию в нижний левый угол
                 locNd = locNd-sizNd/2 if nd.bl_idname=='NodeReroute' else locNd-Vector((0,sizNd[1]))
+                #Обожаю RayMarching:
                 fieldUV = mousePs-(locNd+sizNd/2); fieldXY = Vector((abs(fieldUV.x),abs(fieldUV.y)))-sizNd/2
                 fieldXY = Vector((max(fieldXY.x,0),max(fieldXY.y,0))); fieldL = fieldXY.length
+                #Если выборка поля расстояний в позиции курсора меньше минимально запомненной, установить новую ближайшую. Позиция = курсор - восстановленное направление
                 if fieldL<minLen: minLen = fieldL; goalNd = nd; goalPs = mousePs-fieldXY*ToSign(fieldUV)
     return goalNd, goalPs, minLen
 SkPerms = ['VALUE','RGBA','VECTOR','INT','BOOLEAN']
-def GetNearestSocketInRegionMouse(context,getOut,skOut):
+def GetNearestSocketInRegionMouse(context,getOut,skOut): #Ищет ближайший сокет у ближайшего нода. Честное поле расстояний ячейками Вороного.
+    #Этот поиск уже включает поиск ближайшего нода
     mousePs = context.space_data.cursor_location; nd = GetNearestNodeInRegionMouse(context)[0]
+    #Если ближайший нод не найден, искать не у кого
     if nd==None: return None, None, inf, (0,0)
+    #Так же расшифровать иерархию родителей, как и в поиске ближайшего нода, потому что теперь ищутся сокеты
     locNd = RecrGetNodeFinalLoc(nd)
+    #Если рероут, то простой вариант не требующий вычисления; вход и выход всего одни, позиция сокета -- он сам
     if nd.bl_idname=='NodeReroute': return nd.outputs[0] if getOut else nd.inputs[0], nd.location, Vector(mousePs-nd.location).length, (-1,-1)
-    def MucGet(who,getOut):
-        goalSk = None; goalPs = None; minLen = inf; skHigLigHei = (0,0); ndDim = nd.dimensions/uiFac[0]
-        skLoc = Vector((locNd.x+ndDim[0],locNd.y-35)) if getOut else Vector((locNd.x,locNd.y-ndDim[1]+16))
-        for wh in who:
-            if (wh.enabled)and(wh.hide==False):
-                muv = 0; tgl = False
-                if (getOut==False)and(wh.type=='VECTOR')and(wh.is_linked==False)and(wh.hide_value==False):
-                    if str(wh.bl_rna).find('VectorDirection')!=-1: skLoc[1] += 20*2; muv = 2
-                    elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): skLoc[1] += 30*2; muv = 3
-                if skOut!=None:
-                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut))
-                    tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)or(skOut.node.type=='REROUTE')
-                    if getOut: tgl = (tgl)and(not((skOut.bl_idname=='NodeSocketVirtual')and(wh.bl_idname=='NodeSocketVirtual'))or(skOut==wh))
-                if ((getOut)and(skOut==None))or(tgl): # skOut==None чтобы учитывать влияние tgl при skOut!=None
-                    fieldXY = mousePs-skLoc; fieldL = fieldXY.length
-                    if fieldL<minLen: minLen = fieldL; goalSk = wh; goalPs = skLoc.copy(); skHigLigHei = (goalPs[1]-11-muv*20,goalPs[1]+11+max(len(wh.links)-2,0)*5)
-                skLoc[1] += 22*(1-getOut*2)
-        return goalSk, goalPs, minLen, skHigLigHei
-    return MucGet(nd.outputs if getOut else reversed(nd.inputs),getOut)
+    #Подготовиться для поиска:
+    goalSk = None; goalPs = None; minLen = inf; skHigLigHei = (0,0); ndDim = nd.dimensions/uiFac[0]
+    #Установить "каретку" в первый сокет своей стороны. Верхний если выход, нижний если вход
+    skLoc = Vector((locNd.x+ndDim[0],locNd.y-35)) if getOut else Vector((locNd.x,locNd.y-ndDim[1]+16))
+    for wh in nd.outputs if getOut else reversed(nd.inputs):
+        #Игнорировать выключенные и спрятанные
+        if (wh.enabled)and(wh.hide==False):
+            muv = 0; tgl = False # muv -- для высоты варпа от вектор-сокетов-не-в-одну-строчку. tgl -- чтобы разбить условия на несколько строчек (слешем не желаю).
+            #Если текущий сокет -- входящий вектор, и он свободный и не спрятан в одну строчку
+            if (getOut==False)and(wh.type=='VECTOR')and(wh.is_linked==False)and(wh.hide_value==False):
+                #Ручками вычисляем занимаемую высоту сокета. Для сферы направления у ShaderNodeNormal и таких же у групп;
+                #И для особо-отличившихся нод с векторами, которые могут быть в одну строчку
+                if str(wh.bl_rna).find('VectorDirection')!=-1: skLoc[1] += 20*2; muv = 2
+                elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): skLoc[1] += 30*2; muv = 3
+            if skOut!=None: #Если есть контекст для поиска входа
+                #Виртуальными -- любой к любому (диаметральные случаи).
+                #Любой сокет для виртуального выхода; разрешить в виртуальный при получении входа для любого сокета. Побочный эффект - виртуальный в виртуальный
+                tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut))
+                #Для разрешённой-группы-между-собой разрешить "переходы". Рероутом для удобства можно в любой сокет минуя разные типы.
+                #Предыдущий результат + если выход и вход в разрешённых-между-собой; или у обоих одинаковые типы; или выходом является рероут
+                tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)or(skOut.node.type=='REROUTE')
+            if NowTool[0]==2: tgl = (getOut)and(skOut==None)or(tgl) #Головная боль.
+            else: tgl = (getOut)or(skOut==None)or(tgl) # "or(skOut==None)" -- если требуется просто найти вход без контекста выхода
+            #Для превиева игнорировать виртуальные. 
+            if (tgl)and((NowTool[0]!=3)or(wh.bl_idname!='NodeSocketVirtual')):
+                #Расстояние от курсора до ручками подсчитанной позиции сокета. Если меньше запомненной -- новый ближайший сокет
+                fieldXY = mousePs-skLoc; fieldL = fieldXY.length
+                # skHigLigHei так же учитывает текущую высоту мульти-инпута
+                if fieldL<minLen: minLen = fieldL; goalSk = wh; goalPs = skLoc.copy(); skHigLigHei = (goalPs[1]-11-muv*20,goalPs[1]+11+max(len(wh.links)-2,0)*5)
+            #Сдвинуть до следующего на своё направление
+            skLoc[1] += 22*(1-getOut*2)
+    return goalSk, goalPs, minLen, skHigLigHei
 def GetSkCol(Sk): return Sk.draw_color(bpy.context,Sk.node)
 def Vec4Pow(vec,pw): return Vector((vec.x**pw,vec.y**pw,vec.z**pw,vec.w**pw))
 def GetSkVecCol(Sk,apw): return Vec4Pow(Vector(Sk.draw_color(bpy.context,Sk.node)),1/apw)
@@ -84,12 +119,12 @@ def GetSkVecCol(Sk,apw): return Vec4Pow(Vector(Sk.draw_color(bpy.context,Sk.node
 def DrawPrefs(): return bpy.context.preferences.addons[__name__ if __name__!='__main__' else 'VoronoiLinker'].preferences
 def SetFont(): fontId[0] = blf.load(r'C:\Windows\Fonts\consola.ttf'); fontId[0] = 0 if fontId[0]==-1 else fontId[0] #for change Blender themes
 
-def DrawText(pos,ofsx,ofsy,Sk):
-    if DrawPrefs().dsIsDrawText==False: return 0
+def DrawSkText(pos,ofsx,ofsy,Sk):
+    if DrawPrefs().dsIsDrawSkText==False: return 0
     try: skCol = GetSkCol(Sk)
     except: skCol = (1,0,0,1)
     skCol = skCol if DrawPrefs().dsIsColoredText else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
-    isdrsh = DrawPrefs().dsIsDrawTextShadow
+    isdrsh = DrawPrefs().dsIsDrawSkTextShadow
     if isdrsh:
         blf.enable(fontId[0],blf.SHADOW); sdcol = DrawPrefs().dsShadowCol; blf.shadow(fontId[0],[0,3,5][DrawPrefs().dsShadowBlur],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
         sdofs = DrawPrefs().dsShadowOffset; blf.shadow_offset(fontId[0],sdofs[0],sdofs[1])
@@ -124,23 +159,33 @@ def DrawIsLinked(loc,ofsx,ofsy,skCol):
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,3.0,col2); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,3.0,col2)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,1.0,col3); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,1.0,col3)
 
+def PreparGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
+def DebugDrawCallback(sender,context):
+    def DrawText(pos,txt,r=1,g=1,b=1): blf.size(fontId[0],14,72); blf.position(fontId[0],pos[0]+10,pos[1],0); blf.color(fontId[0],r,g,b,1.0); blf.draw(fontId[0],txt)
+    mousePos = context.space_data.cursor_location*uiFac[0]
+    wp = PreparGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mousePos[0],mousePos[1]),'Cursor pos here!')
+    wp = PreparGetWP(GetNearestNodeInRegionMouse(context)[1],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],'Nearest node here!',g=.5,b=.5)
+    muc = GetNearestSocketInRegionMouse(context,True,None)[1]
+    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawText(wp[0],'Nearest socketOut here!',r=.5,b=.5)
+    muc = GetNearestSocketInRegionMouse(context,False,None)[1]
+    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketIn here!',r=.75,g=.75)
+    
 def VoronoiLinkerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
+    if DrawPrefs().dsIsDrawDebug: DebugDrawCallback(sender,context); return
     mousePos = context.space_data.cursor_location*uiFac[0]; lw = DrawPrefs().dsLineWidth
-    def MucGetWP(loc,offsetx):
-        pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),-DrawPrefs().dsTextDistFromCursor*(Sk.is_output*2-1),-.5,Sk)
+        txtdim = DrawSkText(PosViewToReg(mousePos.x,mousePos.y),-DrawPrefs().dsTextDistFromCursor*(Sk.is_output*2-1),-.5,Sk)
         if Sk.is_linked: DrawIsLinked(mousePos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOutSk==None):
         if DrawPrefs().dsIsDrawPoint:
-            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
+            wp1 = PreparGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = PreparGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
             DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
         if (DrawPrefs().dsIsAlwaysLine)and(DrawPrefs().dsIsDrawLine): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
     elif (sender.sockOutSk!=None)and(sender.sockInSk==None):
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
-        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(mousePos,0)
+        wp1 = PreparGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = PreparGetWP(mousePos,0)
         if (DrawPrefs().dsIsAlwaysLine)and(DrawPrefs().dsIsDrawLine): DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.sockOutSk) if DrawPrefs().dsIsColoredLine else (1,1,1,1),(1,1,1,1))
         if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1])
         MucDrawSk(sender.sockOutSk,sender.sockOutLH)
@@ -149,7 +194,7 @@ def VoronoiLinkerDrawCallback(sender,context):
         DrawRectangleOnSocket(context,sender.sockInSk,sender.sockInLH,GetSkVecCol(sender.sockInSk,2.2))
         if DrawPrefs().dsIsColoredLine: col1 = GetSkCol(sender.sockOutSk); col2 = GetSkCol(sender.sockInSk)
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(sender.sockInPs*uiFac[0],-DrawPrefs().dsPointOffsetX)
+        wp1 = PreparGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = PreparGetWP(sender.sockInPs*uiFac[0],-DrawPrefs().dsPointOffsetX)
         if DrawPrefs().dsIsDrawLine: DrawLine(wp1[0],wp2[0],lw,col1,col2)
         if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockInSk,2.2))
         MucDrawSk(sender.sockOutSk,sender.sockOutLH); MucDrawSk(sender.sockInSk,sender.sockInLH)
@@ -182,7 +227,7 @@ class VoronoiLinker(bpy.types.Operator):
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
-        context.area.tag_redraw(); IsPreview[0] = False
+        context.area.tag_redraw(); NowTool[0] = 1
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
         else:
             muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOutSk = muc[0]; self.sockOutPs = muc[1]; self.sockOutLH = muc[3]
@@ -195,17 +240,16 @@ def VoronoiMixerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
-    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh,ys,lys):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,ys,Sk)
+        txtdim = DrawSkText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,ys,Sk)
         if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOut1Sk==None):
         if DrawPrefs().dsIsDrawPoint:
-            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
+            wp1 = PreparGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = PreparGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
             DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
     elif (sender.sockOut1Sk!=None)and(sender.sockOut2Sk==None):
         DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
-        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(mousePos,0); col = Vector((1,1,1,1))
+        wp1 = PreparGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = PreparGetWP(mousePos,0); col = Vector((1,1,1,1))
         if DrawPrefs().dsIsDrawLine: DrawLine(wp1[0],mouseRegionPs,lw,GetSkCol(sender.sockOut1Sk) if DrawPrefs().dsIsColoredLine else col,col)
         if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1])
         MucDrawSk(sender.sockOut1Sk,sender.sockOut1LH,-.5,0)
@@ -214,7 +258,7 @@ def VoronoiMixerDrawCallback(sender,context):
         DrawRectangleOnSocket(context,sender.sockOut2Sk,sender.sockOut2LH,GetSkVecCol(sender.sockOut2Sk,2.2))
         if DrawPrefs().dsIsColoredLine: col1 = GetSkCol(sender.sockOut1Sk); col2 = GetSkCol(sender.sockOut2Sk)
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(sender.sockOut2Ps*uiFac[0],DrawPrefs().dsPointOffsetX)
+        wp1 = PreparGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = PreparGetWP(sender.sockOut2Ps*uiFac[0],DrawPrefs().dsPointOffsetX)
         if DrawPrefs().dsIsDrawLine: DrawLine(mouseRegionPs,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouseRegionPs,lw,col1,col1)
         if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockOut2Sk,2.2))
         MucDrawSk(sender.sockOut1Sk,sender.sockOut1LH,.25,1); MucDrawSk(sender.sockOut2Sk,sender.sockOut2LH,-1.25,-1)
@@ -243,7 +287,7 @@ class VoronoiMixer(bpy.types.Operator):
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
-        context.area.tag_redraw(); IsPreview[0] = False
+        context.area.tag_redraw(); NowTool[0] = 2
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
         else:
             muc = GetNearestSocketInRegionMouse(context,True,None); self.sockOut1Sk = muc[0]; self.sockOut1Ps = muc[1]; self.sockOut1LH = muc[3]
@@ -260,7 +304,7 @@ VMMapDictMixersDefs = {
         'CompositorNodeMixRGB':[1,2,'Mix'],'CompositorNodeMath':[0,1,'Max'],'CompositorNodeSwitch':[0,1,'Switch'],'CompositorNodeAlphaOver':[1,2,'Alpha Over'],
         'CompositorNodeSplitViewer':[0,1,'Split Viewer'],'CompositorNodeSwitchView':[0,1,'Switch View'],'TextureNodeMixRGB':[1,2,'Mix'],
         'TextureNodeMath':[0,1,'Max'],'TextureNodeTexture':[0,1,'Texture'],'TextureNodeDistance':[0,1,'Distance'],'ShaderNodeMix':[-1,-1,'Mix']}
-VMMapDictSwitchType = {'VALUE':'FLOAT'}; VMMapDictUserSkName = {'VALUE':'Float','RGBA':'Color'}
+VMMapDictSwitchType = {'VALUE':'FLOAT','INT':'FLOAT'}; VMMapDictUserSkName = {'VALUE':'Float','RGBA':'Color'}; VMMapDictMixInt = {'INT':'VALUE'}; 
 def DoMix(context,who):
     tree = context.space_data.edit_tree
     if tree!=None:
@@ -274,7 +318,8 @@ def DoMix(context,who):
             case 'ShaderNodeMix': aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
         match aNd.bl_idname:
             case 'GeometryNodeSwitch'|'FunctionNodeCompare'|'ShaderNodeMix':
-                tgl = aNd.bl_idname!='FunctionNodeCompare'; foundSkList = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==mixerSkTyp[0]]
+                tgl = aNd.bl_idname!='FunctionNodeCompare'
+                foundSkList = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==VMMapDictMixInt.get(mixerSkTyp[0],mixerSkTyp[0])]
                 tree.links.new(mixerSk1[0],foundSkList[tgl]); tree.links.new(mixerSk2[0],foundSkList[not tgl])
             case _:
                 if aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]].is_multi_input: tree.links.new(mixerSk2[0],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][1]])
@@ -314,15 +359,14 @@ def VoronoiPreviewerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
-    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,-.5,Sk)
+        txtdim = DrawSkText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,-.5,Sk)
         if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOutSk==None):
-        if DrawPrefs().dsIsDrawPoint: wp = MucGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1])
+        if DrawPrefs().dsIsDrawPoint: wp = PreparGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1])
     else:
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
-        col = GetSkCol(sender.sockOutSk) if DrawPrefs().dsIsColoredLine else (1,1,1,1); wp = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX)
+        col = GetSkCol(sender.sockOutSk) if DrawPrefs().dsIsColoredLine else (1,1,1,1); wp = PreparGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX)
         if DrawPrefs().dsIsDrawLine: DrawLine(wp[0],mouseRegionPs,lw,col,col)
         if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.sockOutSk,2.2))
         MucDrawSk(sender.sockOutSk,sender.sockOutLH)
@@ -349,7 +393,7 @@ class VoronoiPreviewer(bpy.types.Operator):
             nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
             nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
         else:
-            context.area.tag_redraw(); IsPreview[0] = True
+            context.area.tag_redraw(); NowTool[0] = 3
             if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
             else:
                 VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
@@ -433,7 +477,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsPointOffsetX: bpy.props.FloatProperty(name='Point offset X',default=20,min=-50,max=50)
     dsPointResolution: bpy.props.IntProperty(name='Point resolution',default=54,min=3,max=64)
     dsPointRadius: bpy.props.FloatProperty(name='Point radius scale',default=1,min=0,max=3)
-    dsIsDrawText: bpy.props.BoolProperty(name='Draw Text',default=True); dsIsColoredText: bpy.props.BoolProperty(name='Colored Text',default=True)
+    dsIsDrawSkText: bpy.props.BoolProperty(name='Draw Text',default=True); dsIsColoredText: bpy.props.BoolProperty(name='Colored Text',default=True)
     dsIsDrawMarker: bpy.props.BoolProperty(name='Draw Marker',default=True); dsIsColoredMarker: bpy.props.BoolProperty(name='Colored Marker',default=True)
     dsIsDrawPoint: bpy.props.BoolProperty(name='Draw Points',default=True); dsIsColoredPoint: bpy.props.BoolProperty(name='Colored Points',default=True)
     dsIsDrawLine: bpy.props.BoolProperty(name='Draw Line',default=True); dsIsColoredLine: bpy.props.BoolProperty(name='Colored Line',default=True)
@@ -450,20 +494,22 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     aDisplayAdvanced: bpy.props.BoolProperty(name='Display advanced options',default=False)
     dsTextDistFromCursor: bpy.props.FloatProperty(name='Text distance from cursor',default=25,min=5,max=50)
     dsTextLineframeOffset: bpy.props.FloatProperty(name='Text Line-frame offset',default=2,min=0,max=10)
-    dsIsDrawTextShadow: bpy.props.BoolProperty(name='Draw Text Shadow',default=True)
+    dsIsDrawSkTextShadow: bpy.props.BoolProperty(name='Draw Text Shadow',default=True)
     dsShadowCol: bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
     dsShadowOffset: bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
     dsShadowBlur: bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
+    dsIsDrawDebug: bpy.props.BoolProperty(name='draw debug',default=False)
     def draw(self,context):
         col0 = self.layout.column(); box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw setiings:')
         col1.prop(self,'dsPointOffsetX'); col1.prop(self,'dsTextFrameOffset'); col1.prop(self,'dsFontSize'); box = col1.box(); box.prop(self,'aDisplayAdvanced')
         if self.aDisplayAdvanced:
             col2 = box.column(); col3 = col2.column(align=True); col3.prop(self,'dsLineWidth'); col3.prop(self,'dsPointRadius'); col3.prop(self,'dsPointResolution')
             col3 = col2.column(align=True); col3.prop(self,'dsTextDistFromCursor'); col3.prop(self,'dsTextLineframeOffset'); col3 = col2.column(align=True)
-            box = col2.box(); col4 = box.column(); col4.prop(self,'dsIsDrawTextShadow')
-            if self.dsIsDrawTextShadow:
+            box = col2.box(); col4 = box.column(); col4.prop(self,'dsIsDrawSkTextShadow')
+            if self.dsIsDrawSkTextShadow:
                 row = col4.row(align=True); row.prop(self,'dsShadowCol'); row = col4.row(align=True); row.prop(self,'dsShadowOffset'); col4.prop(self,'dsShadowBlur')
-        row = col1.row(align=True); row.prop(self,'dsIsDrawText'); row.prop(self,'dsIsColoredText')
+            col2.prop(self,'dsIsDrawDebug')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawSkText'); row.prop(self,'dsIsColoredText')
         row = col1.row(align=True); row.prop(self,'dsIsDrawMarker'); row.prop(self,'dsIsColoredMarker')
         row = col1.row(align=True); row.prop(self,'dsIsDrawPoint'); row.prop(self,'dsIsColoredPoint')
         row = col1.row(align=True); row.prop(self,'dsIsDrawLine'); row.prop(self,'dsIsColoredLine')
