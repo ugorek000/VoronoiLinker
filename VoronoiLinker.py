@@ -207,7 +207,7 @@ class VoronoiLinker(bpy.types.Operator):
                     tree = context.space_data.edit_tree
                     try: tree.links.new(self.sockOutSk,self.sockInSk)
                     except: pass #NodeSocketUndefined
-                    if self.sockInSk.is_multi_input: #Если мультиинпут, то спец-манёвр
+                    if self.sockInSk.is_multi_input: #Если мультиинпут, то пережонглировать
                         skLinks = []
                         for lk in self.sockInSk.links: skLinks.append((lk.from_socket,lk.to_socket)); tree.links.remove(lk)
                         if self.sockOutSk.bl_idname=='NodeSocketVirtual': self.sockOutSk = self.sockOutSk.node.outputs[len(self.sockOutSk.node.outputs)-2]
