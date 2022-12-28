@@ -230,6 +230,7 @@ def VoronoiMixerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
+    if DrawPrefs().dsIsDrawDebug: DebugDrawCallback(sender,context); return
     def MucDrawSk(Sk,lh,ys,lys):
         txtdim = DrawSkText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,ys,Sk)
         if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
@@ -349,6 +350,7 @@ def VoronoiPreviewerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
+    if DrawPrefs().dsIsDrawDebug: DebugDrawCallback(sender,context); return
     def MucDrawSk(Sk,lh):
         txtdim = DrawSkText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,-.5,Sk)
         if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
