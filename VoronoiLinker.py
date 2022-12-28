@@ -10,16 +10,6 @@ bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender'
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
 
-def viw(*data):
-    for area in bpy.context.screen.areas:
-        if area.type=='CONSOLE':
-            for space in area.spaces:
-                if space.type=='CONSOLE':
-                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
-                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
-import random
-def sol(): viw(random.random())
-
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
 shader = [None,None]; uiFac = [1.0]
@@ -54,8 +44,8 @@ def GetNearestNodeInRegionMouse(context):
     for nd in nodes:
         if (nd.bl_idname!='NodeFrame')and((nd.hide==False)or(nd.bl_idname=='NodeReroute')):
             if ((nd.name!='Voronoi_Anchor')or(nd.label!='Voronoi_Anchor')or(not IsPreview[0]))and((IsPreview[0]==False)or(len(nd.outputs)!=0)):
-#                if (IsPreview[0])and(context.space_data.tree_type=='GeometryNodeTree'):
-#                    if [ndo for ndo in nd.outputs if ndo.type=='GEOMETRY']==[]: continue
+                if (IsPreview[0])and(context.space_data.tree_type=='GeometryNodeTree'):
+                    if [ndo for ndo in nd.outputs if ndo.type=='GEOMETRY']==[]: continue
                 locNd = RecrGetNodeFinalLoc(nd); sizNd = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/uiFac[0]
                 locNd = locNd-sizNd/2 if nd.bl_idname=='NodeReroute' else locNd-Vector((0,sizNd[1]))
                 fieldUV = mousePs-(locNd+sizNd/2); fieldXY = Vector((abs(fieldUV.x),abs(fieldUV.y)))-sizNd/2
@@ -78,7 +68,7 @@ def GetNearestSocketInRegionMouse(context,getOut,skOut):
                     if str(wh.bl_rna).find('VectorDirection')!=-1: skLoc[1] += 20*2; muv = 2
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): skLoc[1] += 30*2; muv = 3
                 if skOut!=None:
-                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut)) # not getOut чтобы не присасываться реальными к виртуальным при миксере (getOut=True)
+                    tgl = (skOut.bl_idname=='NodeSocketVirtual')or((wh.bl_idname=='NodeSocketVirtual')and(not getOut))
                     tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)or(skOut.node.type=='REROUTE')
                     if getOut: tgl = (tgl)and(not((skOut.bl_idname=='NodeSocketVirtual')and(wh.bl_idname=='NodeSocketVirtual'))or(skOut==wh))
                 if ((getOut)and(skOut==None))or(tgl): # skOut==None чтобы учитывать влияние tgl при skOut!=None
@@ -113,7 +103,8 @@ def DrawText(pos,ofsx,ofsy,Sk):
     if DrawPrefs().dsTextStyle=='Classic':
         for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(skCol[0]/2,skCol[1]/2,skCol[2]/2,list[cyc]))
         col = (skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1)
-        DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col); DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
+        DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col)
+        DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
         col = (col[0],col[1],col[2],.375); thS = DrawPrefs().dsTextLineframeOffset
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col,[0,-thS]); DrawLine([pos2[0],pos1[1]],pos2,1,col,col,[+thS,0])
         DrawLine(pos2,[pos1[0],pos2[1]],1,col,col,[0,+thS]); DrawLine([pos1[0],pos2[1]],pos1,1,col,col,[-thS,0])
@@ -121,7 +112,8 @@ def DrawText(pos,ofsx,ofsy,Sk):
         DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col,col)
     elif DrawPrefs().dsTextStyle=='Simplified':
         DrawRectangle([pos1[0],pos1[1]],[pos2[0],pos2[1]],(skCol[0]/2.4,skCol[1]/2.4,skCol[2]/2.4,.8)); col = (.1,.1,.1,.95)
-        DrawLine(pos1,[pos2[0],pos1[1]],2,col,col); DrawLine([pos2[0],pos1[1]],pos2,2,col,col); DrawLine(pos2,[pos1[0],pos2[1]],2,col,col); DrawLine([pos1[0],pos2[1]],pos1,2,col,col)
+        DrawLine(pos1,[pos2[0],pos1[1]],2,col,col); DrawLine([pos2[0],pos1[1]],pos2,2,col,col)
+        DrawLine(pos2,[pos1[0],pos2[1]],2,col,col); DrawLine([pos1[0],pos2[1]],pos1,2,col,col)
     blf.position(fontId[0],pos[0]+ofsx+3.5,pos[1]+muv+txdim[1]*.3,0); blf.color(fontId[0],skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1.0); blf.draw(fontId[0],txt)
     return [txdim[0]+tof,txdim[1]+tof*2]
 def DrawIsLinked(loc,ofsx,ofsy,skCol):
@@ -143,7 +135,8 @@ def VoronoiLinkerDrawCallback(sender,context):
         if Sk.is_linked: DrawIsLinked(mousePos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOutSk==None):
         if DrawPrefs().dsIsDrawPoint:
-            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
+            DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
         if (DrawPrefs().dsIsAlwaysLine)and(DrawPrefs().dsIsDrawLine): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
     elif (sender.sockOutSk!=None)and(sender.sockInSk==None):
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
@@ -178,7 +171,7 @@ class VoronoiLinker(bpy.types.Operator):
                 if (event.value=='RELEASE')and(self.sockOutSk!=None)and(self.sockInSk!=None):
                     tree = context.space_data.edit_tree
                     try: tree.links.new(self.sockOutSk,self.sockInSk)
-                    except:pass #NodeSocketUndefined
+                    except: pass #NodeSocketUndefined
                     if self.sockInSk.is_multi_input: #Если мультиинпут, то спец-манёвр
                         skLinks = []
                         for lk in self.sockInSk.links: skLinks.append((lk.from_socket,lk.to_socket)); tree.links.remove(lk)
@@ -208,7 +201,8 @@ def VoronoiMixerDrawCallback(sender,context):
         if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOut1Sk==None):
         if DrawPrefs().dsIsDrawPoint:
-            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75)
+            DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
     elif (sender.sockOut1Sk!=None)and(sender.sockOut2Sk==None):
         DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
         wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(mousePos,0); col = Vector((1,1,1,1))
@@ -240,11 +234,11 @@ class VoronoiMixer(bpy.types.Operator):
                     try:
                         dm = VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]
                         if len(dm)!=0:
-                            if (DrawPrefs().vmOneSkip)and(len(dm)==1): DoMix(context,dm[0])
+                            if (DrawPrefs().vmIsOneSkip)and(len(dm)==1): DoMix(context,dm[0])
                             else:
                                 if DrawPrefs().vmMenuStyle=='Pie': bpy.ops.wm.call_menu_pie(name='node.VM_MT_voronoi_mixer_menu')
                                 else: bpy.ops.wm.call_menu(name='node.VM_MT_voronoi_mixer_menu')
-                    except:pass
+                    except: pass
                     return {'FINISHED'}
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -258,7 +252,8 @@ class VoronoiMixer(bpy.types.Operator):
             context.window_manager.modal_handler_add(self)
             return {'RUNNING_MODAL'}
 mixerSk1 = [None]; mixerSk2 = [None]; mixerSkTyp = [None]
-VMMapDictMixersDefs = {'GeometryNodeSwitch':[-1,-1,'Switch'],'ShaderNodeMixShader':[1,2,'Mix'],'ShaderNodeAddShader':[0,1,'Add'],'ShaderNodeMixRGB':[1,2,'Mix RGB'],
+VMMapDictMixersDefs = {
+        'GeometryNodeSwitch':[-1,-1,'Switch'],'ShaderNodeMixShader':[1,2,'Mix'],'ShaderNodeAddShader':[0,1,'Add'],'ShaderNodeMixRGB':[1,2,'Mix RGB'],
         'ShaderNodeMath':[0,1,'Max'],'ShaderNodeVectorMath':[0,1,'Max'],'FunctionNodeBooleanMath':[0,1,'Or'],'FunctionNodeCompare':[-1,-1,'Compare'],
         'GeometryNodeCurveToMesh':[0,1,'Curve to Mesh'],'GeometryNodeInstanceOnPoints':[0,2,'Instance on Points'],'GeometryNodeMeshBoolean':[0,1,'Boolean'],
         'GeometryNodeStringJoin':[1,1,'Join'],'GeometryNodeJoinGeometry':[0,0,'Join'],'GeometryNodeGeometryToInstance':[0,0,'To Instance'],
@@ -333,11 +328,10 @@ def VoronoiPreviewerDrawCallback(sender,context):
         MucDrawSk(sender.sockOutSk,sender.sockOutLH)
 class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_previewer'; bl_label = 'Voronoi Previewer'; bl_options = {'UNDO'}
-    liveprew = False
     def MucAssign(sender,context):
         muc = GetNearestSocketInRegionMouse(context,True,None); sender.sockOutSk = muc[0]; sender.sockOutPs = muc[1]; sender.sockOutLH = muc[3]
         if (sender.sockOutSk)and(sender.sockOutSk.type=='CUSTOM'): sender.sockOutSk = None
-        if (sender.liveprew)and(sender.sockOutSk!=None): VoronoiPreviewer_DoPreview(context,sender.sockOutSk)
+        if (DrawPrefs().vpIsLivePreview)and(sender.sockOutSk!=None): VoronoiPreviewer_DoPreview(context,sender.sockOutSk)
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
@@ -355,7 +349,7 @@ class VoronoiPreviewer(bpy.types.Operator):
             nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
             nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
         else:
-            context.area.tag_redraw(); IsPreview[0] = True; self.liveprew = DrawPrefs().vpLivePreview
+            context.area.tag_redraw(); IsPreview[0] = True
             if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
             else:
                 VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
@@ -364,12 +358,12 @@ class VoronoiPreviewer(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 ShaderShadersWithColor = ('BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
         'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER')
-AnchorSk = [None]
 def VoronoiPreviewer_DoPreview(context,goalSk):
     def GetSocketIndex(socket): return int(socket.path_from_id().split('.')[-1].split('[')[-1][:-1])
     def GetTreesWay(context,nd):
         way = []; nds = []; treeWyc = context.space_data.node_tree; lim = 0
-        while (treeWyc!=context.space_data.edit_tree)and(lim<64): way.insert(0,treeWyc); nds.insert(0,treeWyc.nodes.active); treeWyc = treeWyc.nodes.active.node_tree; lim += 1
+        while (treeWyc!=context.space_data.edit_tree)and(lim<64):
+            way.insert(0,treeWyc); nds.insert(0,treeWyc.nodes.active); treeWyc = treeWyc.nodes.active.node_tree; lim += 1
         way.insert(0,treeWyc); nds.insert(0,nd); return way, nds
     for ng in bpy.data.node_groups:
         if ng.type==context.space_data.node_tree.type:
@@ -379,55 +373,59 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
     WayTr, WayNd = GetTreesWay(context,goalSk.node); hWyLen = len(WayTr)-1; ixSkLastUsed = -1; isZeroPreviewGen = True
     for cyc in range(hWyLen+1):
         nodeIn = None; sockOut = None; sockIn = None
-        nd_va = WayTr[0].nodes.get('Voronoi_Anchor')
-        if nd_va==None:
-            #Найти принимающий нод текущего уровня
-            if cyc!=hWyLen:
-                for nd in WayTr[cyc].nodes:
-                    if nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT']:
-                        if nodeIn==None: nodeIn = nd
-                        elif nodeIn.location>goalSk.node.location: nodeIn = nd
-            else:
-                match context.space_data.tree_type:
-                    case 'ShaderNodeTree':
-                        num = int(goalSk.node.type in ('VOLUME_ABSORPTION','VOLUME_SCATTER','PRINCIPLED_VOLUME'))
-                        for nd in WayTr[hWyLen].nodes:
-                            if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']:
-                                sockIn = nd.inputs[num*(not(nd.type in ['OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']))] if nd.is_active_output else sockIn
-                    case 'CompositorNodeTree':
-                        for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='VIEWER') else sockIn
+        #Найти принимающий нод текущего уровня
+        if cyc!=hWyLen:
+            for nd in WayTr[cyc].nodes:
+                if nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT']:
+                    if nodeIn==None: nodeIn = nd
+                    elif nodeIn.location>goalSk.node.location: nodeIn = nd
+        else:
+            match context.space_data.tree_type:
+                case 'ShaderNodeTree':
+                    num = int(goalSk.node.type in ('VOLUME_ABSORPTION','VOLUME_SCATTER','PRINCIPLED_VOLUME'))
+                    for nd in WayTr[hWyLen].nodes:
+                        if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']:
+                            sockIn = nd.inputs[num*(not(nd.type in ['OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']))] if nd.is_active_output else sockIn
+                case 'CompositorNodeTree':
+                    for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='VIEWER') else sockIn
+                    if sockIn==None:
+                        for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='COMPOSITE')and(nd.is_active_output) else sockIn
+                case 'GeometryNodeTree':
+                    for nd in WayTr[hWyLen].nodes:
+                        sockIn = nd.inputs.get('Geometry') if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output) else sockIn
+                        lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']; sockIn = lis[0] if (sockIn==None)and(len(lis)!=0) else sockIn
                         if sockIn==None:
-                            for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='COMPOSITE')and(nd.is_active_output) else sockIn
-                    case 'GeometryNodeTree':
-                        for nd in WayTr[hWyLen].nodes:
-                            sockIn = nd.inputs.get('Geometry') if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output) else sockIn
-                            lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']; sockIn = lis[0] if (sockIn==None)and(len(lis)!=0) else sockIn
-                            if sockIn==None:
-                                try: sockIn = nd.inputs[0]
-                                except:pass
-                    case 'TextureNodeTree':
-                        for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='OUTPUT')and(nd.is_active_output) else sockIn
-                nodeIn = sockIn.node
-            #Определить сокет отправляющего нода
-            if cyc==0: sockOut = goalSk
-            else: sockOut = WayNd[cyc].outputs.get('voronoi_preview'); sockOut = WayNd[cyc].outputs[ixSkLastUsed] if sockOut==None else sockOut
-            #Определить сокет принимающего нода:
-            for sl in sockOut.links:
-                if sl.to_node==nodeIn: sockIn = sl.to_socket; ixSkLastUsed = GetSocketIndex(sockIn)
+                            try: sockIn = nd.inputs[0]
+                            except: pass
+                case 'TextureNodeTree':
+                    for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='OUTPUT')and(nd.is_active_output) else sockIn
+            nodeIn = sockIn.node
+        #Определить сокет отправляющего нода
+        if cyc==0: sockOut = goalSk
+        else: sockOut = WayNd[cyc].outputs.get('voronoi_preview'); sockOut = WayNd[cyc].outputs[ixSkLastUsed] if sockOut==None else sockOut
+        #Определить сокет принимающего нода:
+        for sl in sockOut.links:
+            if sl.to_node==nodeIn: sockIn = sl.to_socket; ixSkLastUsed = GetSocketIndex(sockIn)
+        if sockIn==None:
+            sockIn = WayTr[cyc].outputs.get('voronoi_preview')
             if sockIn==None:
-                sockIn = WayTr[cyc].outputs.get('voronoi_preview')
-                if sockIn==None:
-                    WayTr[cyc].outputs.new('NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry','voronoi_preview')
-                    if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
-                    sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
-            #Удобный сразу-в-шейдер
-            if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
-                if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
+                txt = 'NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry'
+                txt = 'NodeSocketShader' if sockOut.type=='SHADER' else txt
+                WayTr[cyc].outputs.new(txt,'voronoi_preview')
+                if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
+                sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
+        #Удобный сразу-в-шейдер
+        if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
+            if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
+        #Соеденить:
+        nd_va = WayTr[cyc].nodes.get('Voronoi_Anchor')
+        if nd_va==None:
             if (sockOut!=None)and(sockIn!=None)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
-        else: WayTr[cyc].links.new(goalSk,nd_va.inputs[0])
-    #Выделить нод предпросмотра:
-    for nd in curTree.nodes: nd.select = False
-    curTree.nodes.active = goalSk.node; goalSk.node.select = True
+        else: WayTr[cyc].links.new(sockOut,nd_va.inputs[0])
+    #Выделить предпросматриваемый нод:
+    if DrawPrefs().vpSelectPreviewedNode:
+        for nd in curTree.nodes: nd.select = False
+        curTree.nodes.active = goalSk.node; goalSk.node.select = True
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = __name__ if __name__!='__main__' else 'VoronoiLinker'
@@ -443,9 +441,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsTextStyle: bpy.props.EnumProperty(name='Text Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
     dsIsAlwaysLine: bpy.props.BoolProperty(name='Always draw line for VoronoiLinker',default=False)
     vmPreviewHKInverse: bpy.props.BoolProperty(name='Previews hotkey inverse',default=False)
-    vmOneSkip: bpy.props.BoolProperty(name='One Choise to skip',default=True,description='If the selection contains a single element, skip the selection and add it immediately')
+    vmIsOneSkip: bpy.props.BoolProperty(name='One Choise to skip',default=True,description='If the selection contains a single element, skip the selection and add it immediately')
     vmMenuStyle: bpy.props.EnumProperty(name='Mixer Menu Style',default='Pie',items={('Pie','Pie',''),('List','List','')})
-    vpLivePreview: bpy.props.BoolProperty(name='Live Preview',default=True)
+    vpIsLivePreview: bpy.props.BoolProperty(name='Live Preview',default=True)
+    vpSelectPreviewedNode: bpy.props.BoolProperty(name='Select Previewed Node',default=True,description='Select and set acttive for node that was used by VoronoiPreview')
     dsTextFrameOffset: bpy.props.IntProperty(name='Text Frame Offset',default=0,min=0,max=24,subtype='FACTOR')
     dsFontSize: bpy.props.IntProperty(name='Text Size',default=28,min=10,max=48)
     aDisplayAdvanced: bpy.props.BoolProperty(name='Display advanced options',default=False)
@@ -470,8 +469,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         row = col1.row(align=True); row.prop(self,'dsIsDrawLine'); row.prop(self,'dsIsColoredLine')
         row = col1.row(align=True); row.prop(self,'dsIsDrawArea'); row.prop(self,'dsIsColoredArea')
         col1.prop(self,'dsTextStyle'); col1.prop(self,'dsIsAlwaysLine')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer setiings:'); col1.prop(self,'vmMenuStyle'); col1.prop(self,'vmOneSkip')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview setiings:'); col1.prop(self,'vpLivePreview'); col1.prop(self,'vmPreviewHKInverse')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer setiings:'); col1.prop(self,'vmMenuStyle'); col1.prop(self,'vmIsOneSkip')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview setiings:')
+        col1.prop(self,'vpIsLivePreview'); col1.prop(self,'vpSelectPreviewedNode'); col1.prop(self,'vmPreviewHKInverse')
 
 
 classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiAddonPrefs]
