@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender':(3,4,0), #28.12.2022
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender':(3,4,0), #29.12.2022
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
@@ -91,7 +91,7 @@ def GetNearestSocketInRegionMouse(context,getOut,skOut): #Ищет ближай�
                 #Для разрешённой-группы-между-собой разрешить "переходы". Рероутом для удобства можно в любой сокет минуя разные типы.
                 #Предыдущий результат + если выход и вход в разрешённых-между-собой; или у обоих одинаковые типы; или выходом является рероут
                 tgl = (tgl)or((skOut.type in SkPerms)and(wh.type in SkPerms))or(skOut.bl_idname==wh.bl_idname)or(skOut.node.type=='REROUTE')
-            if NowTool[0]==2: tgl = (getOut)and(skOut==None)or(tgl) #Головная боль.
+            if NowTool[0]==2: tgl = (getOut)and(skOut==None)or(tgl)or(DrawPrefs().dsIsDrawDebug) #Головная боль.
             else: tgl = (getOut)or(skOut==None)or(tgl) # "or(skOut==None)" -- если требуется просто найти вход без контекста выхода
             #Для превиева игнорировать виртуальные. 
             if (tgl)and((NowTool[0]!=3)or(wh.bl_idname!='NodeSocketVirtual')):
@@ -153,8 +153,8 @@ def PreparGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosV
 def DebugDrawCallback(sender,context):
     def DrawText(pos,txt,r=1,g=1,b=1): blf.size(fontId[0],14,72); blf.position(fontId[0],pos[0]+10,pos[1],0); blf.color(fontId[0],r,g,b,1.0); blf.draw(fontId[0],txt)
     mousePos = context.space_data.cursor_location*uiFac[0]
-    wp = PreparGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mousePos[0],mousePos[1]),'Cursor pos here!')
-    wp = PreparGetWP(GetNearestNodeInRegionMouse(context)[1],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],'Nearest node here!',g=.5,b=.5)
+    wp = PreparGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mousePos[0],mousePos[1]),'Cursor position here.')
+    wp = PreparGetWP(GetNearestNodeInRegionMouse(context)[1],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],'Nearest Node here!!!',g=.5,b=.5)
     muc = GetNearestSocketInRegionMouse(context,True,None)[1]
     if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketOut here!',r=.75,g=.75)
     muc = GetNearestSocketInRegionMouse(context,False,None)[1]
