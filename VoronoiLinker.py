@@ -156,9 +156,9 @@ def DebugDrawCallback(sender,context):
     wp = PreparGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mousePos[0],mousePos[1]),'Cursor pos here!')
     wp = PreparGetWP(GetNearestNodeInRegionMouse(context)[1],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],'Nearest node here!',g=.5,b=.5)
     muc = GetNearestSocketInRegionMouse(context,True,None)[1]
-    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawText(wp[0],'Nearest socketOut here!',r=.5,b=.5)
+    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketOut here!',r=.75,g=.75)
     muc = GetNearestSocketInRegionMouse(context,False,None)[1]
-    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketIn here!',r=.75,g=.75)
+    if muc!=None: wp = PreparGetWP(muc,0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawText(wp[0],'Nearest socketIn here!',r=.5,b=.5)
     
 def VoronoiLinkerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
