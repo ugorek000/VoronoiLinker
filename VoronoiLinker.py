@@ -2,13 +2,23 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,3),'blender':(3,4,0), #20.12.2022
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,6,4),'blender':(3,4,0), #28.12.2022
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
 
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader
 from mathutils import Vector; from math import pi, sin, cos, tan, asin, acos, atan, atan2, sqrt, inf, copysign
+
+def viw(*data):
+    for area in bpy.context.screen.areas:
+        if area.type=='CONSOLE':
+            for space in area.spaces:
+                if space.type=='CONSOLE':
+                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
+                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
+import random
+def sol(): viw(random.random())
 
 def uiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
@@ -27,12 +37,12 @@ def DrawCircleOuter(pos,rd,siz=1,col=(1.0,1.0,1.0,0.75),resolution=16):
 def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=54): DrawAreaFan([(pos[0],pos[1]),*[(rd*cos(i*2*pi/resl)+pos[0],rd*sin(i*2*pi/resl)+pos[1]) for i in range(resl+1)]],col,True)
 def DrawWidePoint(pos,rd,colfac=Vector((1,1,1,1))):
     col1 = Vector((0.5,0.5,0.5,0.4)); col2 = Vector((0.5,0.5,0.5,0.4)); col3 = Vector((1,1,1,1))
-    colfac = colfac if GetDrawSettings('ClPt') else Vector((1,1,1,1)); rd = sqrt(rd*rd+10); rs = GetDrawSettings('PtRs')
+    colfac = colfac if DrawPrefs().dsIsColoredPoint else Vector((1,1,1,1)); rd = sqrt(rd*rd+10); rs = DrawPrefs().dsPointResolution
     DrawCircle(pos,rd+3,col1*colfac,rs); DrawCircle(pos,rd,col2*colfac,rs); DrawCircle(pos,rd/1.5,col3*colfac,rs)
 def DrawRectangle(ps1,ps2,cl): DrawAreaFan([(ps1[0],ps1[1]),(ps2[0],ps1[1]),(ps2[0],ps2[1]),(ps1[0],ps2[1])],cl,False)
 def DrawRectangleOnSocket(context,sk,stEn,colfac=Vector((1,1,1,1))):
-    if GetDrawSettings('DrAr')==False: return
-    loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0]); colfac = colfac if GetDrawSettings('ClAr') else Vector((1,1,1,1))
+    if DrawPrefs().dsIsDrawArea==False: return
+    loc = RecrGetNodeFinalLoc(sk.node).copy()*uiFac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*uiFac[0]); colfac = colfac if DrawPrefs().dsIsColoredArea else Vector((1,1,1,1))
     pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*uiFac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
 fontId = [0]; where = [None]; IsPreview = [False]
 
@@ -81,42 +91,42 @@ def GetSkCol(Sk): return Sk.draw_color(bpy.context,Sk.node)
 def Vec4Pow(vec,pw): return Vector((vec.x**pw,vec.y**pw,vec.z**pw,vec.w**pw))
 def GetSkVecCol(Sk,apw): return Vec4Pow(Vector(Sk.draw_color(bpy.context,Sk.node)),1/apw)
 
-def GetDrawSettings(txt): return getattr(bpy.context.preferences.addons['VoronoiLinker' if __name__=='__main__' else __name__].preferences,txt,None)
+def DrawPrefs(): return bpy.context.preferences.addons[__name__ if __name__!='__main__' else 'VoronoiLinker'].preferences
 def SetFont(): fontId[0] = blf.load(r'C:\Windows\Fonts\consola.ttf'); fontId[0] = 0 if fontId[0]==-1 else fontId[0] #for change Blender themes
 
-def DrawText(pos,ofsx,ofsy,Sk): # SHADOW
-    if GetDrawSettings('DrTx')==False: return 0
+def DrawText(pos,ofsx,ofsy,Sk):
+    if DrawPrefs().dsIsDrawText==False: return 0
     try: skCol = GetSkCol(Sk)
     except: skCol = (1,0,0,1)
-    skCol = skCol if GetDrawSettings('ClTx') else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
-    isdrsh = GetDrawSettings('DrSd')
+    skCol = skCol if DrawPrefs().dsIsColoredText else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
+    isdrsh = DrawPrefs().dsIsDrawTextShadow
     if isdrsh:
-        blf.enable(fontId[0],blf.SHADOW); sdcol = GetDrawSettings('SdCl'); blf.shadow(fontId[0],[0,3,5][GetDrawSettings('SdBl')],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
-        sdofs = GetDrawSettings('SdOf'); blf.shadow_offset(fontId[0],sdofs[0],sdofs[1])
+        blf.enable(fontId[0],blf.SHADOW); sdcol = DrawPrefs().dsShadowCol; blf.shadow(fontId[0],[0,3,5][DrawPrefs().dsShadowBlur],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
+        sdofs = DrawPrefs().dsShadowOffset; blf.shadow_offset(fontId[0],sdofs[0],sdofs[1])
     else: blf.disable(fontId[0],blf.SHADOW)
-    tof = GetDrawSettings('FrOf'); txsz = GetDrawSettings('TxSz'); blf.size(fontId[0],txsz,72)
+    tof = DrawPrefs().dsTextFrameOffset; txsz = DrawPrefs().dsFontSize; blf.size(fontId[0],txsz,72)
     txdim = [blf.dimensions(fontId[0],txt)[0],blf.dimensions(fontId[0],'█')[1]]
     pos = [pos[0]-(txdim[0]+tof+10)*(ofsx<0)+(tof+1)*(ofsx>-1),pos[1]+tof]; pw = 1/1.975
     muv = round((txdim[1]+tof*2)*ofsy)
     pos1 = [pos[0]+ofsx-tof,pos[1]+muv-tof]; pos2 = [pos[0]+ofsx+10+txdim[0]+tof,pos[1]+muv+txdim[1]+tof]
     list = [.4,.55,.7,.85,1]; uh = 1/len(list)*(txdim[1]+tof*2)
-    if GetDrawSettings('TxSt')=='Classic':
+    if DrawPrefs().dsTextStyle=='Classic':
         for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(skCol[0]/2,skCol[1]/2,skCol[2]/2,list[cyc]))
         col = (skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1)
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col); DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
-        col = (col[0],col[1],col[2],.375); thS = GetDrawSettings('LFOf')
+        col = (col[0],col[1],col[2],.375); thS = DrawPrefs().dsTextLineframeOffset
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col,[0,-thS]); DrawLine([pos2[0],pos1[1]],pos2,1,col,col,[+thS,0])
         DrawLine(pos2,[pos1[0],pos2[1]],1,col,col,[0,+thS]); DrawLine([pos1[0],pos2[1]],pos1,1,col,col,[-thS,0])
         DrawLine([pos1[0]-thS,pos1[1]],[pos1[0],pos1[1]-thS],1,col,col); DrawLine([pos2[0]+thS,pos1[1]],[pos2[0],pos1[1]-thS],1,col,col)
         DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col,col)
-    elif GetDrawSettings('TxSt')=='Simplified':
+    elif DrawPrefs().dsTextStyle=='Simplified':
         DrawRectangle([pos1[0],pos1[1]],[pos2[0],pos2[1]],(skCol[0]/2.4,skCol[1]/2.4,skCol[2]/2.4,.8)); col = (.1,.1,.1,.95)
         DrawLine(pos1,[pos2[0],pos1[1]],2,col,col); DrawLine([pos2[0],pos1[1]],pos2,2,col,col); DrawLine(pos2,[pos1[0],pos2[1]],2,col,col); DrawLine([pos1[0],pos2[1]],pos1,2,col,col)
     blf.position(fontId[0],pos[0]+ofsx+3.5,pos[1]+muv+txdim[1]*.3,0); blf.color(fontId[0],skCol[0]**pw,skCol[1]**pw,skCol[2]**pw,1.0); blf.draw(fontId[0],txt)
     return [txdim[0]+tof,txdim[1]+tof*2]
 def DrawIsLinked(loc,ofsx,ofsy,skCol):
-    ofsx += ((20+GetDrawSettings('CrDs'))*1.5+GetDrawSettings('FrOf'))*copysign(1,ofsx)+4
-    if GetDrawSettings('DrMk')==False: return
+    ofsx += ((20+DrawPrefs().dsTextDistFromCursor)*1.5+DrawPrefs().dsTextFrameOffset)*copysign(1,ofsx)+4
+    if DrawPrefs().dsIsDrawMarker==False: return
     vec = PosViewToReg(loc.x,loc.y); gc = 0.65; col1 = (0,0,0,0.5); col2 = (gc,gc,gc,max(max(skCol[0],skCol[1]),skCol[2])*.9); col3 = (skCol[0],skCol[1],skCol[2],.925)
     DrawCircleOuter([vec[0]+ofsx+1.5,vec[1]+3.5+ofsy],9.0,3.0,col1); DrawCircleOuter([vec[0]+ofsx-3.5,vec[1]-5+ofsy],9.0,3.0,col1)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,3.0,col2); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,3.0,col2)
@@ -125,30 +135,30 @@ def DrawIsLinked(loc,ofsx,ofsy,skCol):
 def VoronoiLinkerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mousePos = context.space_data.cursor_location*uiFac[0]; lw = GetDrawSettings('LnWd')
+    mousePos = context.space_data.cursor_location*uiFac[0]; lw = DrawPrefs().dsLineWidth
     def MucGetWP(loc,offsetx):
-        pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*GetDrawSettings('PtRd'),loc.y)[0]-pos[0]; return pos,rd
+        pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),-GetDrawSettings('CrDs')*(Sk.is_output*2-1),-.5,Sk)
-        if Sk.is_linked: DrawIsLinked(mousePos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if GetDrawSettings('ClMk') else (.9,.9,.9,1))
+        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),-DrawPrefs().dsTextDistFromCursor*(Sk.is_output*2-1),-.5,Sk)
+        if Sk.is_linked: DrawIsLinked(mousePos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOutSk==None):
-        if GetDrawSettings('DrPt'):
-            wp1 = MucGetWP(mousePos,-GetDrawSettings('PtOX')*.75); wp2 = MucGetWP(mousePos,GetDrawSettings('PtOX')*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
-        if (GetDrawSettings('AlLn'))and(GetDrawSettings('DrLn')): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
+        if DrawPrefs().dsIsDrawPoint:
+            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+        if (DrawPrefs().dsIsAlwaysLine)and(DrawPrefs().dsIsDrawLine): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
     elif (sender.sockOutSk!=None)and(sender.sockInSk==None):
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
-        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],GetDrawSettings('PtOX')); wp2 = MucGetWP(mousePos,0)
-        if (GetDrawSettings('AlLn'))and(GetDrawSettings('DrLn')): DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.sockOutSk) if GetDrawSettings('ClLn') else (1,1,1,1),(1,1,1,1))
-        if GetDrawSettings('DrPt'): DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1])
+        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(mousePos,0)
+        if (DrawPrefs().dsIsAlwaysLine)and(DrawPrefs().dsIsDrawLine): DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.sockOutSk) if DrawPrefs().dsIsColoredLine else (1,1,1,1),(1,1,1,1))
+        if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1])
         MucDrawSk(sender.sockOutSk,sender.sockOutLH)
     else:
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
         DrawRectangleOnSocket(context,sender.sockInSk,sender.sockInLH,GetSkVecCol(sender.sockInSk,2.2))
-        if GetDrawSettings('ClLn'): col1 = GetSkCol(sender.sockOutSk); col2 = GetSkCol(sender.sockInSk)
+        if DrawPrefs().dsIsColoredLine: col1 = GetSkCol(sender.sockOutSk); col2 = GetSkCol(sender.sockInSk)
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],GetDrawSettings('PtOX')); wp2 = MucGetWP(sender.sockInPs*uiFac[0],-GetDrawSettings('PtOX'))
-        if GetDrawSettings('DrLn'): DrawLine(wp1[0],wp2[0],lw,col1,col2)
-        if GetDrawSettings('DrPt'): DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockInSk,2.2))
+        wp1 = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(sender.sockInPs*uiFac[0],-DrawPrefs().dsPointOffsetX)
+        if DrawPrefs().dsIsDrawLine: DrawLine(wp1[0],wp2[0],lw,col1,col2)
+        if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOutSk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockInSk,2.2))
         MucDrawSk(sender.sockOutSk,sender.sockOutLH); MucDrawSk(sender.sockInSk,sender.sockInLH)
 class VoronoiLinker(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_linker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
@@ -191,29 +201,29 @@ class VoronoiLinker(bpy.types.Operator):
 def VoronoiMixerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = GetDrawSettings('LnWd')
-    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*GetDrawSettings('PtRd'),loc.y)[0]-pos[0]; return pos,rd
+    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
+    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh,ys,lys):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),GetDrawSettings('CrDs'),ys,Sk)
-        if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if GetDrawSettings('ClMk') else (.9,.9,.9,1))
+        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,ys,Sk)
+        if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOut1Sk==None):
-        if GetDrawSettings('DrPt'):
-            wp1 = MucGetWP(mousePos,-GetDrawSettings('PtOX')*.75); wp2 = MucGetWP(mousePos,GetDrawSettings('PtOX')*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
+        if DrawPrefs().dsIsDrawPoint:
+            wp1 = MucGetWP(mousePos,-DrawPrefs().dsPointOffsetX*.75); wp2 = MucGetWP(mousePos,DrawPrefs().dsPointOffsetX*.75); DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
     elif (sender.sockOut1Sk!=None)and(sender.sockOut2Sk==None):
         DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
-        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],GetDrawSettings('PtOX')); wp2 = MucGetWP(mousePos,0); col = Vector((1,1,1,1))
-        if GetDrawSettings('DrLn'): DrawLine(wp1[0],mouseRegionPs,lw,GetSkCol(sender.sockOut1Sk) if GetDrawSettings('ClLn') else col,col)
-        if GetDrawSettings('DrPt'): DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1])
+        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(mousePos,0); col = Vector((1,1,1,1))
+        if DrawPrefs().dsIsDrawLine: DrawLine(wp1[0],mouseRegionPs,lw,GetSkCol(sender.sockOut1Sk) if DrawPrefs().dsIsColoredLine else col,col)
+        if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1])
         MucDrawSk(sender.sockOut1Sk,sender.sockOut1LH,-.5,0)
     else:
         DrawRectangleOnSocket(context,sender.sockOut1Sk,sender.sockOut1LH,GetSkVecCol(sender.sockOut1Sk,2.2))
         DrawRectangleOnSocket(context,sender.sockOut2Sk,sender.sockOut2LH,GetSkVecCol(sender.sockOut2Sk,2.2))
-        if GetDrawSettings('ClLn'): col1 = GetSkCol(sender.sockOut1Sk); col2 = GetSkCol(sender.sockOut2Sk)
+        if DrawPrefs().dsIsColoredLine: col1 = GetSkCol(sender.sockOut1Sk); col2 = GetSkCol(sender.sockOut2Sk)
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],GetDrawSettings('PtOX')); wp2 = MucGetWP(sender.sockOut2Ps*uiFac[0],GetDrawSettings('PtOX'))
-        if GetDrawSettings('DrLn'): DrawLine(mouseRegionPs,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouseRegionPs,lw,col1,col1)
-        if GetDrawSettings('DrPt'): DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockOut2Sk,2.2))
-        MucDrawSk(sender.sockOut1Sk,sender.sockOut1LH,-1.25,-1); MucDrawSk(sender.sockOut2Sk,sender.sockOut2LH,.25,1)
+        wp1 = MucGetWP(sender.sockOut1Ps*uiFac[0],DrawPrefs().dsPointOffsetX); wp2 = MucGetWP(sender.sockOut2Ps*uiFac[0],DrawPrefs().dsPointOffsetX)
+        if DrawPrefs().dsIsDrawLine: DrawLine(mouseRegionPs,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouseRegionPs,lw,col1,col1)
+        if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.sockOut1Sk,2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.sockOut2Sk,2.2))
+        MucDrawSk(sender.sockOut1Sk,sender.sockOut1LH,.25,1); MucDrawSk(sender.sockOut2Sk,sender.sockOut2LH,-1.25,-1)
 class VoronoiMixer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_mixer'; bl_label = 'Voronoi Mixer'; bl_options = {'UNDO'}
     def MucAssign(sender,context):
@@ -230,9 +240,9 @@ class VoronoiMixer(bpy.types.Operator):
                     try:
                         dm = VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]
                         if len(dm)!=0:
-                            if GetDrawSettings('OnSp')and(len(dm)==1): DoMix(context,dm[0])
+                            if (DrawPrefs().vmOneSkip)and(len(dm)==1): DoMix(context,dm[0])
                             else:
-                                if GetDrawSettings('MxMnSt')=='Pie': bpy.ops.wm.call_menu_pie(name='node.VM_MT_voronoi_mixer_menu')
+                                if DrawPrefs().vmMenuStyle=='Pie': bpy.ops.wm.call_menu_pie(name='node.VM_MT_voronoi_mixer_menu')
                                 else: bpy.ops.wm.call_menu(name='node.VM_MT_voronoi_mixer_menu')
                     except:pass
                     return {'FINISHED'}
@@ -265,8 +275,8 @@ def DoMix(context,who):
             case 'FunctionNodeBooleanMath': aNd.operation = 'OR'
             case 'TextureNodeTexture': aNd.show_preview = False
             case 'GeometryNodeSwitch': aNd.input_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
-            case 'FunctionNodeCompare':aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0]); aNd.operation = aNd.operation if aNd.data_type!='FLOAT' else 'EQUAL'
-            case 'ShaderNodeMix':aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
+            case 'FunctionNodeCompare': aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0]); aNd.operation = aNd.operation if aNd.data_type!='FLOAT' else 'EQUAL'
+            case 'ShaderNodeMix': aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
         match aNd.bl_idname:
             case 'GeometryNodeSwitch'|'FunctionNodeCompare'|'ShaderNodeMix':
                 tgl = aNd.bl_idname!='FunctionNodeCompare'; foundSkList = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==mixerSkTyp[0]]
@@ -301,25 +311,25 @@ VMMapDictMain = {
 class VoronoiMixerMenu(bpy.types.Menu):
     bl_idname = 'node.VM_MT_voronoi_mixer_menu'; bl_label = ''
     def draw(self,context):
-        who = self.layout.menu_pie() if GetDrawSettings('MxMnSt')=='Pie' else self.layout
+        who = self.layout.menu_pie() if DrawPrefs().vmMenuStyle=='Pie' else self.layout
         who.label(text=VMMapDictUserSkName.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
         for li in VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=VMMapDictMixersDefs[li][2]).who=li
 
 def VoronoiPreviewerDrawCallback(sender,context):
     if where[0]!=context.space_data: return
     shader[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); shader[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = GetDrawSettings('LnWd')
-    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*GetDrawSettings('PtRd'),loc.y)[0]-pos[0]; return pos,rd
+    mousePos = context.space_data.cursor_location*uiFac[0]; mouseRegionPs = PosViewToReg(mousePos.x,mousePos.y); lw = DrawPrefs().dsLineWidth
+    def MucGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().dsPointRadius,loc.y)[0]-pos[0]; return pos,rd
     def MucDrawSk(Sk,lh):
-        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),GetDrawSettings('CrDs'),-.5,Sk)
-        if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],0,GetSkCol(Sk) if GetDrawSettings('ClMk') else (.9,.9,.9,1))
+        txtdim = DrawText(PosViewToReg(mousePos.x,mousePos.y),DrawPrefs().dsTextDistFromCursor,-.5,Sk)
+        if Sk.is_linked: DrawIsLinked(mousePos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().dsIsColoredMarker else (.9,.9,.9,1))
     if (sender.sockOutSk==None):
-        if GetDrawSettings('DrPt'): wp = MucGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1])
+        if DrawPrefs().dsIsDrawPoint: wp = MucGetWP(mousePos,0); DrawWidePoint(wp[0],wp[1])
     else:
         DrawRectangleOnSocket(context,sender.sockOutSk,sender.sockOutLH,GetSkVecCol(sender.sockOutSk,2.2))
-        col = GetSkCol(sender.sockOutSk) if GetDrawSettings('ClLn') else (1,1,1,1); wp = MucGetWP(sender.sockOutPs*uiFac[0],GetDrawSettings('PtOX'))
-        if GetDrawSettings('DrLn'): DrawLine(wp[0],mouseRegionPs,lw,col,col)
-        if GetDrawSettings('DrPt'): DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.sockOutSk,2.2))
+        col = GetSkCol(sender.sockOutSk) if DrawPrefs().dsIsColoredLine else (1,1,1,1); wp = MucGetWP(sender.sockOutPs*uiFac[0],DrawPrefs().dsPointOffsetX)
+        if DrawPrefs().dsIsDrawLine: DrawLine(wp[0],mouseRegionPs,lw,col,col)
+        if DrawPrefs().dsIsDrawPoint: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.sockOutSk,2.2))
         MucDrawSk(sender.sockOutSk,sender.sockOutLH)
 class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_previewer'; bl_label = 'Voronoi Previewer'; bl_options = {'UNDO'}
@@ -339,13 +349,13 @@ class VoronoiPreviewer(bpy.types.Operator):
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
         if (context.space_data.tree_type=='GeometryNodeTree')and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')): return {'PASS_THROUGH'}
-        if (event.type=='RIGHTMOUSE')^GetDrawSettings('PrIv'):
+        if (event.type=='RIGHTMOUSE')^DrawPrefs().vmPreviewHKInverse:
             nodes = context.space_data.edit_tree.nodes
             for nd in nodes: nd.select = False
             nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
             nnd.name = 'Voronoi_Anchor'; nnd.label = 'Voronoi_Anchor'; nnd.location = context.space_data.cursor_location; nnd.select = True; return {'FINISHED'}
         else:
-            context.area.tag_redraw(); IsPreview[0] = True; self.liveprew = GetDrawSettings('LvPr')
+            context.area.tag_redraw(); IsPreview[0] = True; self.liveprew = DrawPrefs().vpLivePreview
             if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
             else:
                 VoronoiPreviewer.MucAssign(self,context); uiFac[0] = uiScale(); where[0] = context.space_data; SetFont()
@@ -420,52 +430,65 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
     curTree.nodes.active = goalSk.node; goalSk.node.select = True
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
-    bl_idname = 'VoronoiLinker' if __name__=='__main__' else __name__
-    LnWd:bpy.props.IntProperty(name='Line Width',default=1,min=1,max=16,subtype='FACTOR'); PtOX:bpy.props.FloatProperty(name='Point offset X',default=20,min=-50,max=50)
-    PtRs:bpy.props.IntProperty(name='Point resolution',default=54,min=3,max=64); PtRd:bpy.props.FloatProperty(name='Point radius scale',default=1,min=0,max=3)
-    DrTx:bpy.props.BoolProperty(name='Draw Text',default=True); ClTx:bpy.props.BoolProperty(name='Colored Text',default=True)
-    DrMk:bpy.props.BoolProperty(name='Draw Marker',default=True); ClMk:bpy.props.BoolProperty(name='Colored Marker',default=True)
-    DrPt:bpy.props.BoolProperty(name='Draw Points',default=True); ClPt:bpy.props.BoolProperty(name='Colored Points',default=False)
-    DrLn:bpy.props.BoolProperty(name='Draw Line',default=True); ClLn:bpy.props.BoolProperty(name='Colored Line',default=False)
-    DrAr:bpy.props.BoolProperty(name='Draw Socket Area',default=False); ClAr:bpy.props.BoolProperty(name='Colored Socket Area',default=False)
-    TxSt:bpy.props.EnumProperty(name='Text Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
-    AlLn:bpy.props.BoolProperty(name='Always draw line',default=False); PrIv:bpy.props.BoolProperty(name='Previews hotkey inverse',default=False)
-    OnSp:bpy.props.BoolProperty(name='One Choise to skip',description='If the selection contains a single element, skip the selection and add it immediately',default=False)
-    MxMnSt:bpy.props.EnumProperty(name='Mixer Menu Style',default='Pie',items={('Pie','Pie',''),('List','List','')})
-    LvPr:bpy.props.BoolProperty(name='Live Preview',default=False)
-    FrOf:bpy.props.IntProperty(name='Text Frame Offset',default=0,min=0,max=24,subtype='FACTOR'); TxSz:bpy.props.IntProperty(name='Text Size',default=28,min=10,max=48)
-    SwAd:bpy.props.BoolProperty(name='Display advanced options',default=False); CrDs:bpy.props.FloatProperty(name='Text distance from cursor',default=25,min=5,max=50)
-    LFOf:bpy.props.FloatProperty(name='Text Line-frame offset',default=2,min=0,max=10); DrSd:bpy.props.BoolProperty(name='Draw Text Shadow',default=True)
-    SdCl:bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
-    SdOf:bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
-    SdBl:bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
+    bl_idname = __name__ if __name__!='__main__' else 'VoronoiLinker'
+    dsLineWidth: bpy.props.IntProperty(name='Line Width',default=1,min=1,max=16,subtype='FACTOR')
+    dsPointOffsetX: bpy.props.FloatProperty(name='Point offset X',default=20,min=-50,max=50)
+    dsPointResolution: bpy.props.IntProperty(name='Point resolution',default=54,min=3,max=64)
+    dsPointRadius: bpy.props.FloatProperty(name='Point radius scale',default=1,min=0,max=3)
+    dsIsDrawText: bpy.props.BoolProperty(name='Draw Text',default=True); dsIsColoredText: bpy.props.BoolProperty(name='Colored Text',default=True)
+    dsIsDrawMarker: bpy.props.BoolProperty(name='Draw Marker',default=True); dsIsColoredMarker: bpy.props.BoolProperty(name='Colored Marker',default=True)
+    dsIsDrawPoint: bpy.props.BoolProperty(name='Draw Points',default=True); dsIsColoredPoint: bpy.props.BoolProperty(name='Colored Points',default=True)
+    dsIsDrawLine: bpy.props.BoolProperty(name='Draw Line',default=True); dsIsColoredLine: bpy.props.BoolProperty(name='Colored Line',default=True)
+    dsIsDrawArea: bpy.props.BoolProperty(name='Draw Socket Area',default=True); dsIsColoredArea: bpy.props.BoolProperty(name='Colored Socket Area',default=True)
+    dsTextStyle: bpy.props.EnumProperty(name='Text Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
+    dsIsAlwaysLine: bpy.props.BoolProperty(name='Always draw line for VoronoiLinker',default=False)
+    vmPreviewHKInverse: bpy.props.BoolProperty(name='Previews hotkey inverse',default=False)
+    vmOneSkip: bpy.props.BoolProperty(name='One Choise to skip',default=True,description='If the selection contains a single element, skip the selection and add it immediately')
+    vmMenuStyle: bpy.props.EnumProperty(name='Mixer Menu Style',default='Pie',items={('Pie','Pie',''),('List','List','')})
+    vpLivePreview: bpy.props.BoolProperty(name='Live Preview',default=True)
+    dsTextFrameOffset: bpy.props.IntProperty(name='Text Frame Offset',default=0,min=0,max=24,subtype='FACTOR')
+    dsFontSize: bpy.props.IntProperty(name='Text Size',default=28,min=10,max=48)
+    aDisplayAdvanced: bpy.props.BoolProperty(name='Display advanced options',default=False)
+    dsTextDistFromCursor: bpy.props.FloatProperty(name='Text distance from cursor',default=25,min=5,max=50)
+    dsTextLineframeOffset: bpy.props.FloatProperty(name='Text Line-frame offset',default=2,min=0,max=10)
+    dsIsDrawTextShadow: bpy.props.BoolProperty(name='Draw Text Shadow',default=True)
+    dsShadowCol: bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
+    dsShadowOffset: bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
+    dsShadowBlur: bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
     def draw(self,context):
-        col0 = self.layout.column(); box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw stiings')
-        col1.prop(self,'PtOX'); col1.prop(self,'FrOf'); col1.prop(self,'TxSz'); box = col1.box(); box.prop(self,'SwAd')
-        if self.SwAd:
-            col2 = box.column(); col3 = col2.column(align=True); col3.prop(self,'LnWd'); col3.prop(self,'PtRd'); col3.prop(self,'PtRs')
-            col3 = col2.column(align=True); col3.prop(self,'CrDs'); col3.prop(self,'LFOf'); col3 = col2.column(align=True)
-            box = col2.box(); col4 = box.column(); col4.prop(self,'DrSd')
-            if self.DrSd: row = col4.row(align=True); row.prop(self,'SdCl'); row = col4.row(align=True); row.prop(self,'SdOf'); col4.prop(self,'SdBl')
-        row = col1.row(align=True)
-        row.prop(self,'DrTx'); row.prop(self,'ClTx'); row = col1.row(align=True); row.prop(self,'DrMk'); row.prop(self,'ClMk'); row = col1.row(align=True)
-        row.prop(self,'DrPt'); row.prop(self,'ClPt'); row = col1.row(align=True); row.prop(self,'DrLn'); row.prop(self,'ClLn'); row = col1.row(align=True)
-        row.prop(self,'DrAr'); row.prop(self,'ClAr'); col1.prop(self,'TxSt'); col1.prop(self,'AlLn')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer stiings'); col1.prop(self,'MxMnSt'); col1.prop(self,'OnSp')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview stiings'); col1.prop(self,'LvPr'); col1.prop(self,'PrIv')
+        col0 = self.layout.column(); box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw setiings:')
+        col1.prop(self,'dsPointOffsetX'); col1.prop(self,'dsTextFrameOffset'); col1.prop(self,'dsFontSize'); box = col1.box(); box.prop(self,'aDisplayAdvanced')
+        if self.aDisplayAdvanced:
+            col2 = box.column(); col3 = col2.column(align=True); col3.prop(self,'dsLineWidth'); col3.prop(self,'dsPointRadius'); col3.prop(self,'dsPointResolution')
+            col3 = col2.column(align=True); col3.prop(self,'dsTextDistFromCursor'); col3.prop(self,'dsTextLineframeOffset'); col3 = col2.column(align=True)
+            box = col2.box(); col4 = box.column(); col4.prop(self,'dsIsDrawTextShadow')
+            if self.dsIsDrawTextShadow:
+                row = col4.row(align=True); row.prop(self,'dsShadowCol'); row = col4.row(align=True); row.prop(self,'dsShadowOffset'); col4.prop(self,'dsShadowBlur')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawText'); row.prop(self,'dsIsColoredText')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawMarker'); row.prop(self,'dsIsColoredMarker')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawPoint'); row.prop(self,'dsIsColoredPoint')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawLine'); row.prop(self,'dsIsColoredLine')
+        row = col1.row(align=True); row.prop(self,'dsIsDrawArea'); row.prop(self,'dsIsColoredArea')
+        col1.prop(self,'dsTextStyle'); col1.prop(self,'dsIsAlwaysLine')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer setiings:'); col1.prop(self,'vmMenuStyle'); col1.prop(self,'vmOneSkip')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview setiings:'); col1.prop(self,'vpLivePreview'); col1.prop(self,'vmPreviewHKInverse')
 
-addon_keymaps = []
+
 classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiAddonPrefs]
+kmi_defs = (
+    (VoronoiLinker.bl_idname,'RIGHTMOUSE',False,False,True),
+    (VoronoiMixer.bl_idname,'RIGHTMOUSE',True,False,True),
+    (VoronoiPreviewer.bl_idname,'LEFTMOUSE',True,True,False),
+    (VoronoiPreviewer.bl_idname,'RIGHTMOUSE',True,True,False))
+addon_keymaps = []
 def register():
     for cl in classes: bpy.utils.register_class(cl)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor',space_type='NODE_EDITOR')
-    kmi = km.keymap_items.new(VoronoiLinker.bl_idname,type='RIGHTMOUSE',value='PRESS',alt=True); addon_keymaps.append((km,kmi))
-    kmi = km.keymap_items.new(VoronoiMixer.bl_idname,type='RIGHTMOUSE',value='PRESS',shift=True,alt=True); addon_keymaps.append((km,kmi))
-    kmi = km.keymap_items.new(VoronoiPreviewer.bl_idname,type='LEFTMOUSE',value='PRESS',shift=True,ctrl=True); addon_keymaps.append((km,kmi))
-    kmi = km.keymap_items.new(VoronoiPreviewer.bl_idname,type='RIGHTMOUSE',value='PRESS',shift=True,ctrl=True); addon_keymaps.append((km,kmi))
+    for (bl_id,key,Shift,Ctrl,Alt) in kmi_defs: kmi = km.keymap_items.new(idname=bl_id,type=key,value='PRESS',shift=Shift,ctrl=Ctrl,alt=Alt); addon_keymaps.append((km,kmi))
 def unregister():
     for cl in reversed(classes): bpy.utils.unregister_class(cl)
     for km,kmi in addon_keymaps: km.keymap_items.remove(kmi)
     addon_keymaps.clear()
+
 
 if __name__=='__main__': register()
