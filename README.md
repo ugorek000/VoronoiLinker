@@ -23,7 +23,11 @@ In classic Trees Editor:
  + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
 ---
-Contact the author (RU):  
-mail: StaunerRu@gmail.com  discord: ugorek#6434
 
 Version 1.6.4 created on 29/12/2022
+
+Reach to autor:
+StaunerRu@gmail.com
+discord: ugorek#6434
+
+[Email]: StaunerRu@gmail.com
