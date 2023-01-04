@@ -16,11 +16,11 @@ Auto-create link-path from a socket to an outlet or an anchor.
 
 In any Tree Editor:  
  + Alt + RMB  -> activate Voronoi Linker  
+ + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
 In classic Trees Editor:  
  + Shift + Alt + RMB -> activate Voronoi Mixer
  + Ctrl + Shift + LMB -> activate Voronoi Preview  
- + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
 ---
 
