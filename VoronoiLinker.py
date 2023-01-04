@@ -136,7 +136,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
                     #Для сферы направления у ShaderNodeNormal и таких же у групп. И для особо-отличившихся нод с векторами, которые могут быть в одну строчку
                     if str(wh.bl_rna).find('VectorDirection')!=-1: sk_loc_car.y += 20*2; muv = 2
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): sk_loc_car.y += 30*2; muv = 3
-                goal_pos = sk_loc_car.copy();
+                goal_pos = sk_loc_car.copy()
                 # skHigLigHei так же учитывает текущую высоту мульти-инпута
                 list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+Max(Length(wh.links)-2,0)*5)))
                 #Сдвинуть до следующего на своё направление
@@ -479,10 +479,9 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
         else:
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
-                    num = int(goalSk.node.type in ('VOLUME_ABSORPTION','VOLUME_SCATTER','PRINCIPLED_VOLUME'))
                     for nd in WayTr[hWyLen].nodes:
-                        if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']:
-                            sockIn = nd.inputs[num*(not(nd.type in ['OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT']))] if nd.is_active_output else sockIn
+                        if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT']:
+                            sockIn = nd.inputs[(goalSk.name=='Volume')*(nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD'])] if nd.is_active_output else sockIn
                 case 'CompositorNodeTree':
                     for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='VIEWER') else sockIn
                     if sockIn==None:
@@ -496,14 +495,14 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                             except: pass
                 case 'TextureNodeTree':
                     for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='OUTPUT') else sockIn
-            nodeIn = sockIn.node
+            nodeIn = sockIn.node if sockIn else None # else None -- если корень не имеет вывода.
         #Определить сокет отправляющего нода
         if cyc==0: sockOut = goalSk
         else: sockOut = WayNd[cyc].outputs.get('voronoi_preview'); sockOut = WayNd[cyc].outputs[ixSkLastUsed] if sockOut==None else sockOut
         #Определить сокет принимающего нода:
         for sl in sockOut.links:
             if sl.to_node==nodeIn: sockIn = sl.to_socket; ixSkLastUsed = GetSocketIndex(sockIn)
-        if sockIn==None:
+        if (sockIn==None)and(cyc!=hWyLen): # cyc!=hWyLen -- если корень потерял вывод.
             sockIn = WayTr[cyc].outputs.get('voronoi_preview')
             if sockIn==None:
                 txt = 'NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry'
@@ -511,13 +510,13 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 WayTr[cyc].outputs.new(txt,'voronoi_preview')
                 if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
                 sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
-        #Удобный сразу-в-шейдер
-        if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
+        #Удобный сразу-в-шейдер. and(sockIn) -- для если у корнят нет вывода
+        if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(sockIn)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
             if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
         #Соединить:
         nd_va = WayTr[cyc].nodes.get('Voronoi_Anchor')
         if nd_va==None:
-            if (sockOut!=None)and(sockIn!=None)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
+            if (sockOut)and(sockIn)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
         else: WayTr[cyc].links.new(sockOut,nd_va.inputs[0])
     #Выделить предпросматриваемый нод:
     if DrawPrefs().vp_select_previewed_node:
@@ -575,13 +574,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
 
 
-classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiAddonPrefs]
+classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiAddonPrefs]; addon_keymaps = []
 kmi_defs = (
     (VoronoiLinker.bl_idname,'RIGHTMOUSE',False,False,True),
     (VoronoiMixer.bl_idname,'RIGHTMOUSE',True,False,True),
     (VoronoiPreviewer.bl_idname,'LEFTMOUSE',True,True,False),
     (VoronoiPreviewer.bl_idname,'RIGHTMOUSE',True,True,False))
-addon_keymaps = []
 def register():
     for cl in classes: bpy.utils.register_class(cl)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor',space_type='NODE_EDITOR')
