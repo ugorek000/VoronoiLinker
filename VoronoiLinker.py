@@ -510,7 +510,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 WayTr[cyc].outputs.new(txt,'voronoi_preview')
                 if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
                 sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
-        #Удобный сразу-в-шейдер. and(sockIn) -- для если у корнят нет вывода
+        #Удобный сразу-в-шейдер. and(sockIn) -- для если у корня нет вывода
         if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(sockIn)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
             if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
         #Соединить:
