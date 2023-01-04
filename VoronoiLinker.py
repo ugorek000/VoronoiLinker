@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,1),'blender':(3,4,0), #04.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,2),'blender':(3,4,0), #04.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
@@ -86,9 +86,9 @@ def DebugDrawCallback(sender,context):
     def DrawText(pos,txt,r=1,g=1,b=1): blf.size(gv_font_id[0],14,72); blf.position(gv_font_id[0],pos[0]+10,pos[1],0); blf.color(gv_font_id[0],r,g,b,1.0); blf.draw(gv_font_id[0],txt)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]
     wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mouse_pos[0],mouse_pos[1]),'Cursor position here.')
-    list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,mouse_pos)
+    list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,mouse_pos); sco = 0
     for li in list_nodes:
-        if li[1].type!='FRAME': wp = PreparGetWP(li[2],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],'Node goal here',g=.5,b=.5)
+        if li[1].type!='FRAME': wp = PreparGetWP(li[2],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],str(sco)+' Node goal here',g=.5,b=.5); sco += 1
     list_socket_in,list_socket_out = GenNearestSocketsList(list_nodes[0][1],mouse_pos)
     if list_socket_out: wp = PreparGetWP(list_socket_out[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketOut here',r=.75,g=.75)
     if list_socket_in: wp = PreparGetWP(list_socket_in[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawText(wp[0],'Nearest socketIn here',r=.5,b=.5)
@@ -101,13 +101,15 @@ def GenNearestNodeList(nodes,pick_pos): #Выдаёт список "ближай
     for nd in nodes:
         #Расчехлить иерархию родителей и получить итоговую позицию нода. Подготовить размер нода
         nd_location = RecrGetNodeFinalLoc(nd); nd_size = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/UiScale()
-        #Для рероута позицию в центр. Для нода позицию в нижний левый угол, чтобы быть миро-ориентированным и спокойно прибавлять половину размеров нода.
+        #Для рероута позицию в центр. Для нода позицию в нижний левый угол, чтобы быть миро-ориентированным и спокойно прибавлять половину размеров нода
         nd_location = nd_location-nd_size/2 if nd.bl_idname=='NodeReroute' else nd_location-Vector((0,nd_size[1]))
-        #field_uv -- сырой от pick_pos. field_xy -- абсолютные предыдущего, нужен для восстановления направления.
+        #field_uv -- сырой от pick_pos. field_xy -- абсолютные предыдущего, нужен для восстановления направления
         field_uv = pick_pos-(nd_location+nd_size/2); field_xy = Vector((Abs(field_uv.x),Abs(field_uv.y)))-nd_size/2
-        #field_xy = Vector((Max(field_xy.x,0),Max(field_xy.y,0))); #Выключено чтобы сохранить внутренности, с отрицательными тоже работает.
+        #Сконструировать внутренности чтобы корректно находить ближайшего при наслаивающихся нодов
+        field_en = ToSign(field_xy); field_en = Min(Abs(field_xy.x),Abs(field_xy.y))*(field_en.x+field_en.y==-2)
+        field_xy = Vector((Max(field_xy.x,0),Max(field_xy.y,0)))
         #Добавить в список отработанный нод. Ближайшая позиция = курсор - восстановленное направление
-        list_nodes.append((field_xy.length,nd,pick_pos-field_xy*ToSign(field_uv)))
+        list_nodes.append((field_xy.length+field_en,nd,pick_pos-field_xy*ToSign(field_uv)))
     try: list_nodes.sort()
     except: pass #Моей квалификации не хватает чтобы понять причину ошибки "'<' not supported between instances".
     return list_nodes
