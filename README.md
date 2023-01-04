@@ -1,4 +1,4 @@
-[a(https://img.youtube.com/vi/bS7a-6t0hKI/0.jpg)](https://www.youtube.com/watch?v=bS7a-6t0hKI)
+[[a](https://img.youtube.com/vi/bS7a-6t0hKI/0.jpg)](https://www.youtube.com/watch?v=bS7a-6t0hKI)
 
 # VoronoiLinker
 Blender Addon for Node Editor which adds three new features:
