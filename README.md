@@ -18,7 +18,7 @@ In any Tree Editor:
  + Alt + RMB  -> activate Voronoi Linker  
  + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
 
-In classic Trees Editor:  
+In classic Tree Editor:  
  + Shift + Alt + RMB -> activate Voronoi Mixer
  + Ctrl + Shift + LMB -> activate Voronoi Preview  
 
