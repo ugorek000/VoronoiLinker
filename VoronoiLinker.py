@@ -110,8 +110,7 @@ def GenNearestNodeList(nodes,pick_pos): #Выдаёт список "ближай
         field_xy = Vector((Max(field_xy.x,0),Max(field_xy.y,0)))
         #Добавить в список отработанный нод. Ближайшая позиция = курсор - восстановленное направление
         list_nodes.append((field_xy.length+field_en,nd,pick_pos-field_xy*ToSign(field_uv)))
-    try: list_nodes.sort()
-    except: pass #Моей квалификации не хватает чтобы понять причину ошибки "'<' not supported between instances".
+    list_nodes.sort(key=lambda list_nodes:list_nodes[0])
     return list_nodes
 def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного.
     list_socket_in = []; list_socket_out = []
