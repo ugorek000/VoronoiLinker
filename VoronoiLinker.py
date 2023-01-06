@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,2),'blender':(3,4,0), #04.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,3),'blender':(3,4,0), #06.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
@@ -138,8 +138,8 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
                     if str(wh.bl_rna).find('VectorDirection')!=-1: sk_loc_car.y += 20*2; muv = 2
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): sk_loc_car.y += 30*2; muv = 3
                 goal_pos = sk_loc_car.copy()
-                # skHigLigHei так же учитывает текущую высоту мульти-инпута
-                list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+Max(Length(wh.links)-2,0)*5)))
+                # skHigLigHei так же учитывает текущую высоту мульти-инпута подсчётом количества соединений, но только для входов
+                list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+Max(Length(wh.links)-2,0)*5*(side_mark==-1))))
                 #Сдвинуть до следующего на своё направление
                 sk_loc_car.y -= 22*side_mark
         return list_whom
