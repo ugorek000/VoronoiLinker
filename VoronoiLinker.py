@@ -516,9 +516,8 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
             if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
         #Соединить:
         nd_va = WayTr[cyc].nodes.get('Voronoi_Anchor')
-        if nd_va==None:
-            if (sockOut)and(sockIn)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
-        else: WayTr[cyc].links.new(sockOut,nd_va.inputs[0])
+        if nd_va: WayTr[cyc].links.new(sockOut,nd_va.inputs[0]); break
+        elif (sockOut)and(sockIn)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
     #Выделить предпросматриваемый нод:
     if DrawPrefs().vp_select_previewed_node:
         for nd in curTree.nodes: nd.select = False
