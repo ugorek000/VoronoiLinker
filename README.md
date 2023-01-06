@@ -26,7 +26,7 @@ In classic Tree Editor:
 
 ---
 
-Version 1.7.2 created on 04.01.2023
+Version 1.7.3 created on 06.01.2023
 
 Reach to autor (Russian):  
 StaunerRu@gmail.com  
