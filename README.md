@@ -13,12 +13,17 @@ Wide possibilities of mixing different sockets in different editors using power 
 = Voronoi Preview =  
 Auto-create link-path from a socket to an outlet or an anchor.
 
+(Bonus) = Voronoi Hider =  
+Hide nearest socket to the cursor or unhide all sockets from the nearest node.
+
 ---
 ### Hotkeys
 
 In any Tree Editor:  
  + Alt + RMB  -> activate Voronoi Linker  
  + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
+ + Shift + E  -> activate Voronoi Hider  
+ + Shift + Ctrl + E  -> activate Voronoi Hider with unhide all  
 
 In classic Tree Editor:  
  + Shift + Alt + RMB -> activate Voronoi Mixer
