@@ -11,16 +11,6 @@ from builtins import len as length, abs, min, max, reversed
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader as BatchForShader
 from mathutils import Vector; from math import pi, inf, sin, cos, copysign
 
-def viw(*data):
-    for area in bpy.context.screen.areas:
-        if area.type=='CONSOLE':
-            for space in area.spaces:
-                if space.type=='CONSOLE':
-                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
-                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
-import random
-def sol(): viw(random.random())
-
 gv_shaders = [None,None]; gv_uifac = [1.0]; gv_font_id = [0]; gv_where = [None]
 def DrawWay(vtxs,vcol,siz):
     bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); gv_shaders[0].bind()
