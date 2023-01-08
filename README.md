@@ -36,7 +36,7 @@ Bonus tool in any Tree Editor:
 Version 1.7.4 created on 09.01.2023
 
 Reach to autor (Russian):  
-StaunerRu@gmail.com  
+coaltangle@gmail.com
 Discord: ugorek#6434
 
-[Email]: StaunerRu@gmail.com
+[Email]: coaltangle@gmail.com
