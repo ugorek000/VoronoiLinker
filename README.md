@@ -13,8 +13,8 @@ Wide possibilities of mixing different sockets in different editors using power 
 = Voronoi Preview =  
 Auto-create link-path from a socket to an outlet or an anchor.
 
-(Bonus) = Voronoi Hider =  
-Hide nearest socket to the cursor or unhide all sockets from the nearest node.
+= Voronoi Hider = 
+It is bonus tool. Hide nearest socket to the cursor or unhide all sockets from the nearest node.
 
 ---
 ### Hotkeys
