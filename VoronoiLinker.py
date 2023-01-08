@@ -2,14 +2,24 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,3),'blender':(3,4,0), #06.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,4),'blender':(3,4,0), #09.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
-#This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy it if you want to enjoy.
+#This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
 
-from builtins import len as Length, abs as Abs, min as Min, max as Max, reversed as Reversed
+from builtins import len as length, abs, min, max, reversed
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader as BatchForShader
-from mathutils import Vector; from math import pi, inf, sin as Sin, cos as Cos, copysign as CopySign
+from mathutils import Vector; from math import pi, inf, sin, cos, copysign
+
+def viw(*data):
+    for area in bpy.context.screen.areas:
+        if area.type=='CONSOLE':
+            for space in area.spaces:
+                if space.type=='CONSOLE':
+                    context = bpy.context.copy(); context.update(dict(space=space,area=area))
+                    bpy.ops.console.scrollback_append(context,text=str(data[0]) if len(data)<2 else str(data),type='OUTPUT')
+import random
+def sol(): viw(random.random())
 
 gv_shaders = [None,None]; gv_uifac = [1.0]; gv_font_id = [0]; gv_where = [None]
 def DrawWay(vtxs,vcol,siz):
@@ -21,9 +31,9 @@ def DrawAreaFan(vtxs,col,sm):
 def DrawLine(ps1,ps2,sz=1,cl1=(1.0,1.0,1.0,0.75),cl2=(1.0,1.0,1.0,0.75),fs=[0,0]): DrawWay(((ps1[0]+fs[0],ps1[1]+fs[1]),(ps2[0]+fs[0],ps2[1]+fs[1])),(cl1,cl2),sz)
 def DrawCircleOuter(pos,rd,siz=1,col=(1.0,1.0,1.0,0.75),resolution=16):
     vtxs = []; vcol = []
-    for cyc in range(resolution+1): vtxs.append((rd*Cos(cyc*2*pi/resolution)+pos[0],rd*Sin(cyc*2*pi/resolution)+pos[1])); vcol.append(col)
+    for cyc in range(resolution+1): vtxs.append((rd*cos(cyc*2*pi/resolution)+pos[0],rd*sin(cyc*2*pi/resolution)+pos[1])); vcol.append(col)
     DrawWay(vtxs,vcol,siz)
-def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=54): DrawAreaFan([(pos[0],pos[1]),*[(rd*Cos(i*2*pi/resl)+pos[0],rd*Sin(i*2*pi/resl)+pos[1]) for i in range(resl+1)]],col,True)
+def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=54): DrawAreaFan([(pos[0],pos[1]),*[(rd*cos(i*2*pi/resl)+pos[0],rd*sin(i*2*pi/resl)+pos[1]) for i in range(resl+1)]],col,True)
 def DrawWidePoint(pos,rd,colfac=Vector((1,1,1,1))):
     col1 = Vector((0.5,0.5,0.5,0.4)); col2 = Vector((0.5,0.5,0.5,0.4)); col3 = Vector((1,1,1,1))
     colfac = colfac if DrawPrefs().ds_is_colored_point else Vector((1,1,1,1)); rd = (rd*rd+10)**.5; rs = DrawPrefs().ds_point_resolution
@@ -34,17 +44,13 @@ def DrawRectangleOnSocket(sk,stEn,colfac=Vector((1,1,1,1))):
     loc = RecrGetNodeFinalLoc(sk.node).copy()*gv_uifac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*gv_uifac[0]); colfac = colfac if DrawPrefs().ds_is_colored_area else Vector((1,1,1,1))
     pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*gv_uifac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
 def DrawIsLinked(loc,ofsx,ofsy,sk_col):
-    ofsx += ((20+DrawPrefs().ds_text_dist_from_cursor)*1.5+DrawPrefs().ds_text_frame_offset)*CopySign(1,ofsx)+4
+    ofsx += ((20+DrawPrefs().ds_text_dist_from_cursor)*1.5+DrawPrefs().ds_text_frame_offset)*copysign(1,ofsx)+4
     if DrawPrefs().ds_is_draw_marker==False: return
     vec = PosViewToReg(loc.x,loc.y); gc = 0.65; col1 = (0,0,0,0.5); col2 = (gc,gc,gc,max(max(sk_col[0],sk_col[1]),sk_col[2])*.9); col3 = (sk_col[0],sk_col[1],sk_col[2],.925)
     DrawCircleOuter([vec[0]+ofsx+1.5,vec[1]+3.5+ofsy],9.0,3.0,col1); DrawCircleOuter([vec[0]+ofsx-3.5,vec[1]-5+ofsy],9.0,3.0,col1)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,3.0,col2); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,3.0,col2)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,1.0,col3); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,1.0,col3)
-def DrawSkText(pos,ofsx,ofsy,Sk):
-    if DrawPrefs().ds_is_draw_sk_text==False: return 0
-    try: sk_col = GetSkCol(Sk)
-    except: sk_col = (1,0,0,1)
-    sk_col = sk_col if DrawPrefs().ds_is_colored_sk_text else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
+def DrawText(pos,ofsx,ofsy,txt,draw_col):
     isdrsh = DrawPrefs().ds_is_draw_sk_text_shadow
     if isdrsh:
         blf.enable(gv_font_id[0],blf.SHADOW); sdcol = DrawPrefs().ds_shadow_col; blf.shadow(gv_font_id[0],[0,3,5][DrawPrefs().ds_shadow_blur],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
@@ -57,8 +63,8 @@ def DrawSkText(pos,ofsx,ofsy,Sk):
     pos1 = [pos[0]+ofsx-tof,pos[1]+muv-tof]; pos2 = [pos[0]+ofsx+10+txdim[0]+tof,pos[1]+muv+txdim[1]+tof]
     list = [.4,.55,.7,.85,1]; uh = 1/len(list)*(txdim[1]+tof*2)
     if DrawPrefs().ds_text_style=='Classic':
-        for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(sk_col[0]/2,sk_col[1]/2,sk_col[2]/2,list[cyc]))
-        col = (sk_col[0]**pw,sk_col[1]**pw,sk_col[2]**pw,1)
+        for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(draw_col[0]/2,draw_col[1]/2,draw_col[2]/2,list[cyc]))
+        col = (draw_col[0]**pw,draw_col[1]**pw,draw_col[2]**pw,1)
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col)
         DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
         col = (col[0],col[1],col[2],.375); thS = DrawPrefs().ds_text_lineframe_offset
@@ -67,11 +73,17 @@ def DrawSkText(pos,ofsx,ofsy,Sk):
         DrawLine([pos1[0]-thS,pos1[1]],[pos1[0],pos1[1]-thS],1,col,col); DrawLine([pos2[0]+thS,pos1[1]],[pos2[0],pos1[1]-thS],1,col,col)
         DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col,col)
     elif DrawPrefs().ds_text_style=='Simplified':
-        DrawRectangle([pos1[0],pos1[1]],[pos2[0],pos2[1]],(sk_col[0]/2.4,sk_col[1]/2.4,sk_col[2]/2.4,.8)); col = (.1,.1,.1,.95)
+        DrawRectangle([pos1[0],pos1[1]],[pos2[0],pos2[1]],(draw_col[0]/2.4,draw_col[1]/2.4,draw_col[2]/2.4,.8)); col = (.1,.1,.1,.95)
         DrawLine(pos1,[pos2[0],pos1[1]],2,col,col); DrawLine([pos2[0],pos1[1]],pos2,2,col,col)
         DrawLine(pos2,[pos1[0],pos2[1]],2,col,col); DrawLine([pos1[0],pos2[1]],pos1,2,col,col)
-    blf.position(gv_font_id[0],pos[0]+ofsx+3.5,pos[1]+muv+txdim[1]*.3,0); blf.color(gv_font_id[0],sk_col[0]**pw,sk_col[1]**pw,sk_col[2]**pw,1.0); blf.draw(gv_font_id[0],txt)
+    blf.position(gv_font_id[0],pos[0]+ofsx+3.5,pos[1]+muv+txdim[1]*.3,0); blf.color(gv_font_id[0],draw_col[0]**pw,draw_col[1]**pw,draw_col[2]**pw,1.0); blf.draw(gv_font_id[0],txt)
     return [txdim[0]+tof,txdim[1]+tof*2]
+def DrawSkText(pos,ofsx,ofsy,Sk):
+    if DrawPrefs().ds_is_draw_sk_text==False: return [0,0]
+    try: sk_col = GetSkCol(Sk)
+    except: sk_col = (1,0,0,1)
+    sk_col = sk_col if DrawPrefs().ds_is_colored_sk_text else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
+    return DrawText(pos,ofsx,ofsy,txt,sk_col)
 
 def GetSkCol(Sk): return Sk.draw_color(bpy.context,Sk.node)
 def Vec4Pow(vec,pw): return Vector((vec.x**pw,vec.y**pw,vec.z**pw,vec.w**pw))
@@ -83,20 +95,20 @@ def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=
 
 def PreparGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().ds_point_radius,loc.y)[0]-pos[0]; return pos,rd
 def DebugDrawCallback(sender,context):
-    def DrawText(pos,txt,r=1,g=1,b=1): blf.size(gv_font_id[0],14,72); blf.position(gv_font_id[0],pos[0]+10,pos[1],0); blf.color(gv_font_id[0],r,g,b,1.0); blf.draw(gv_font_id[0],txt)
+    def DrawDbText(pos,txt,r=1,g=1,b=1): blf.size(gv_font_id[0],14,72); blf.position(gv_font_id[0],pos[0]+10,pos[1],0); blf.color(gv_font_id[0],r,g,b,1.0); blf.draw(gv_font_id[0],txt)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]
-    wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1]); DrawText(PosViewToReg(mouse_pos[0],mouse_pos[1]),'Cursor position here.')
+    wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1]); DrawDbText(PosViewToReg(mouse_pos[0],mouse_pos[1]),'Cursor position here.')
     list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,mouse_pos); sco = 0
     for li in list_nodes:
-        if li[1].type!='FRAME': wp = PreparGetWP(li[2],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawText(wp[0],str(sco)+' Node goal here',g=.5,b=.5); sco += 1
+        if li[1].type!='FRAME': wp = PreparGetWP(li[2],0); DrawWidePoint(wp[0],wp[1],Vector((1,.5,.5,1))); DrawDbText(wp[0],str(sco)+' Node goal here',g=.5,b=.5); sco += 1
     list_socket_in,list_socket_out = GenNearestSocketsList(list_nodes[0][1],mouse_pos)
-    if list_socket_out: wp = PreparGetWP(list_socket_out[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawText(wp[0],'Nearest socketOut here',r=.75,g=.75)
-    if list_socket_in: wp = PreparGetWP(list_socket_in[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawText(wp[0],'Nearest socketIn here',r=.5,b=.5)
+    if list_socket_out: wp = PreparGetWP(list_socket_out[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,.5,1,1))); DrawDbText(wp[0],'Nearest socketOut here',r=.75,g=.75)
+    if list_socket_in: wp = PreparGetWP(list_socket_in[0][2],0); DrawWidePoint(wp[0],wp[1],Vector((.5,1,.5,1))); DrawDbText(wp[0],'Nearest socketIn here',r=.5,b=.5)
 
 def UiScale(): return bpy.context.preferences.system.dpi*bpy.context.preferences.system.pixel_size/72
 def RecrGetNodeFinalLoc(nd): return nd.location if nd.parent==None else nd.location+RecrGetNodeFinalLoc(nd.parent)
 def GenNearestNodeList(nodes,pick_pos): #Выдаёт список "ближайших нод". Честное поле расстояний. Спасибо RayMarching'у, без него я бы до такого не допёр.
-    def ToSign(vec2): return Vector((CopySign(1,vec2[0]),CopySign(1,vec2[1]))) #Для запоминания своего квадранта перед Abs().
+    def ToSign(vec2): return Vector((copysign(1,vec2[0]),copysign(1,vec2[1]))) #Для запоминания своего квадранта перед abs().
     list_nodes = []
     for nd in nodes:
         #Расчехлить иерархию родителей и получить итоговую позицию нода. Подготовить размер нода
@@ -104,10 +116,10 @@ def GenNearestNodeList(nodes,pick_pos): #Выдаёт список "ближай
         #Для рероута позицию в центр. Для нода позицию в нижний левый угол, чтобы быть миро-ориентированным и спокойно прибавлять половину размеров нода
         nd_location = nd_location-nd_size/2 if nd.bl_idname=='NodeReroute' else nd_location-Vector((0,nd_size[1]))
         #field_uv -- сырой от pick_pos. field_xy -- абсолютные предыдущего, нужен для восстановления направления
-        field_uv = pick_pos-(nd_location+nd_size/2); field_xy = Vector((Abs(field_uv.x),Abs(field_uv.y)))-nd_size/2
+        field_uv = pick_pos-(nd_location+nd_size/2); field_xy = Vector((abs(field_uv.x),abs(field_uv.y)))-nd_size/2
         #Сконструировать внутренности чтобы корректно находить ближайшего при наслаивающихся нодов
-        field_en = ToSign(field_xy); field_en = Min(Abs(field_xy.x),Abs(field_xy.y))*(field_en.x+field_en.y==-2)
-        field_xy = Vector((Max(field_xy.x,0),Max(field_xy.y,0)))
+        field_en = ToSign(field_xy); field_en = min(abs(field_xy.x),abs(field_xy.y))*(field_en.x+field_en.y==-2)
+        field_xy = Vector((max(field_xy.x,0),max(field_xy.y,0)))
         #Добавить в список отработанный нод. Ближайшая позиция = курсор - восстановленное направление
         list_nodes.append((field_xy.length+field_en,nd,pick_pos-field_xy*ToSign(field_uv)))
     list_nodes.sort(key=lambda list_nodes:list_nodes[0])
@@ -123,7 +135,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
         len = Vector(pick_pos-nd_location).length
         list_socket_in.append((len,nd.inputs[0],nd_location,(-1,-1))); list_socket_out.append((len,nd.outputs[0],nd_location,(-1,-1)))
         return list_socket_in, list_socket_out
-    def MucGetWho(side_mark,who_puts):
+    def GetFromPut(side_mark,who_puts):
         list_whom = []
         #Установить "каретку" в первый сокет своей стороны. Верхний если выход, нижний если вход
         sk_loc_car = Vector((nd_location.x+nd_dim.x,nd_location.y-35)) if side_mark==1 else Vector((nd_location.x,nd_location.y-nd_dim.y+16))
@@ -139,12 +151,12 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): sk_loc_car.y += 30*2; muv = 3
                 goal_pos = sk_loc_car.copy()
                 # skHigLigHei так же учитывает текущую высоту мульти-инпута подсчётом количества соединений, но только для входов
-                list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+Max(Length(wh.links)-2,0)*5*(side_mark==-1))))
+                list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+max(length(wh.links)-2,0)*5*(side_mark==-1))))
                 #Сдвинуть до следующего на своё направление
                 sk_loc_car.y -= 22*side_mark
         return list_whom
-    list_socket_in = MucGetWho(-1,Reversed(nd.inputs))
-    list_socket_out = MucGetWho(1,nd.outputs)
+    list_socket_in = GetFromPut(-1,reversed(nd.inputs))
+    list_socket_out = GetFromPut(1,nd.outputs)
     list_socket_in.sort(); list_socket_out.sort()
     return list_socket_in,list_socket_out
 list_sk_perms = ['VALUE','RGBA','VECTOR','INT','BOOLEAN']
@@ -154,7 +166,7 @@ def VoronoiLinkerDrawCallback(sender,context):
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]; lw = DrawPrefs().ds_line_width
-    def MucDrawSk(Sk):
+    def LinkerDrawSk(Sk):
         txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),-DrawPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
         if Sk.is_linked: DrawIsLinked(mouse_pos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
     if (sender.list_sk_goal_out==[]):
@@ -168,7 +180,7 @@ def VoronoiLinkerDrawCallback(sender,context):
         if (DrawPrefs().vlds_is_always_line)and(DrawPrefs().ds_is_draw_line):
             DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.list_sk_goal_out[1]) if DrawPrefs().ds_is_colored_line else (1,1,1,1),(1,1,1,1))
         if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
-        MucDrawSk(sender.list_sk_goal_out[1])
+        LinkerDrawSk(sender.list_sk_goal_out[1])
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out[1],sender.list_sk_goal_out[3],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
         DrawRectangleOnSocket(sender.list_sk_goal_in[1],sender.list_sk_goal_in[3],GetSkVecCol(sender.list_sk_goal_in[1],2.2))
@@ -179,10 +191,10 @@ def VoronoiLinkerDrawCallback(sender,context):
         if DrawPrefs().ds_is_draw_line: DrawLine(wp1[0],wp2[0],lw,col1,col2)
         if DrawPrefs().ds_is_draw_point:
             DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.list_sk_goal_in[1],2.2))
-        MucDrawSk(sender.list_sk_goal_out[1]); MucDrawSk(sender.list_sk_goal_in[1])
+        LinkerDrawSk(sender.list_sk_goal_out[1]); LinkerDrawSk(sender.list_sk_goal_in[1])
 class VoronoiLinker(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_linker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
-    def MucAssign(sender,context,all):
+    def NextAssign(sender,context,all):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
         for li in list_nodes:
@@ -216,7 +228,7 @@ class VoronoiLinker(bpy.types.Operator):
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
-            case 'MOUSEMOVE': VoronoiLinker.MucAssign(self,context,False)
+            case 'MOUSEMOVE': VoronoiLinker.NextAssign(self,context,False)
             case 'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                 if (event.value=='RELEASE')and(self.list_sk_goal_out)and(self.list_sk_goal_in):
@@ -226,9 +238,10 @@ class VoronoiLinker(bpy.types.Operator):
                     if self.list_sk_goal_in[1].is_multi_input: #Если мультиинпут -- реализовать адекватный порядок подключения. Накой смысол последние лепятся в начало?.
                         list_sk_links = []
                         for lk in self.list_sk_goal_in[1].links: list_sk_links.append((lk.from_socket,lk.to_socket)); tree.links.remove(lk)
-                        if self.list_sk_goal_out[1].bl_idname=='NodeSocketVirtual': self.list_sk_goal_out[1] = self.list_sk_goal_out[1].node.outputs[Length(self.list_sk_goal_out[1].node.outputs)-2]
+                        if self.list_sk_goal_out[1].bl_idname=='NodeSocketVirtual':
+                            self.list_sk_goal_out[1] = self.list_sk_goal_out[1].node.outputs[length(self.list_sk_goal_out[1].node.outputs)-2]
                         tree.links.new(self.list_sk_goal_out[1],self.list_sk_goal_in[1])
-                        for cyc in range(0,Length(list_sk_links)-1): tree.links.new(list_sk_links[cyc][0],list_sk_links[cyc][1])
+                        for cyc in range(0,length(list_sk_links)-1): tree.links.new(list_sk_links[cyc][0],list_sk_links[cyc][1])
                     return {'FINISHED'}
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -237,7 +250,7 @@ class VoronoiLinker(bpy.types.Operator):
         self.list_sk_goal_out = []; self.list_sk_goal_in = []
         gv_uifac[0] = UiScale(); gv_where[0] = context.space_data; SetFont()
         context.area.tag_redraw()
-        VoronoiLinker.MucAssign(self,context,True)
+        VoronoiLinker.NextAssign(self,context,True)
         self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiLinkerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
@@ -247,7 +260,7 @@ def VoronoiMixerDrawCallback(sender,context):
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
     if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
-    def MucDrawSk(Sk,ys,lys):
+    def MixerDrawSk(Sk,ys,lys):
         txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,ys,Sk)
         if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
     if (sender.list_sk_goal_out1==[]):
@@ -259,7 +272,7 @@ def VoronoiMixerDrawCallback(sender,context):
         wp1 = PreparGetWP(sender.list_sk_goal_out1[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0); col = Vector((1,1,1,1))
         if DrawPrefs().ds_is_draw_line: DrawLine(wp1[0],mouse_region_pos,lw,GetSkCol(sender.list_sk_goal_out1[1]) if DrawPrefs().ds_is_colored_line else col,col)
         if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out1[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
-        MucDrawSk(sender.list_sk_goal_out1[1],-.5,0)
+        MixerDrawSk(sender.list_sk_goal_out1[1],-.5,0)
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out1[1],sender.list_sk_goal_out1[3],GetSkVecCol(sender.list_sk_goal_out1[1],2.2))
         DrawRectangleOnSocket(sender.list_sk_goal_out2[1],sender.list_sk_goal_out2[3],GetSkVecCol(sender.list_sk_goal_out2[1],2.2))
@@ -270,10 +283,10 @@ def VoronoiMixerDrawCallback(sender,context):
         if DrawPrefs().ds_is_draw_line: DrawLine(mouse_region_pos,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouse_region_pos,lw,col1,col1)
         if DrawPrefs().ds_is_draw_point:
             DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out1[1],2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.list_sk_goal_out2[1],2.2))
-        MucDrawSk(sender.list_sk_goal_out1[1],.25,1); MucDrawSk(sender.list_sk_goal_out2[1],-1.25,-1)
+        MixerDrawSk(sender.list_sk_goal_out1[1],.25,1); MixerDrawSk(sender.list_sk_goal_out2[1],-1.25,-1)
 class VoronoiMixer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_mixer'; bl_label = 'Voronoi Mixer'; bl_options = {'UNDO'}
-    def MucAssign(sender,context,all):
+    def NextAssign(sender,context,all):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
         for li in list_nodes:
@@ -301,14 +314,14 @@ class VoronoiMixer(bpy.types.Operator):
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
-            case 'MOUSEMOVE': VoronoiMixer.MucAssign(self,context,False)
+            case 'MOUSEMOVE': VoronoiMixer.NextAssign(self,context,False)
             case 'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                 if (event.value=='RELEASE')and(self.list_sk_goal_out1)and(self.list_sk_goal_out2):
                     mixerSks[0] = self.list_sk_goal_out1[1]; mixerSks[1] = self.list_sk_goal_out2[1]
                     mixerSkTyp[0] = mixerSks[0].type if mixerSks[0].bl_idname!='NodeSocketVirtual' else mixerSks[1].type
                     try:
-                        dm = VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]
+                        dm = dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]
                         if len(dm)!=0:
                             if (DrawPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
                             else:
@@ -323,12 +336,12 @@ class VoronoiMixer(bpy.types.Operator):
         self.list_sk_goal_out1 = []; self.list_sk_goal_out2 = []
         gv_uifac[0] = UiScale(); gv_where[0] = context.space_data; SetFont()
         context.area.tag_redraw()
-        VoronoiMixer.MucAssign(self,context,True)
+        VoronoiMixer.NextAssign(self,context,True)
         self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiMixerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 mixerSks = [None,None]; mixerSkTyp = [None]
-VMMapDictMixersDefs = {
+dict_mixer_defs = {
         'GeometryNodeSwitch':[-1,-1,'Switch'],'ShaderNodeMixShader':[1,2,'Mix'],'ShaderNodeAddShader':[0,1,'Add'],'ShaderNodeMixRGB':[1,2,'Mix RGB'],
         'ShaderNodeMath':[0,1,'Max'],'ShaderNodeVectorMath':[0,1,'Max'],'FunctionNodeBooleanMath':[0,1,'Or'],'FunctionNodeCompare':[-1,-1,'Compare'],
         'GeometryNodeCurveToMesh':[0,1,'Curve to Mesh'],'GeometryNodeInstanceOnPoints':[0,2,'Instance on Points'],'GeometryNodeMeshBoolean':[0,1,'Boolean'],
@@ -336,34 +349,36 @@ VMMapDictMixersDefs = {
         'CompositorNodeMixRGB':[1,2,'Mix'],'CompositorNodeMath':[0,1,'Max'],'CompositorNodeSwitch':[0,1,'Switch'],'CompositorNodeAlphaOver':[1,2,'Alpha Over'],
         'CompositorNodeSplitViewer':[0,1,'Split Viewer'],'CompositorNodeSwitchView':[0,1,'Switch View'],'TextureNodeMixRGB':[1,2,'Mix'],
         'TextureNodeMath':[0,1,'Max'],'TextureNodeTexture':[0,1,'Texture'],'TextureNodeDistance':[0,1,'Distance'],'ShaderNodeMix':[-1,-1,'Mix']}
-VMMapDictSwitchType = {'VALUE':'FLOAT','INT':'FLOAT'}; VMMapDictUserSkName = {'VALUE':'Float','RGBA':'Color'}; VMMapDictMixInt = {'INT':'VALUE'}
+dict_mixer_switch_type = {'VALUE':'FLOAT','INT':'FLOAT'}; dict_mixer_user_sk_name = {'VALUE':'Float','RGBA':'Color'}; dict_mixer_mix_int = {'INT':'VALUE'}
 def DoMix(context,who):
     tree = context.space_data.edit_tree
     if tree!=None:
-        bpy.ops.node.add_node('INVOKE_DEFAULT',type=who,use_transform=True); aNd = tree.nodes.active; aNd.width = 140
-        match aNd.bl_idname:
-            case 'ShaderNodeMath'|'ShaderNodeVectorMath'|'CompositorNodeMath'|'TextureNodeMath': aNd.operation = 'MAXIMUM'
-            case 'FunctionNodeBooleanMath': aNd.operation = 'OR'
-            case 'TextureNodeTexture': aNd.show_preview = False
-            case 'GeometryNodeSwitch': aNd.input_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
-            case 'FunctionNodeCompare': aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0]); aNd.operation = aNd.operation if aNd.data_type!='FLOAT' else 'EQUAL'
-            case 'ShaderNodeMix': aNd.data_type = VMMapDictSwitchType.get(mixerSkTyp[0],mixerSkTyp[0])
-        match aNd.bl_idname:
+        bpy.ops.node.add_node('INVOKE_DEFAULT',type=who,use_transform=True); active_nd = tree.nodes.active; active_nd.width = 140
+        match active_nd.bl_idname:
+            case 'ShaderNodeMath'|'ShaderNodeVectorMath'|'CompositorNodeMath'|'TextureNodeMath': active_nd.operation = 'MAXIMUM'
+            case 'FunctionNodeBooleanMath': active_nd.operation = 'OR'
+            case 'TextureNodeTexture': active_nd.show_preview = False
+            case 'GeometryNodeSwitch': active_nd.input_type = dict_mixer_switch_type.get(mixerSkTyp[0],mixerSkTyp[0])
+            case 'FunctionNodeCompare':
+                active_nd.data_type = dict_mixer_switch_type.get(mixerSkTyp[0],mixerSkTyp[0])
+                active_nd.operation = active_nd.operation if active_nd.data_type!='FLOAT' else 'EQUAL'
+            case 'ShaderNodeMix': active_nd.data_type = dict_mixer_switch_type.get(mixerSkTyp[0],mixerSkTyp[0])
+        match active_nd.bl_idname:
             case 'GeometryNodeSwitch'|'FunctionNodeCompare'|'ShaderNodeMix':
-                tgl = aNd.bl_idname!='FunctionNodeCompare'
-                foundSkList = [sk for sk in (Reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==VMMapDictMixInt.get(mixerSkTyp[0],mixerSkTyp[0])]
+                tgl = active_nd.bl_idname!='FunctionNodeCompare'
+                foundSkList = [sk for sk in (reversed(active_nd.inputs) if tgl else active_nd.inputs) if sk.type==dict_mixer_mix_int.get(mixerSkTyp[0],mixerSkTyp[0])]
                 tree.links.new(mixerSks[0],foundSkList[tgl]); tree.links.new(mixerSks[1],foundSkList[not tgl])
             case _:
-                if aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]].is_multi_input: tree.links.new(mixerSks[1],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][1]])
-                tree.links.new(mixerSks[0],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]])
-                if aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][0]].is_multi_input==False: tree.links.new(mixerSks[1],aNd.inputs[VMMapDictMixersDefs[aNd.bl_idname][1]])
+                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input: tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
+                tree.links.new(mixerSks[0],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]])
+                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input==False: tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
 class VoronoiMixerMixer(bpy.types.Operator):
     bl_idname = 'node.voronoi_mixer_mixer'; bl_label = 'Voronoi Mixer Mixer'; bl_options = {'UNDO'}
     who: bpy.props.StringProperty()
     def execute(self,context):
         DoMix(context,self.who)
         return {'FINISHED'}
-VMMapDictMain = {
+dict_mixer_main = {
         'ShaderNodeTree':{'SHADER':['ShaderNodeMixShader','ShaderNodeAddShader'],'VALUE':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeMath'],
                 'RGBA':['ShaderNodeMix','ShaderNodeMixRGB'],'VECTOR':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeVectorMath'],'INT':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeMath']},
         'GeometryNodeTree':{'VALUE':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare','ShaderNodeMath'],
@@ -384,17 +399,14 @@ class VoronoiMixerMenu(bpy.types.Menu):
     bl_idname = 'node.VM_MT_voronoi_mixer_menu'; bl_label = ''
     def draw(self,context):
         who = self.layout.menu_pie() if DrawPrefs().vm_menu_style=='Pie' else self.layout
-        who.label(text=VMMapDictUserSkName.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
-        for li in VMMapDictMain[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=VMMapDictMixersDefs[li][2]).who=li
+        who.label(text=dict_mixer_user_sk_name.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
+        for li in dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=dict_mixer_defs[li][2]).who=li
 
 def VoronoiPreviewerDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
     if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
-    def MucDrawSk(Sk):
-        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,-.5,Sk)
-        if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
     if (sender.list_sk_goal_out==[]):
         if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
     else:
@@ -403,10 +415,13 @@ def VoronoiPreviewerDrawCallback(sender,context):
         wp = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x)
         if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
         if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
-        MucDrawSk(sender.list_sk_goal_out[1])
+        def PreviewerDrawSk(Sk):
+            txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,-.5,Sk)
+            if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+        PreviewerDrawSk(sender.list_sk_goal_out[1])
 class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_previewer'; bl_label = 'Voronoi Previewer'; bl_options = {'UNDO'}
-    def MucAssign(sender,context):
+    def NextAssign(sender,context):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
         for li in list_nodes:
@@ -432,7 +447,7 @@ class VoronoiPreviewer(bpy.types.Operator):
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
-            case 'MOUSEMOVE': VoronoiPreviewer.MucAssign(self,context)
+            case 'MOUSEMOVE': VoronoiPreviewer.NextAssign(self,context)
             case 'LEFTMOUSE'|'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                 if (event.value=='RELEASE')and(self.list_sk_goal_out): VoronoiPreviewer_DoPreview(context,self.list_sk_goal_out[1]); return {'FINISHED'}
@@ -450,78 +465,149 @@ class VoronoiPreviewer(bpy.types.Operator):
             self.list_sk_goal_out = []
             gv_uifac[0] = UiScale(); gv_where[0] = context.space_data; SetFont()
             context.area.tag_redraw()
-            VoronoiPreviewer.MucAssign(self,context)
+            VoronoiPreviewer.NextAssign(self,context)
             self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiPreviewerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
             context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
-ShaderShadersWithColor = ('BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
-        'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER')
+list_shader_shader_with_color = ['BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
+        'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER']
 def VoronoiPreviewer_DoPreview(context,goalSk):
     def GetSocketIndex(socket): return int(socket.path_from_id().split('.')[-1].split('[')[-1][:-1])
     def GetTreesWay(context,nd):
-        way = []; nds = []; treeWyc = context.space_data.node_tree; lim = 0
-        while (treeWyc!=context.space_data.edit_tree)and(lim<64):
-            way.insert(0,treeWyc); nds.insert(0,treeWyc.nodes.active); treeWyc = treeWyc.nodes.active.node_tree; lim += 1
-        way.insert(0,treeWyc); nds.insert(0,nd); return way, nds
+        way = []; nds = []; wyc_tree = context.space_data.node_tree; lim = 0
+        while (wyc_tree!=context.space_data.edit_tree)and(lim<64):
+            way.insert(0,wyc_tree); nds.insert(0,wyc_tree.nodes.active); wyc_tree = wyc_tree.nodes.active.node_tree; lim += 1
+        way.insert(0,wyc_tree); nds.insert(0,nd); return way, nds
     for ng in bpy.data.node_groups:
         if ng.type==context.space_data.node_tree.type:
             sk = ng.outputs.get('voronoi_preview')
             if sk!=None: ng.outputs.remove(sk)
-    curTree = context.space_data.edit_tree
-    WayTr, WayNd = GetTreesWay(context,goalSk.node); hWyLen = len(WayTr)-1; ixSkLastUsed = -1; isZeroPreviewGen = True
-    for cyc in range(hWyLen+1):
-        nodeIn = None; sockOut = None; sockIn = None
+    cur_tree = context.space_data.edit_tree
+    list_way_tree, list_way_nodes = GetTreesWay(context,goalSk.node); hig_way = len(list_way_tree)-1; ix_sk_last_used = -1; is_zero_preview_gen = True
+    for cyc in range(hig_way+1):
+        node_in = None; sock_out = None; sock_in = None
         #Найти принимающий нод текущего уровня
-        if cyc!=hWyLen:
-            for nd in WayTr[cyc].nodes:
+        if cyc!=hig_way:
+            for nd in list_way_tree[cyc].nodes:
                 if nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT']:
-                    if nodeIn==None: nodeIn = nd
-                    elif nodeIn.location>goalSk.node.location: nodeIn = nd
+                    if node_in==None: node_in = nd
+                    elif node_in.location>goalSk.node.location: node_in = nd
         else:
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
-                    for nd in WayTr[hWyLen].nodes:
+                    for nd in list_way_tree[hig_way].nodes:
                         if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT']:
-                            sockIn = nd.inputs[(goalSk.name=='Volume')*(nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD'])] if nd.is_active_output else sockIn
+                            sock_in = nd.inputs[(goalSk.name=='Volume')*(nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD'])] if nd.is_active_output else sock_in
                 case 'CompositorNodeTree':
-                    for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='VIEWER') else sockIn
-                    if sockIn==None:
-                        for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='COMPOSITE') else sockIn
+                    for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='VIEWER') else sock_in
+                    if sock_in==None:
+                        for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='COMPOSITE') else sock_in
                 case 'GeometryNodeTree':
-                    for nd in WayTr[hWyLen].nodes:
-                        sockIn = nd.inputs.get('Geometry') if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output) else sockIn
-                        lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']; sockIn = lis[0] if (sockIn==None)and(len(lis)!=0) else sockIn
-                        if sockIn==None:
-                            try: sockIn = nd.inputs[0]
+                    for nd in list_way_tree[hig_way].nodes:
+                        sock_in = nd.inputs.get('Geometry') if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output) else sock_in
+                        lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']; sock_in = lis[0] if (sock_in==None)and(len(lis)!=0) else sock_in
+                        if sock_in==None:
+                            try: sock_in = nd.inputs[0]
                             except: pass
                 case 'TextureNodeTree':
-                    for nd in WayTr[hWyLen].nodes: sockIn = nd.inputs[0] if (nd.type=='OUTPUT') else sockIn
-            nodeIn = sockIn.node if sockIn else None # else None -- если корень не имеет вывода.
+                    for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='OUTPUT') else sock_in
+            node_in = sock_in.node if sock_in else None # else None -- если корень не имеет вывода.
         #Определить сокет отправляющего нода
-        if cyc==0: sockOut = goalSk
-        else: sockOut = WayNd[cyc].outputs.get('voronoi_preview'); sockOut = WayNd[cyc].outputs[ixSkLastUsed] if sockOut==None else sockOut
+        if cyc==0: sock_out = goalSk
+        else: sock_out = list_way_nodes[cyc].outputs.get('voronoi_preview'); sock_out = list_way_nodes[cyc].outputs[ix_sk_last_used] if sock_out==None else sock_out
         #Определить сокет принимающего нода:
-        for sl in sockOut.links:
-            if sl.to_node==nodeIn: sockIn = sl.to_socket; ixSkLastUsed = GetSocketIndex(sockIn)
-        if (sockIn==None)and(cyc!=hWyLen): # cyc!=hWyLen -- если корень потерял вывод.
-            sockIn = WayTr[cyc].outputs.get('voronoi_preview')
-            if sockIn==None:
+        for sl in sock_out.links:
+            if sl.to_node==node_in: sock_in = sl.to_socket; ix_sk_last_used = GetSocketIndex(sock_in)
+        if (sock_in==None)and(cyc!=hig_way): # cyc!=hig_way -- если корень потерял вывод.
+            sock_in = list_way_tree[cyc].outputs.get('voronoi_preview')
+            if sock_in==None:
                 txt = 'NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry'
-                txt = 'NodeSocketShader' if sockOut.type=='SHADER' else txt
-                WayTr[cyc].outputs.new(txt,'voronoi_preview')
-                if nodeIn==None: nodeIn = WayTr[cyc].nodes.new('NodeGroupOutput'); nodeIn.location = WayNd[cyc].location; nodeIn.location.x += WayNd[cyc].width*2
-                sockIn = nodeIn.inputs.get('voronoi_preview'); sockIn.hide_value = True; isZeroPreviewGen = False
-        #Удобный сразу-в-шейдер. and(sockIn) -- для если у корня нет вывода
-        if (sockOut.type in ('RGBA'))and(cyc==hWyLen)and(sockIn)and(len(sockIn.links)!=0)and(sockIn.links[0].from_node.type in ShaderShadersWithColor)and(isZeroPreviewGen):
-            if len(sockIn.links[0].from_socket.links)==1: sockIn = sockIn.links[0].from_node.inputs.get('Color')
+                txt = 'NodeSocketShader' if sock_out.type=='SHADER' else txt
+                list_way_tree[cyc].outputs.new(txt,'voronoi_preview')
+                if node_in==None: node_in = list_way_tree[cyc].nodes.new('NodeGroupOutput'); node_in.location = list_way_nodes[cyc].location; node_in.location.x += list_way_nodes[cyc].width*2
+                sock_in = node_in.inputs.get('voronoi_preview'); sock_in.hide_value = True; is_zero_preview_gen = False
+        #Удобный сразу-в-шейдер. and(sock_in) -- для если у корня нет вывода
+        if (sock_out.type in ('RGBA'))and(cyc==hig_way)and(sock_in)and(len(sock_in.links)!=0):
+            if (sock_in.links[0].from_node.type in list_shader_shader_with_color)and(is_zero_preview_gen):
+                if len(sock_in.links[0].from_socket.links)==1: sock_in = sock_in.links[0].from_node.inputs.get('Color')
         #Соединить:
-        nd_va = WayTr[cyc].nodes.get('Voronoi_Anchor')
-        if nd_va: WayTr[cyc].links.new(sockOut,nd_va.inputs[0]); break
-        elif (sockOut)and(sockIn)and((sockIn.name=='voronoi_preview')or(cyc==hWyLen)): WayTr[cyc].links.new(sockOut,sockIn)
+        nd_va = list_way_tree[cyc].nodes.get('Voronoi_Anchor')
+        if nd_va: list_way_tree[cyc].links.new(sock_out,nd_va.inputs[0]); break #Завершение после напарывания повышает возможности использования якоря.
+        elif (sock_out)and(sock_in)and((sock_in.name=='voronoi_preview')or(cyc==hig_way)): list_way_tree[cyc].links.new(sock_out,sock_in)
     #Выделить предпросматриваемый нод:
     if DrawPrefs().vp_select_previewed_node:
-        for nd in curTree.nodes: nd.select = False
-        curTree.nodes.active = goalSk.node; goalSk.node.select = True
+        for nd in cur_tree.nodes: nd.select = False
+        cur_tree.nodes.active = goalSk.node; goalSk.node.select = True
+
+def VoronoiHiderDrawCallback(sender,context):
+    if gv_where[0]!=context.space_data: return
+    gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
+    if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    if sender.is_target_node:
+        if (sender.list_nd_goal==[]):
+            if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+        else:
+            wp = PreparGetWP(sender.list_nd_goal[2]*gv_uifac[0],0); col = (1,1,1,1)
+            if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
+            if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1])
+            if DrawPrefs().ds_is_draw_sk_text:
+                lbl = sender.list_nd_goal[1].label; l_ys = [.25,-1.25] if lbl else [-.5,-.5]
+                DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[0],sender.list_nd_goal[1].name,(1,1,1,1))
+                if lbl: DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[1],lbl,(1,1,1,1))
+    else:
+        if (sender.list_sk_goal==[]):
+            if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+        else:
+            DrawRectangleOnSocket(sender.list_sk_goal[1],sender.list_sk_goal[3],GetSkVecCol(sender.list_sk_goal[1],2.2))
+            col = GetSkCol(sender.list_sk_goal[1]) if DrawPrefs().ds_is_colored_line else (1,1,1,1)
+            wp = PreparGetWP(sender.list_sk_goal[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x*(sender.list_sk_goal[1].is_output*2-1))
+            if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
+            if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal[1],2.2))
+            def HiderDrawSk(Sk):
+                txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
+                if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+            HiderDrawSk(sender.list_sk_goal[1])
+class VoronoiHider(bpy.types.Operator):
+    bl_idname = 'node.a_voronoi_hider'; bl_label = 'Voronoi Hider'; bl_options = {'UNDO'}
+    def NextAssign(sender,context):
+        sender.list_sk_goal = []; pick_pos = context.space_data.cursor_location
+        list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
+        for li in list_nodes:
+            nd = li[1]
+            if not nd.type in ['FRAME','REROUTE']:
+                sender.list_nd_goal = li
+                list_socket_in,list_socket_out = GenNearestSocketsList(nd,pick_pos)
+                skin = list_socket_in[0] if list_socket_in else None; skout = list_socket_out[0] if list_socket_out else None
+                if (skin)or(skout):
+                    if skin==None: sender.list_sk_goal = skout
+                    elif skout==None: sender.list_sk_goal = skin
+                    else: sender.list_sk_goal = skin if skin[0]<skout[0] else skout
+                break
+    def modal(self,context,event):
+        context.area.tag_redraw()
+        match event.type:
+            case 'MOUSEMOVE': VoronoiHider.NextAssign(self,context)
+            case 'ESC': bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW'); return {'CANCELLED'}
+            case 'E':
+                if (event.is_repeat==False)and(event.value=='RELEASE'):
+                    bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
+                    if self.is_target_node==False:
+                        if self.list_sk_goal: self.list_sk_goal[1].hide = True
+                    elif self.list_nd_goal:
+                        for ni in self.list_nd_goal[1].inputs: ni.hide = False
+                        for no in self.list_nd_goal[1].outputs: no.hide = False
+                    return {'FINISHED'}
+        return {'RUNNING_MODAL'}
+    def invoke(self,context,event):
+        self.list_sk_goal = []; self.list_nd_goal = []; self.is_target_node = (event.shift)and(event.ctrl)
+        gv_uifac[0] = UiScale(); gv_where[0] = context.space_data; SetFont()
+        context.area.tag_redraw()
+        VoronoiHider.NextAssign(self,context)
+        self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiHiderDrawCallback,(self,context),'WINDOW','POST_PIXEL')
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = __name__ if __name__!='__main__' else 'VoronoiLinker'
@@ -574,20 +660,22 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
 
 
-classes = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiAddonPrefs]; addon_keymaps = []
+list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,VoronoiAddonPrefs]; list_addon_keymaps = []
 kmi_defs = (
     (VoronoiLinker.bl_idname,'RIGHTMOUSE',False,False,True),
     (VoronoiMixer.bl_idname,'RIGHTMOUSE',True,False,True),
     (VoronoiPreviewer.bl_idname,'LEFTMOUSE',True,True,False),
-    (VoronoiPreviewer.bl_idname,'RIGHTMOUSE',True,True,False))
+    (VoronoiPreviewer.bl_idname,'RIGHTMOUSE',True,True,False),
+    (VoronoiHider.bl_idname,'E',True,False,False),
+    (VoronoiHider.bl_idname,'E',True,True,False))
 def register():
-    for cl in classes: bpy.utils.register_class(cl)
+    for li in list_classes_all: bpy.utils.register_class(li)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor',space_type='NODE_EDITOR')
-    for (bl_id,key,Shift,Ctrl,Alt) in kmi_defs: kmi = km.keymap_items.new(idname=bl_id,type=key,value='PRESS',shift=Shift,ctrl=Ctrl,alt=Alt); addon_keymaps.append((km,kmi))
+    for (bl_id,key,Shift,Ctrl,Alt) in kmi_defs: kmi = km.keymap_items.new(idname=bl_id,type=key,value='PRESS',shift=Shift,ctrl=Ctrl,alt=Alt); list_addon_keymaps.append((km,kmi))
 def unregister():
-    for cl in Reversed(classes): bpy.utils.unregister_class(cl)
-    for km,kmi in addon_keymaps: km.keymap_items.remove(kmi)
-    addon_keymaps.clear()
+    for li in reversed(list_classes_all): bpy.utils.unregister_class(li)
+    for km,kmi in list_addon_keymaps: km.keymap_items.remove(kmi)
+    list_addon_keymaps.clear()
 
 
 if __name__=='__main__': register()
