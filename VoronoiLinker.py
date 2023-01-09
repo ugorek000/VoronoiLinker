@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,4),'blender':(3,4,0), #09.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,5),'blender':(3,4,0), #10.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
@@ -132,7 +132,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
         for wh in who_puts:
             #Игнорировать выключенные и спрятанные
             if (wh.enabled)and(wh.hide==False):
-                muv = 0; tgl = False # muv -- для высоты варпа от вектор-сокетов-не-в-одну-строчку.
+                muv = 0 #для высоты варпа от вектор-сокетов-не-в-одну-строчку.
                 #Если текущий сокет -- входящий вектор, и он же свободный и не спрятан в одну строчку
                 if (side_mark==-1)and(wh.type=='VECTOR')and(wh.is_linked==False)and(wh.hide_value==False):
                     #Ручками вычисляем занимаемую высоту сокета.
@@ -187,6 +187,7 @@ class VoronoiLinker(bpy.types.Operator):
     def NextAssign(sender,context,all):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
+        sender.list_sk_goal_in = [] #Если не разрешён, то предыдущий остаётся, что не удобно. Поэтому обнуляется каждый раз перед поиском.
         for li in list_nodes:
             nd = li[1]
             if (nd.type!='FRAME')and((nd.hide==False)or(nd.type=='REROUTE')):
@@ -204,11 +205,12 @@ class VoronoiLinker(bpy.types.Operator):
                         tgl = ((skin.type in list_sk_perms)and(skout.type in list_sk_perms)or(skout.node.type=='REROUTE'))
                         #Любой сокет для виртуального выхода; разрешить в виртуальный для любого сокета. Обоим в себя запретить
                         tgl = (tgl)or((skin.bl_idname=='NodeSocketVirtual')^(skout.bl_idname=='NodeSocketVirtual'))
-                        #Если имена одинаковые, но не виртуальные
+                        #Если имена типов одинаковые, но не виртуальные
                         tgl = (tgl)or(skin.bl_idname==skout.bl_idname)and(not((skin.bl_idname=='NodeSocketVirtual')and(skout.bl_idname=='NodeSocketVirtual')))
-                        if tgl: sender.list_sk_goal_in = lsi; break #Без break goal'ом будет самый дальний от курсора, удовлетворяющий условиям.
+                        if tgl: sender.list_sk_goal_in = lsi
+                        break #Без break'а goal'ом будет самый дальний от курсора, удовлетворяющий условиям.
                     #Финальная проверка на корректность
-                    if sender.list_sk_goal_in:#and(sender.list_sk_goal_out):
+                    if sender.list_sk_goal_in:
                         if (sender.list_sk_goal_out[1].node==sender.list_sk_goal_in[1].node): sender.list_sk_goal_in = []
                         elif (sender.list_sk_goal_out[1].is_linked):
                             for lk in sender.list_sk_goal_out[1].links:
@@ -463,67 +465,95 @@ list_shader_shader_with_color = ['BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','B
         'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER']
 def VoronoiPreviewer_DoPreview(context,goalSk):
     def GetSocketIndex(socket): return int(socket.path_from_id().split('.')[-1].split('[')[-1][:-1])
-    def GetTreesWay(context,nd):
-        way = []; nds = []; wyc_tree = context.space_data.node_tree; lim = 0
-        while (wyc_tree!=context.space_data.edit_tree)and(lim<64):
-            way.insert(0,wyc_tree); nds.insert(0,wyc_tree.nodes.active); wyc_tree = wyc_tree.nodes.active.node_tree; lim += 1
-        way.insert(0,wyc_tree); nds.insert(0,nd); return way, nds
+    def GetTrueTreeWay(context,nd):
+        #Идею рекурсивного нахождения пути через активный нод дерева я взял у NodeWrangler'a его функции "get_active_tree(context)"
+        #которая использовала "while tree.nodes.active != context.active_node:" (строка 613 версии 3.43).
+        #Этот способ имеет недостатки, ибо активным нодом может оказаться не нод-группа, банально тем что можно открыть два окна редактора узлов и спокойно нарушить этот "путь".
+        #Я мирился с этим маленьким и редким недостатком до того, пока в один прекрасный момент не возмутился от странности этого метода.
+        #После отправился на сёрфинг api документации и открытого исходного кода. Результатом было банальное обнаружение ".space_data.path"
+        #См. https://docs.blender.org/api/current/bpy.types.SpaceNodeEditorPath.html
+        #Это "честный" api, дающий доступ у редактора узлов к пути от базы и до финального дерева, отображаемого прямо сейчас.
+        #Официальный аддон, что встроен в Блендер по умолчанию, использует столь странный, похожий на костыль метод получения пути?
+        way_trnd = []
+        if False: #bad way by parody on NodeWrangler
+            wyc_tree = context.space_data.node_tree; lim = 0 #lim'ит нужен для предохранителя вечного цикла.
+            while (wyc_tree!=context.space_data.edit_tree)and(lim<64):
+                way_trnd.insert(0,(wyc_tree,wyc_tree.nodes.active)); wyc_tree = wyc_tree.nodes.active.node_tree; lim += 1
+            way_trnd.insert(0,(wyc_tree,nd))
+        else: #best way by my study of the api docs
+            #Как я понимаю, сама суть реализации редактора узлов не хранит нод, через который пользователь зашёл в группу.
+            way_trnd = [[pn.node_tree,pn.node_tree.nodes.active] for pn in reversed(context.space_data.path)]
+            #Поэтому если активным оказалась не нод-группа, то заменить на первого по имени (или ничего, если не найдено)
+            for cyc in range(1,length(way_trnd)):
+                wtn = way_trnd[cyc]
+                if (wtn[1]==None)or(wtn[1].type!='GROUP')or(wtn[1].node_tree!=way_trnd[cyc-1][0]):
+                    wtn[1] = None #Если не найден, то останется имеющийся неправильный. Поэтому обнулить его.
+                    for nd in wtn[0].nodes:
+                        if (nd.type=='GROUP')and(nd.node_tree==way_trnd[cyc-1][0]):
+                            wtn[1] = nd; break
+        return way_trnd
+    #Удалить все свои следы предыдущего использования для нод-групп текущего типа редактора
     for ng in bpy.data.node_groups:
         if ng.type==context.space_data.node_tree.type:
             sk = ng.outputs.get('voronoi_preview')
             if sk!=None: ng.outputs.remove(sk)
     cur_tree = context.space_data.edit_tree
-    list_way_tree, list_way_nodes = GetTreesWay(context,goalSk.node); hig_way = len(list_way_tree)-1; ix_sk_last_used = -1; is_zero_preview_gen = True
+    list_way_trnd = GetTrueTreeWay(context,goalSk.node); hig_way = len(list_way_trnd)-1; ix_sk_last_used = -1; is_zero_preview_gen = True
     for cyc in range(hig_way+1):
+        if list_way_trnd[cyc][1]==None: continue #Проверка по той же причине, по которой мне не нравился способ от NW.
         node_in = None; sock_out = None; sock_in = None
         #Найти принимающий нод текущего уровня
         if cyc!=hig_way:
-            for nd in list_way_tree[cyc].nodes:
+            for nd in list_way_trnd[cyc][0].nodes:
                 if nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT']:
                     if node_in==None: node_in = nd
                     elif node_in.location>goalSk.node.location: node_in = nd
         else:
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
-                    for nd in list_way_tree[hig_way].nodes:
+                    for nd in list_way_trnd[hig_way][0].nodes:
                         if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT']:
                             sock_in = nd.inputs[(goalSk.name=='Volume')*(nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD'])] if nd.is_active_output else sock_in
                 case 'CompositorNodeTree':
-                    for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='VIEWER') else sock_in
+                    for nd in list_way_trnd[hig_way][0].nodes: sock_in = nd.inputs[0] if (nd.type=='VIEWER') else sock_in
                     if sock_in==None:
-                        for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='COMPOSITE') else sock_in
+                        for nd in list_way_trnd[hig_way][0].nodes: sock_in = nd.inputs[0] if (nd.type=='COMPOSITE') else sock_in
                 case 'GeometryNodeTree':
-                    for nd in list_way_tree[hig_way].nodes:
-                        sock_in = nd.inputs.get('Geometry') if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output) else sock_in
-                        lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']; sock_in = lis[0] if (sock_in==None)and(len(lis)!=0) else sock_in
-                        if sock_in==None:
-                            try: sock_in = nd.inputs[0]
-                            except: pass
+                    for nd in list_way_trnd[hig_way][0].nodes:
+                        if nd.type=='GROUP_OUTPUT':
+                            lis = [sk for sk in nd.inputs if sk.type=='GEOMETRY']
+                            if lis: sock_in = lis[0]; break
+                            else: continue
                 case 'TextureNodeTree':
-                    for nd in list_way_tree[hig_way].nodes: sock_in = nd.inputs[0] if (nd.type=='OUTPUT') else sock_in
-            node_in = sock_in.node if sock_in else None # else None -- если корень не имеет вывода.
+                    for nd in list_way_trnd[hig_way][0].nodes: sock_in = nd.inputs[0] if (nd.type=='OUTPUT') else sock_in
+            if sock_in: node_in = sock_in.node#Иначе корень не имеет вывода.
         #Определить сокет отправляющего нода
         if cyc==0: sock_out = goalSk
-        else: sock_out = list_way_nodes[cyc].outputs.get('voronoi_preview'); sock_out = list_way_nodes[cyc].outputs[ix_sk_last_used] if sock_out==None else sock_out
+        else:
+            sock_out = list_way_trnd[cyc][1].outputs.get('voronoi_preview')
+            if (sock_out==None)and(ix_sk_last_used in range(0,length(list_way_trnd[cyc][1].outputs))): sock_out = list_way_trnd[cyc][1].outputs[ix_sk_last_used]
+            if sock_out==None: continue #Если нод-группа не имеет выходов
         #Определить сокет принимающего нода:
         for sl in sock_out.links:
             if sl.to_node==node_in: sock_in = sl.to_socket; ix_sk_last_used = GetSocketIndex(sock_in)
         if (sock_in==None)and(cyc!=hig_way): # cyc!=hig_way -- если корень потерял вывод.
-            sock_in = list_way_tree[cyc].outputs.get('voronoi_preview')
+            sock_in = list_way_trnd[cyc][0].outputs.get('voronoi_preview')
             if sock_in==None:
                 txt = 'NodeSocketColor' if context.space_data.tree_type!='GeometryNodeTree' else 'NodeSocketGeometry'
                 txt = 'NodeSocketShader' if sock_out.type=='SHADER' else txt
-                list_way_tree[cyc].outputs.new(txt,'voronoi_preview')
-                if node_in==None: node_in = list_way_tree[cyc].nodes.new('NodeGroupOutput'); node_in.location = list_way_nodes[cyc].location; node_in.location.x += list_way_nodes[cyc].width*2
+                list_way_trnd[cyc][0].outputs.new(txt,'voronoi_preview')
+                if node_in==None:
+                    node_in = list_way_trnd[cyc][0].nodes.new('NodeGroupOutput')
+                    node_in.location = list_way_trnd[cyc][1].location; node_in.location.x += list_way_trnd[cyc][1].width*2
                 sock_in = node_in.inputs.get('voronoi_preview'); sock_in.hide_value = True; is_zero_preview_gen = False
         #Удобный сразу-в-шейдер. and(sock_in) -- для если у корня нет вывода
         if (sock_out.type in ('RGBA'))and(cyc==hig_way)and(sock_in)and(len(sock_in.links)!=0):
             if (sock_in.links[0].from_node.type in list_shader_shader_with_color)and(is_zero_preview_gen):
                 if len(sock_in.links[0].from_socket.links)==1: sock_in = sock_in.links[0].from_node.inputs.get('Color')
         #Соединить:
-        nd_va = list_way_tree[cyc].nodes.get('Voronoi_Anchor')
-        if nd_va: list_way_tree[cyc].links.new(sock_out,nd_va.inputs[0]); break #Завершение после напарывания повышает возможности использования якоря.
-        elif (sock_out)and(sock_in)and((sock_in.name=='voronoi_preview')or(cyc==hig_way)): list_way_tree[cyc].links.new(sock_out,sock_in)
+        nd_va = list_way_trnd[cyc][0].nodes.get('Voronoi_Anchor')
+        if nd_va: list_way_trnd[cyc][0].links.new(sock_out,nd_va.inputs[0]); break #Завершение после напарывания повышает возможности использования якоря.
+        elif (sock_out)and(sock_in)and((sock_in.name=='voronoi_preview')or(cyc==hig_way)): list_way_trnd[cyc][0].links.new(sock_out,sock_in)
     #Выделить предпросматриваемый нод:
     if DrawPrefs().vp_select_previewed_node:
         for nd in cur_tree.nodes: nd.select = False
@@ -556,7 +586,7 @@ def VoronoiHiderDrawCallback(sender,context):
             if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal[1],2.2))
             def HiderDrawSk(Sk):
                 txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
-                if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+                if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
             HiderDrawSk(sender.list_sk_goal[1])
 class VoronoiHider(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_hider'; bl_label = 'Voronoi Hider'; bl_options = {'UNDO'}
