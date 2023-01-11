@@ -2,12 +2,12 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,5),'blender':(3,4,0), #10.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,5),'blender':(3,4,1), #10.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
 
-from builtins import len as length, abs, min, max, reversed
+from builtins import len as length
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader as BatchForShader
 from mathutils import Vector; from math import pi, inf, sin, cos, copysign
 
@@ -473,7 +473,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
         #После отправился на сёрфинг api документации и открытого исходного кода. Результатом было банальное обнаружение ".space_data.path"
         #См. https://docs.blender.org/api/current/bpy.types.SpaceNodeEditorPath.html
         #Это "честный" api, дающий доступ у редактора узлов к пути от базы и до финального дерева, отображаемого прямо сейчас.
-        #Официальный аддон, что встроен в Блендер по умолчанию, использует столь странный, похожий на костыль метод получения пути?
+        #Аддон, написанный 5-ю людьми, что встроен в Блендер по умолчанию, использует столь странный похожий на костыль метод получения пути? Может я что-то понимаю не так?
         way_trnd = []
         if False: #bad way by parody on NodeWrangler
             wyc_tree = context.space_data.node_tree; lim = 0 #lim'ит нужен для предохранителя вечного цикла.
@@ -481,7 +481,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 way_trnd.insert(0,(wyc_tree,wyc_tree.nodes.active)); wyc_tree = wyc_tree.nodes.active.node_tree; lim += 1
             way_trnd.insert(0,(wyc_tree,nd))
         else: #best way by my study of the api docs
-            #Как я понимаю, сама суть реализации редактора узлов не хранит нод, через который пользователь зашёл в группу.
+            #Как я могу судить, сама суть реализации редактора узлов не хранит нод, через который пользователь зашёл в группу.
             way_trnd = [[pn.node_tree,pn.node_tree.nodes.active] for pn in reversed(context.space_data.path)]
             #Поэтому если активным оказалась не нод-группа, то заменить на первого по имени (или ничего, если не найдено)
             for cyc in range(1,length(way_trnd)):
@@ -526,7 +526,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                             else: continue
                 case 'TextureNodeTree':
                     for nd in list_way_trnd[hig_way][0].nodes: sock_in = nd.inputs[0] if (nd.type=='OUTPUT') else sock_in
-            if sock_in: node_in = sock_in.node#Иначе корень не имеет вывода.
+            if sock_in: node_in = sock_in.node #Иначе корень не имеет вывода.
         #Определить сокет отправляющего нода
         if cyc==0: sock_out = goalSk
         else:
