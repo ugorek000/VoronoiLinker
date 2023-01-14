@@ -317,8 +317,8 @@ class VoronoiMixer(bpy.types.Operator):
                         if len(dm)!=0:
                             if (DrawPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
                             else:
-                                if DrawPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='node.VM_MT_voronoi_mixer_menu')
-                                else: bpy.ops.wm.call_menu(name='node.VM_MT_voronoi_mixer_menu')
+                                if DrawPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='VM_MT_voronoi_mixer_menu')
+                                else: bpy.ops.wm.call_menu(name='VM_MT_voronoi_mixer_menu')
                     except: pass
                     return {'FINISHED'}
                 else: return {'CANCELLED'}
@@ -388,7 +388,7 @@ dict_mixer_main = {
         'TextureNodeTree':{'VALUE':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture'],'RGBA':['TextureNodeMixRGB','TextureNodeTexture'],
                 'VECTOR':['TextureNodeMixRGB','TextureNodeDistance'],'INT':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture']}}
 class VoronoiMixerMenu(bpy.types.Menu):
-    bl_idname = 'node.VM_MT_voronoi_mixer_menu'; bl_label = ''
+    bl_idname = 'VM_MT_voronoi_mixer_menu'; bl_label = ''
     def draw(self,context):
         who = self.layout.menu_pie() if DrawPrefs().vm_menu_style=='Pie' else self.layout
         who.label(text=dict_mixer_user_sk_name.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
