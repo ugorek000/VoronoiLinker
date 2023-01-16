@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,5),'blender':(3,4,1), #10.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,6),'blender':(3,4,1), #16.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
@@ -141,7 +141,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
                     elif ((nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))==False)or((wh.name in ('Subsurface Radius','Radius'))==False): sk_loc_car.y += 30*2; muv = 3
                 goal_pos = sk_loc_car.copy()
                 # skHigLigHei так же учитывает текущую высоту мульти-инпута подсчётом количества соединений, но только для входов
-                list_whom.append(((pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+max(length(wh.links)-2,0)*5*(side_mark==-1))))
+                list_whom.append([(pick_pos-sk_loc_car).length,wh,goal_pos,(goal_pos.y-11-muv*20,goal_pos.y+11+max(length(wh.links)-2,0)*5*(side_mark==-1))])
                 #Сдвинуть до следующего на своё направление
                 sk_loc_car.y -= 22*side_mark
         return list_whom
@@ -207,8 +207,7 @@ class VoronoiLinker(bpy.types.Operator):
                         tgl = (tgl)or((skin.bl_idname=='NodeSocketVirtual')^(skout.bl_idname=='NodeSocketVirtual'))
                         #Если имена типов одинаковые, но не виртуальные
                         tgl = (tgl)or(skin.bl_idname==skout.bl_idname)and(not((skin.bl_idname=='NodeSocketVirtual')and(skout.bl_idname=='NodeSocketVirtual')))
-                        if tgl: sender.list_sk_goal_in = lsi
-                        break #Без break'а goal'ом будет самый дальний от курсора, удовлетворяющий условиям.
+                        if tgl: sender.list_sk_goal_in = lsi; break #Без break'а goal'ом будет самый дальний от курсора, удовлетворяющий условиям.
                     #Финальная проверка на корректность
                     if sender.list_sk_goal_in:
                         if (sender.list_sk_goal_out[1].node==sender.list_sk_goal_in[1].node): sender.list_sk_goal_in = []
@@ -399,7 +398,7 @@ def VoronoiPreviewerDrawCallback(sender,context):
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
     if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
-    if (sender.list_sk_goal_out==[]):
+    if (sender.list_sk_goal_out==[])or(sender.list_sk_goal_out[1]==None): #Второе условие -- для (1).
         if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out[1],sender.list_sk_goal_out[3],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
@@ -435,14 +434,16 @@ class VoronoiPreviewer(bpy.types.Operator):
                     tgl = (skout.bl_idname!='NodeSocketVirtual')and(context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')
                     if tgl: sender.list_sk_goal_out = lso; break
                 break
-        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1])
+        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out):
+            sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1]) 
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE': VoronoiPreviewer.NextAssign(self,context)
             case 'LEFTMOUSE'|'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
-                if (event.value=='RELEASE')and(self.list_sk_goal_out): VoronoiPreviewer_DoPreview(context,self.list_sk_goal_out[1]); return {'FINISHED'}
+                if (event.value=='RELEASE')and(self.list_sk_goal_out):
+                    self.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,self.list_sk_goal_out[1]); return {'FINISHED'}
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
@@ -461,12 +462,12 @@ class VoronoiPreviewer(bpy.types.Operator):
             self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiPreviewerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
             context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
-list_shader_shader_with_color = ['BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
+list_shader_shaders_with_color = ['BSDF_ANISOTROPIC','BSDF_DIFFUSE','EMISSION','BSDF_GLASS','BSDF_GLOSSY','BSDF_HAIR','BSDF_HAIR_PRINCIPLED','PRINCIPLED_VOLUME','BACKGROUND',
         'BSDF_REFRACTION','SUBSURFACE_SCATTERING','BSDF_TOON','BSDF_TRANSLUCENT','BSDF_TRANSPARENT','BSDF_VELVET','VOLUME_ABSORPTION','VOLUME_SCATTER']
 def VoronoiPreviewer_DoPreview(context,goalSk):
     def GetSocketIndex(socket): return int(socket.path_from_id().split('.')[-1].split('[')[-1][:-1])
     def GetTrueTreeWay(context,nd):
-        #Идею рекурсивного нахождения пути через активный нод дерева я взял у NodeWrangler'a его функции "get_active_tree(context)"
+        #Идею рекурсивного нахождения пути через активный нод дерева я взял у NodeWrangler'a его функции "get_active_tree"
         #которая использовала "while tree.nodes.active != context.active_node:" (строка 613 версии 3.43).
         #Этот способ имеет недостатки, ибо активным нодом может оказаться не нод-группа, банально тем что можно открыть два окна редактора узлов и спокойно нарушить этот "путь".
         #Я мирился с этим маленьким и редким недостатком до того, пока в один прекрасный момент не возмутился от странности этого метода.
@@ -481,7 +482,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                 way_trnd.insert(0,(wyc_tree,wyc_tree.nodes.active)); wyc_tree = wyc_tree.nodes.active.node_tree; lim += 1
             way_trnd.insert(0,(wyc_tree,nd))
         else: #best way by my study of the api docs
-            #Как я могу судить, сама суть реализации редактора узлов не хранит нод, через который пользователь зашёл в группу.
+            #Как я могу судить, сама суть реализации редактора узлов не хранит нод, через который пользователь зашёл в группу (Но это не точно).
             way_trnd = [[pn.node_tree,pn.node_tree.nodes.active] for pn in reversed(context.space_data.path)]
             #Поэтому если активным оказалась не нод-группа, то заменить на первого по имени (или ничего, если не найдено)
             for cyc in range(1,length(way_trnd)):
@@ -492,11 +493,19 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                         if (nd.type=='GROUP')and(nd.node_tree==way_trnd[cyc-1][0]):
                             wtn[1] = nd; break
         return way_trnd
+    #Для (1):
+    def GetSkIndex(sk): return int(sk.path_from_id().split('.')[-1].split('[')[-1][:-1])
+    skix = GetSkIndex(goalSk)
     #Удалить все свои следы предыдущего использования для нод-групп текущего типа редактора
     for ng in bpy.data.node_groups:
         if ng.type==context.space_data.node_tree.type:
             sk = ng.outputs.get('voronoi_preview')
             if sk!=None: ng.outputs.remove(sk)
+    #(1)Переполучить сокет. Нужен для ситуациях присасывания к сокетам "voronoi_preview", которые исчезли
+    goalSk = goalSk.node.outputs[skix] if skix<length(goalSk.node.outputs) else None
+    #Если неудача, то выйти
+    if goalSk==None: return None
+    #Иначе выстроить путь:
     cur_tree = context.space_data.edit_tree
     list_way_trnd = GetTrueTreeWay(context,goalSk.node); hig_way = len(list_way_trnd)-1; ix_sk_last_used = -1; is_zero_preview_gen = True
     for cyc in range(hig_way+1):
@@ -546,9 +555,9 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                     node_in = list_way_trnd[cyc][0].nodes.new('NodeGroupOutput')
                     node_in.location = list_way_trnd[cyc][1].location; node_in.location.x += list_way_trnd[cyc][1].width*2
                 sock_in = node_in.inputs.get('voronoi_preview'); sock_in.hide_value = True; is_zero_preview_gen = False
-        #Удобный сразу-в-шейдер. and(sock_in) -- для если у корня нет вывода
+        #Удобный сразу-в-шейдер. "and(sock_in)" -- если у корня нет вывода
         if (sock_out.type in ('RGBA'))and(cyc==hig_way)and(sock_in)and(len(sock_in.links)!=0):
-            if (sock_in.links[0].from_node.type in list_shader_shader_with_color)and(is_zero_preview_gen):
+            if (sock_in.links[0].from_node.type in list_shader_shaders_with_color)and(is_zero_preview_gen):
                 if len(sock_in.links[0].from_socket.links)==1: sock_in = sock_in.links[0].from_node.inputs.get('Color')
         #Соединить:
         nd_va = list_way_trnd[cyc][0].nodes.get('Voronoi_Anchor')
@@ -558,6 +567,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
     if DrawPrefs().vp_select_previewed_node:
         for nd in cur_tree.nodes: nd.select = False
         cur_tree.nodes.active = goalSk.node; goalSk.node.select = True
+    return goalSk #Возвращать сокет. Нужно для (1).
 
 def VoronoiHiderDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
