@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,6),'blender':(3,4,1), #16.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,7),'blender':(3,4,1), #18.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
@@ -360,9 +360,11 @@ def DoMix(context,who):
                 foundSkList = [sk for sk in (reversed(active_nd.inputs) if tgl else active_nd.inputs) if sk.type==dict_mixer_mix_int.get(mixerSkTyp[0],mixerSkTyp[0])]
                 tree.links.new(mixerSks[0],foundSkList[tgl]); tree.links.new(mixerSks[1],foundSkList[not tgl])
             case _:
-                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input: tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
+                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input:
+                    tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
                 tree.links.new(mixerSks[0],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]])
-                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input==False: tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
+                if active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][0]].is_multi_input==False:
+                    tree.links.new(mixerSks[1],active_nd.inputs[dict_mixer_defs[active_nd.bl_idname][1]])
 class VoronoiMixerMixer(bpy.types.Operator):
     bl_idname = 'node.voronoi_mixer_mixer'; bl_label = 'Voronoi Mixer Mixer'; bl_options = {'UNDO'}
     who: bpy.props.StringProperty()
@@ -434,16 +436,14 @@ class VoronoiPreviewer(bpy.types.Operator):
                     tgl = (skout.bl_idname!='NodeSocketVirtual')and(context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')
                     if tgl: sender.list_sk_goal_out = lso; break
                 break
-        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out):
-            sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1]) 
+        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1]) 
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE': VoronoiPreviewer.NextAssign(self,context)
             case 'LEFTMOUSE'|'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
-                if (event.value=='RELEASE')and(self.list_sk_goal_out):
-                    self.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,self.list_sk_goal_out[1]); return {'FINISHED'}
+                if (event.value=='RELEASE')and(self.list_sk_goal_out): self.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,self.list_sk_goal_out[1]); return {'FINISHED'}
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
@@ -514,9 +514,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
         #Найти принимающий нод текущего уровня
         if cyc!=hig_way:
             for nd in list_way_trnd[cyc][0].nodes:
-                if nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT']:
-                    if node_in==None: node_in = nd
-                    elif node_in.location>goalSk.node.location: node_in = nd
+                if (nd.type in ['GROUP_OUTPUT','OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','COMPOSITE','OUTPUT'])and(nd.is_active_output): node_in = nd
         else:
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
