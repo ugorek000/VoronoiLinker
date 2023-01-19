@@ -123,7 +123,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
     #Если рероут, то имеем простой вариант не требующий вычисления; вход и выход всего одни, позиция сокета -- он сам
     if nd.bl_idname=='NodeReroute':
         len = Vector(pick_pos-nd_location).length
-        list_socket_in.append((len,nd.inputs[0],nd_location,(-1,-1))); list_socket_out.append((len,nd.outputs[0],nd_location,(-1,-1)))
+        list_socket_in.append([len,nd.inputs[0],nd_location,(-1,-1)]); list_socket_out.append([len,nd.outputs[0],nd_location,(-1,-1)])
         return list_socket_in, list_socket_out
     def GetFromPut(side_mark,who_puts):
         list_whom = []
@@ -436,7 +436,7 @@ class VoronoiPreviewer(bpy.types.Operator):
                     tgl = (skout.bl_idname!='NodeSocketVirtual')and(context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')
                     if tgl: sender.list_sk_goal_out = lso; break
                 break
-        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1]) 
+        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1])
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
