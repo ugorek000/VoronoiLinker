@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,7),'blender':(3,4,1), #18.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,8),'blender':(3,4,1), #20.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RBM','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
@@ -509,7 +509,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
     cur_tree = context.space_data.edit_tree
     list_way_trnd = GetTrueTreeWay(context,goalSk.node); hig_way = len(list_way_trnd)-1; ix_sk_last_used = -1; is_zero_preview_gen = True
     for cyc in range(hig_way+1):
-        if list_way_trnd[cyc][1]==None: continue #Проверка по той же причине, по которой мне не нравился способ от NW.
+        if (list_way_trnd[cyc][1]==None)and(cyc>0): continue #Проверка по той же причине по которой мне не нравился способ от NW.
         node_in = None; sock_out = None; sock_in = None
         #Найти принимающий нод текущего уровня
         if cyc!=hig_way:
