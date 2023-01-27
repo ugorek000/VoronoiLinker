@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,7,9),'blender':(3,4,1), #22.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,0),'blender':(3,4,1), #27.01.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
@@ -147,7 +147,7 @@ def GenNearestSocketsList(nd,pick_pos): #Выдаёт список "ближай
         return list_whom
     list_socket_in = GetFromPut(-1,reversed(nd.inputs))
     list_socket_out = GetFromPut(1,nd.outputs)
-    list_socket_in.sort(); list_socket_out.sort()
+    list_socket_in.sort(key=lambda list_socket_in:list_socket_in[0]); list_socket_out.sort(key=lambda list_socket_out:list_socket_out[0])
     return list_socket_in,list_socket_out
 list_sk_perms = ['VALUE','RGBA','VECTOR','INT','BOOLEAN']
 
@@ -415,12 +415,12 @@ def VoronoiPreviewerDrawCallback(sender,context):
 class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_previewer'; bl_label = 'Voronoi Previewer'; bl_options = {'UNDO'}
     def NextAssign(sender,context):
-        pick_pos = context.space_data.cursor_location
-        list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
+        pick_pos = context.space_data.cursor_location; list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
+        ancohor_exist = context.space_data.edit_tree.nodes.get('Voronoi_Anchor')!=None #Если в геонодах есть якорь, то не триггериться только на геосокеты.
         for li in list_nodes:
             nd = li[1]
             #Если в геометрических нодах, игнорировать ноды без выводов геометрии
-            if (context.space_data.tree_type=='GeometryNodeTree'):
+            if (context.space_data.tree_type=='GeometryNodeTree')and(ancohor_exist==False):
                 if [ndo for ndo in nd.outputs if ndo.type=='GEOMETRY']==[]: continue
             #Стандартное условие
             tgl = (nd.type!='FRAME')and((nd.hide==False)or(nd.type=='REROUTE'))
@@ -433,7 +433,7 @@ class VoronoiPreviewer(bpy.types.Operator):
                 for lso in list_socket_out:
                     skout = lso[1]
                     #Этот инструмент триггерится на любой выход кроме виртуального. В геометрических нодах искать только выходы геометрии
-                    tgl = (skout.bl_idname!='NodeSocketVirtual')and(context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')
+                    tgl = (skout.bl_idname!='NodeSocketVirtual')and((context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')or(ancohor_exist))
                     if tgl: sender.list_sk_goal_out = lso; break
                 break
         if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1])
