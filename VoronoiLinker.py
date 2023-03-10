@@ -614,7 +614,6 @@ class VoronoiHider(bpy.types.Operator):
                 sender.list_nd_goal = li
                 list_socket_in,list_socket_out = GenNearestSocketsList(nd,pick_pos)
                 def MucGetNotLinked(list_sks):
-                    print(list_sks)
                     for sk in list_sks:
                         if sk[1].is_linked==False: return sk
                     return None
@@ -633,8 +632,7 @@ class VoronoiHider(bpy.types.Operator):
                 if (event.is_repeat==False)and(event.value=='RELEASE'):
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                     if self.is_target_node==False:
-                        if self.list_sk_goal:
-                            self.list_sk_goal[1].hide = True
+                        if self.list_sk_goal: self.list_sk_goal[1].hide = True
                     elif self.list_nd_goal:
                         for ni in self.list_nd_goal[1].inputs: ni.hide = False
                         for no in self.list_nd_goal[1].outputs: no.hide = False
@@ -686,7 +684,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     def draw(self,context):
         col0 = self.layout.column()
         col1 = col0.column(align=True); col1.prop(self,'va_allow_classic_compos_viewer'); col1.prop(self,'va_allow_classic_geo_viewer')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw setiings:')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw settings:')
         col1.prop(self,'ds_point_offset_x'); col1.prop(self,'ds_text_frame_offset'); col1.prop(self,'ds_font_size'); box = col1.box(); box.prop(self,'a_display_advanced')
         if self.a_display_advanced:
             col2 = box.column(); col3 = col2.column(align=True); col3.prop(self,'ds_line_width'); col3.prop(self,'ds_point_radius'); col3.prop(self,'ds_point_resolution')
@@ -701,12 +699,11 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         row = col1.row(align=True); row.prop(self,'ds_is_draw_line'); row.prop(self,'ds_is_colored_line')
         row = col1.row(align=True); row.prop(self,'ds_is_draw_area'); row.prop(self,'ds_is_colored_area')
         col1.prop(self,'ds_text_style'); col1.prop(self,'vlds_is_always_line')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer setiings:'); col1.prop(self,'vm_menu_style'); col1.prop(self,'vm_is_one_skip')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview setiings:')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer settings:'); col1.prop(self,'vm_menu_style'); col1.prop(self,'vm_is_one_skip')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview settings:')
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
-        box = col0.box(); col1 = box.column(align=True); col1.label(text='Hider setiings:')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Hider settings:')
         col1.prop(self,'vh_draw_text_for_unhide')
-        
 
 
 list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,VoronoiAddonPrefs]; list_addon_keymaps = []
