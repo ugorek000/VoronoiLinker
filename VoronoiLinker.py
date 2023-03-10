@@ -2,9 +2,10 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,0),'blender':(3,4,1), #27.01.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,1),'blender':(3,4,1), #11.03.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
+#Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
 #This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
 
 from builtins import len as length
@@ -448,7 +449,12 @@ class VoronoiPreviewer(bpy.types.Operator):
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
-        if (context.space_data.tree_type in ['GeometryNodeTree','CompositorNodeTree'])and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')): return {'PASS_THROUGH'}
+        if ('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
+            match context.space_data.tree_type:
+                case 'GeometryNodeTree':
+                    if DrawPrefs().va_allow_classic_geo_viewer: return {'PASS_THROUGH'}
+                case 'CompositorNodeTree':
+                    if DrawPrefs().va_allow_classic_compos_viewer: return {'PASS_THROUGH'}
         if (event.type=='RIGHTMOUSE')^DrawPrefs().vm_preview_hk_inverse:
             nodes = context.space_data.edit_tree.nodes
             for nd in nodes: nd.select = False
@@ -494,6 +500,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
                             wtn[1] = nd; break
         return way_trnd
     #Для (1):
+    if not goalSk: return None
     def GetSkIndex(sk): return int(sk.path_from_id().split('.')[-1].split('[')[-1][:-1])
     skix = GetSkIndex(goalSk)
     #Удалить все свои следы предыдущего использования для нод-групп текущего типа редактора
@@ -579,7 +586,7 @@ def VoronoiHiderDrawCallback(sender,context):
             wp = PreparGetWP(sender.list_nd_goal[2]*gv_uifac[0],0); col = (1,1,1,1)
             if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
             if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1])
-            if DrawPrefs().ds_is_draw_sk_text:
+            if DrawPrefs().vh_draw_text_for_unhide:
                 lbl = sender.list_nd_goal[1].label; l_ys = [.25,-1.25] if lbl else [-.5,-.5]
                 DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[0],sender.list_nd_goal[1].name,(1,1,1,1))
                 if lbl: DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[1],lbl,(1,1,1,1))
@@ -606,7 +613,12 @@ class VoronoiHider(bpy.types.Operator):
             if not nd.type in ['FRAME','REROUTE']:
                 sender.list_nd_goal = li
                 list_socket_in,list_socket_out = GenNearestSocketsList(nd,pick_pos)
-                skin = list_socket_in[0] if list_socket_in else None; skout = list_socket_out[0] if list_socket_out else None
+                def MucGetNotLinked(list_sks):
+                    print(list_sks)
+                    for sk in list_sks:
+                        if sk[1].is_linked==False: return sk
+                    return None
+                skin = MucGetNotLinked(list_socket_in); skout = MucGetNotLinked(list_socket_out)
                 if (skin)or(skout):
                     if skin==None: sender.list_sk_goal = skout
                     elif skout==None: sender.list_sk_goal = skin
@@ -621,7 +633,8 @@ class VoronoiHider(bpy.types.Operator):
                 if (event.is_repeat==False)and(event.value=='RELEASE'):
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                     if self.is_target_node==False:
-                        if self.list_sk_goal: self.list_sk_goal[1].hide = True
+                        if self.list_sk_goal:
+                            self.list_sk_goal[1].hide = True
                     elif self.list_nd_goal:
                         for ni in self.list_nd_goal[1].inputs: ni.hide = False
                         for no in self.list_nd_goal[1].outputs: no.hide = False
@@ -644,11 +657,11 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     ds_point_resolution: bpy.props.IntProperty(name='Point resolution',default=54,min=3,max=64)
     ds_point_radius: bpy.props.FloatProperty(name='Point radius scale',default=1,min=0,max=3)
     ds_is_draw_sk_text: bpy.props.BoolProperty(name='Draw Text',default=True); ds_is_colored_sk_text: bpy.props.BoolProperty(name='Colored Text',default=True)
-    ds_is_draw_marker: bpy.props.BoolProperty(name='Draw Marker',default=True); ds_is_colored_marker: bpy.props.BoolProperty(name='Colored Marker',default=True)
+    ds_is_draw_marker: bpy.props.BoolProperty(name='Draw Markers',default=True); ds_is_colored_marker: bpy.props.BoolProperty(name='Colored Markers',default=True)
     ds_is_draw_point: bpy.props.BoolProperty(name='Draw Points',default=True); ds_is_colored_point: bpy.props.BoolProperty(name='Colored Points',default=True)
     ds_is_draw_line: bpy.props.BoolProperty(name='Draw Line',default=True); ds_is_colored_line: bpy.props.BoolProperty(name='Colored Line',default=True)
     ds_is_draw_area: bpy.props.BoolProperty(name='Draw Socket Area',default=True); ds_is_colored_area: bpy.props.BoolProperty(name='Colored Socket Area',default=True)
-    ds_text_style: bpy.props.EnumProperty(name='Text Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
+    ds_text_style: bpy.props.EnumProperty(name='Text Frame Style',default='Classic',items={('Classic','Classic',''),('Simplified','Simplified',''),('Text','Only text','')})
     vlds_is_always_line: bpy.props.BoolProperty(name='Always draw line for VoronoiLinker',default=False)
     vm_preview_hk_inverse: bpy.props.BoolProperty(name='Previews hotkey inverse',default=False)
     vm_is_one_skip: bpy.props.BoolProperty(name='One Choise to skip',default=True,
@@ -666,9 +679,14 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     ds_shadow_col: bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
     ds_shadow_offset: bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
     ds_shadow_blur: bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
+    va_allow_classic_compos_viewer: bpy.props.BoolProperty(name='Allow classic compositor viewer',default=False)
+    va_allow_classic_geo_viewer: bpy.props.BoolProperty(name='Allow classic geonodes viewer',default=True)
+    vh_draw_text_for_unhide: bpy.props.BoolProperty(name='Draw text for unhide node',default=False)
     ds_is_draw_debug: bpy.props.BoolProperty(name='draw debug',default=False)
     def draw(self,context):
-        col0 = self.layout.column(); box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw setiings:')
+        col0 = self.layout.column()
+        col1 = col0.column(align=True); col1.prop(self,'va_allow_classic_compos_viewer'); col1.prop(self,'va_allow_classic_geo_viewer')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Draw setiings:')
         col1.prop(self,'ds_point_offset_x'); col1.prop(self,'ds_text_frame_offset'); col1.prop(self,'ds_font_size'); box = col1.box(); box.prop(self,'a_display_advanced')
         if self.a_display_advanced:
             col2 = box.column(); col3 = col2.column(align=True); col3.prop(self,'ds_line_width'); col3.prop(self,'ds_point_radius'); col3.prop(self,'ds_point_resolution')
@@ -686,6 +704,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer setiings:'); col1.prop(self,'vm_menu_style'); col1.prop(self,'vm_is_one_skip')
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview setiings:')
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
+        box = col0.box(); col1 = box.column(align=True); col1.label(text='Hider setiings:')
+        col1.prop(self,'vh_draw_text_for_unhide')
+        
 
 
 list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,VoronoiAddonPrefs]; list_addon_keymaps = []
