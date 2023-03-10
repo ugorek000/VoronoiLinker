@@ -33,7 +33,7 @@ Bonus tool in any Tree Editor:
 
 ---
 
-Version 1.8.0 created on 27.01.2023
+Version 1.8.1 created on 11.03.2023
 
 Reach to autor (Russian):  
 coaltangle@gmail.com  
