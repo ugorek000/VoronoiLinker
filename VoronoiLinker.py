@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,1),'blender':(3,4,1), #11.03.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,2),'blender':(3,4,1), #28.03.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
@@ -27,64 +27,64 @@ def DrawCircleOuter(pos,rd,siz=1,col=(1.0,1.0,1.0,0.75),resolution=16):
 def DrawCircle(pos,rd,col=(1.0,1.0,1.0,0.75),resl=54): DrawAreaFan([(pos[0],pos[1]),*[(rd*cos(i*2*pi/resl)+pos[0],rd*sin(i*2*pi/resl)+pos[1]) for i in range(resl+1)]],col,True)
 def DrawWidePoint(pos,rd,colfac=Vector((1,1,1,1))):
     col1 = Vector((0.5,0.5,0.5,0.4)); col2 = Vector((0.5,0.5,0.5,0.4)); col3 = Vector((1,1,1,1))
-    colfac = colfac if DrawPrefs().ds_is_colored_point else Vector((1,1,1,1)); rd = (rd*rd+10)**.5; rs = DrawPrefs().ds_point_resolution
+    colfac = colfac if GetAddonPrefs().ds_is_colored_point else Vector((1,1,1,1)); rd = (rd*rd+10)**.5; rs = GetAddonPrefs().ds_point_resolution
     DrawCircle(pos,rd+3,col1*colfac,rs); DrawCircle(pos,rd,col2*colfac,rs); DrawCircle(pos,rd/1.5,col3*colfac,rs)
 def DrawRectangle(ps1,ps2,cl): DrawAreaFan([(ps1[0],ps1[1]),(ps2[0],ps1[1]),(ps2[0],ps2[1]),(ps1[0],ps2[1])],cl,False)
 def DrawRectangleOnSocket(sk,stEn,colfac=Vector((1,1,1,1))):
-    if DrawPrefs().ds_is_draw_area==False: return
-    loc = RecrGetNodeFinalLoc(sk.node).copy()*gv_uifac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*gv_uifac[0]); colfac = colfac if DrawPrefs().ds_is_colored_area else Vector((1,1,1,1))
+    if GetAddonPrefs().ds_is_draw_area==False: return
+    loc = RecrGetNodeFinalLoc(sk.node).copy()*gv_uifac[0]; pos1 = PosViewToReg(loc.x,stEn[0]*gv_uifac[0]); colfac = colfac if GetAddonPrefs().ds_is_colored_area else Vector((1,1,1,1))
     pos2 = PosViewToReg(loc.x+sk.node.dimensions.x,stEn[1]*gv_uifac[0]); DrawRectangle(pos1,pos2,Vector((1.0,1.0,1.0,0.075))*colfac)
 def DrawIsLinked(loc,ofsx,ofsy,sk_col):
-    ofsx += ((20+DrawPrefs().ds_text_dist_from_cursor)*1.5+DrawPrefs().ds_text_frame_offset)*copysign(1,ofsx)+4
-    if DrawPrefs().ds_is_draw_marker==False: return
+    ofsx += ((20+GetAddonPrefs().ds_text_dist_from_cursor)*1.5+GetAddonPrefs().ds_text_frame_offset)*copysign(1,ofsx)+4
+    if GetAddonPrefs().ds_is_draw_marker==False: return
     vec = PosViewToReg(loc.x,loc.y); gc = 0.65; col1 = (0,0,0,0.5); col2 = (gc,gc,gc,max(max(sk_col[0],sk_col[1]),sk_col[2])*.9); col3 = (sk_col[0],sk_col[1],sk_col[2],.925)
     DrawCircleOuter([vec[0]+ofsx+1.5,vec[1]+3.5+ofsy],9.0,3.0,col1); DrawCircleOuter([vec[0]+ofsx-3.5,vec[1]-5+ofsy],9.0,3.0,col1)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,3.0,col2); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,3.0,col2)
     DrawCircleOuter([vec[0]+ofsx,vec[1]+5+ofsy],9.0,1.0,col3); DrawCircleOuter([vec[0]+ofsx-5,vec[1]-3.5+ofsy],9.0,1.0,col3)
 def DrawText(pos,ofsx,ofsy,txt,draw_col):
-    isdrsh = DrawPrefs().ds_is_draw_sk_text_shadow
+    isdrsh = GetAddonPrefs().ds_is_draw_sk_text_shadow
     if isdrsh:
-        blf.enable(gv_font_id[0],blf.SHADOW); sdcol = DrawPrefs().ds_shadow_col; blf.shadow(gv_font_id[0],[0,3,5][DrawPrefs().ds_shadow_blur],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
-        sdofs = DrawPrefs().ds_shadow_offset; blf.shadow_offset(gv_font_id[0],sdofs[0],sdofs[1])
+        blf.enable(gv_font_id[0],blf.SHADOW); sdcol = GetAddonPrefs().ds_shadow_col; blf.shadow(gv_font_id[0],[0,3,5][GetAddonPrefs().ds_shadow_blur],sdcol[0],sdcol[1],sdcol[2],sdcol[3])
+        sdofs = GetAddonPrefs().ds_shadow_offset; blf.shadow_offset(gv_font_id[0],sdofs[0],sdofs[1])
     else: blf.disable(gv_font_id[0],blf.SHADOW)
-    tof = DrawPrefs().ds_text_frame_offset; txsz = DrawPrefs().ds_font_size; blf.size(gv_font_id[0],txsz,72)
+    tof = GetAddonPrefs().ds_text_frame_offset; txsz = GetAddonPrefs().ds_font_size; blf.size(gv_font_id[0],txsz,72)
     txdim = [blf.dimensions(gv_font_id[0],txt)[0],blf.dimensions(gv_font_id[0],'█')[1]]
     pos = [pos[0]-(txdim[0]+tof+10)*(ofsx<0)+(tof+1)*(ofsx>-1),pos[1]+tof]; pw = 1/1.975
     muv = round((txdim[1]+tof*2)*ofsy)
     pos1 = [pos[0]+ofsx-tof,pos[1]+muv-tof]; pos2 = [pos[0]+ofsx+10+txdim[0]+tof,pos[1]+muv+txdim[1]+tof]
     list = [.4,.55,.7,.85,1]; uh = 1/len(list)*(txdim[1]+tof*2)
-    if DrawPrefs().ds_text_style=='Classic':
+    if GetAddonPrefs().ds_text_style=='Classic':
         for cyc in range(len(list)): DrawRectangle([pos1[0],pos1[1]+cyc*uh],[pos2[0],pos1[1]+cyc*uh+uh],(draw_col[0]/2,draw_col[1]/2,draw_col[2]/2,list[cyc]))
         col = (draw_col[0]**pw,draw_col[1]**pw,draw_col[2]**pw,1)
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col); DrawLine([pos2[0],pos1[1]],pos2,1,col,col)
         DrawLine(pos2,[pos1[0],pos2[1]],1,col,col); DrawLine([pos1[0],pos2[1]],pos1,1,col,col)
-        col = (col[0],col[1],col[2],.375); thS = DrawPrefs().ds_text_lineframe_offset
+        col = (col[0],col[1],col[2],.375); thS = GetAddonPrefs().ds_text_lineframe_offset
         DrawLine(pos1,[pos2[0],pos1[1]],1,col,col,[0,-thS]); DrawLine([pos2[0],pos1[1]],pos2,1,col,col,[+thS,0])
         DrawLine(pos2,[pos1[0],pos2[1]],1,col,col,[0,+thS]); DrawLine([pos1[0],pos2[1]],pos1,1,col,col,[-thS,0])
         DrawLine([pos1[0]-thS,pos1[1]],[pos1[0],pos1[1]-thS],1,col,col); DrawLine([pos2[0]+thS,pos1[1]],[pos2[0],pos1[1]-thS],1,col,col)
         DrawLine([pos2[0]+thS,pos2[1]],[pos2[0],pos2[1]+thS],1,col,col); DrawLine([pos1[0]-thS,pos2[1]],[pos1[0],pos2[1]+thS],1,col,col)
-    elif DrawPrefs().ds_text_style=='Simplified':
+    elif GetAddonPrefs().ds_text_style=='Simplified':
         DrawRectangle([pos1[0],pos1[1]],[pos2[0],pos2[1]],(draw_col[0]/2.4,draw_col[1]/2.4,draw_col[2]/2.4,.8)); col = (.1,.1,.1,.95)
         DrawLine(pos1,[pos2[0],pos1[1]],2,col,col); DrawLine([pos2[0],pos1[1]],pos2,2,col,col)
         DrawLine(pos2,[pos1[0],pos2[1]],2,col,col); DrawLine([pos1[0],pos2[1]],pos1,2,col,col)
     blf.position(gv_font_id[0],pos[0]+ofsx+3.5,pos[1]+muv+txdim[1]*.3,0); blf.color(gv_font_id[0],draw_col[0]**pw,draw_col[1]**pw,draw_col[2]**pw,1.0); blf.draw(gv_font_id[0],txt)
     return [txdim[0]+tof,txdim[1]+tof*2]
 def DrawSkText(pos,ofsx,ofsy,Sk):
-    if DrawPrefs().ds_is_draw_sk_text==False: return [0,0]
+    if GetAddonPrefs().ds_is_draw_sk_text==False: return [0,0]
     try: sk_col = GetSkCol(Sk)
     except: sk_col = (1,0,0,1)
-    sk_col = sk_col if DrawPrefs().ds_is_colored_sk_text else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
+    sk_col = sk_col if GetAddonPrefs().ds_is_colored_sk_text else (.9,.9,.9,1); txt = Sk.name if Sk.bl_idname!='NodeSocketVirtual' else 'Virtual'
     return DrawText(pos,ofsx,ofsy,txt,sk_col)
 
 def GetSkCol(Sk): return Sk.draw_color(bpy.context,Sk.node)
 def Vec4Pow(vec,pw): return Vector((vec.x**pw,vec.y**pw,vec.z**pw,vec.w**pw))
 def GetSkVecCol(Sk,apw): return Vec4Pow(Vector(Sk.draw_color(bpy.context,Sk.node)),1/apw)
 
-def DrawPrefs(): return bpy.context.preferences.addons[__name__ if __name__!='__main__' else 'VoronoiLinker'].preferences
+def GetAddonPrefs(): return bpy.context.preferences.addons[__name__ if __name__!='__main__' else 'VoronoiLinker'].preferences
 def SetFont(): gv_font_id[0] = blf.load(r'C:\Windows\Fonts\consola.ttf'); gv_font_id[0] = 0 if gv_font_id[0]==-1 else gv_font_id[0] #for change Blender themes
 def PosViewToReg(x,y): return bpy.context.region.view2d.view_to_region(x,y,clip=False)
 
-def PreparGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*DrawPrefs().ds_point_radius,loc.y)[0]-pos[0]; return pos,rd
+def PreparGetWP(loc,offsetx): pos = PosViewToReg(loc.x+offsetx,loc.y); rd = PosViewToReg(loc.x+offsetx+6*GetAddonPrefs().ds_point_radius,loc.y)[0]-pos[0]; return pos,rd
 def DebugDrawCallback(sender,context):
     def DrawDbText(pos,txt,r=1,g=1,b=1): blf.size(gv_font_id[0],14,72); blf.position(gv_font_id[0],pos[0]+10,pos[1],0); blf.color(gv_font_id[0],r,g,b,1.0); blf.draw(gv_font_id[0],txt)
     mouse_pos = context.space_data.cursor_location*gv_uifac[0]
@@ -155,32 +155,32 @@ list_sk_perms = ['VALUE','RGBA','VECTOR','INT','BOOLEAN']
 def VoronoiLinkerDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
-    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; lw = DrawPrefs().ds_line_width
+    if GetAddonPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; lw = GetAddonPrefs().ds_line_width
     def LinkerDrawSk(Sk):
-        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),-DrawPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
-        if Sk.is_linked: DrawIsLinked(mouse_pos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),-GetAddonPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
+        if Sk.is_linked: DrawIsLinked(mouse_pos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if GetAddonPrefs().ds_is_colored_marker else (.9,.9,.9,1))
     if (sender.list_sk_goal_out==[]):
-        if DrawPrefs().ds_is_draw_point:
-            wp1 = PreparGetWP(mouse_pos,-DrawPrefs().ds_point_offset_x*.75); wp2 = PreparGetWP(mouse_pos,DrawPrefs().ds_point_offset_x*.75)
+        if GetAddonPrefs().ds_is_draw_point:
+            wp1 = PreparGetWP(mouse_pos,-GetAddonPrefs().ds_point_offset_x*.75); wp2 = PreparGetWP(mouse_pos,GetAddonPrefs().ds_point_offset_x*.75)
             DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
-        if (DrawPrefs().vlds_is_always_line)and(DrawPrefs().ds_is_draw_line): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
+        if (GetAddonPrefs().vlds_is_always_line)and(GetAddonPrefs().ds_is_draw_line): DrawLine(wp1[0],wp2[0],lw,(1,1,1,1),(1,1,1,1))
     elif (sender.list_sk_goal_out)and(sender.list_sk_goal_in==[]):
         DrawRectangleOnSocket(sender.list_sk_goal_out[1],sender.list_sk_goal_out[3],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
-        wp1 = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0)
-        if (DrawPrefs().vlds_is_always_line)and(DrawPrefs().ds_is_draw_line):
-            DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.list_sk_goal_out[1]) if DrawPrefs().ds_is_colored_line else (1,1,1,1),(1,1,1,1))
-        if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
+        wp1 = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0)
+        if (GetAddonPrefs().vlds_is_always_line)and(GetAddonPrefs().ds_is_draw_line):
+            DrawLine(wp1[0],wp2[0],lw,GetSkCol(sender.list_sk_goal_out[1]) if GetAddonPrefs().ds_is_colored_line else (1,1,1,1),(1,1,1,1))
+        if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
         LinkerDrawSk(sender.list_sk_goal_out[1])
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out[1],sender.list_sk_goal_out[3],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
         DrawRectangleOnSocket(sender.list_sk_goal_in[1],sender.list_sk_goal_in[3],GetSkVecCol(sender.list_sk_goal_in[1],2.2))
-        if DrawPrefs().ds_is_colored_line: col1 = GetSkCol(sender.list_sk_goal_out[1]); col2 = GetSkCol(sender.list_sk_goal_in[1])
+        if GetAddonPrefs().ds_is_colored_line: col1 = GetSkCol(sender.list_sk_goal_out[1]); col2 = GetSkCol(sender.list_sk_goal_in[1])
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x)
-        wp2 = PreparGetWP(sender.list_sk_goal_in[2]*gv_uifac[0],-DrawPrefs().ds_point_offset_x)
-        if DrawPrefs().ds_is_draw_line: DrawLine(wp1[0],wp2[0],lw,col1,col2)
-        if DrawPrefs().ds_is_draw_point:
+        wp1 = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x)
+        wp2 = PreparGetWP(sender.list_sk_goal_in[2]*gv_uifac[0],-GetAddonPrefs().ds_point_offset_x)
+        if GetAddonPrefs().ds_is_draw_line: DrawLine(wp1[0],wp2[0],lw,col1,col2)
+        if GetAddonPrefs().ds_is_draw_point:
             DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.list_sk_goal_in[1],2.2))
         LinkerDrawSk(sender.list_sk_goal_out[1]); LinkerDrawSk(sender.list_sk_goal_in[1])
 class VoronoiLinker(bpy.types.Operator):
@@ -250,30 +250,30 @@ class VoronoiLinker(bpy.types.Operator):
 def VoronoiMixerDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
-    if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = GetAddonPrefs().ds_line_width
+    if GetAddonPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
     def MixerDrawSk(Sk,ys,lys):
-        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,ys,Sk)
-        if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),GetAddonPrefs().ds_text_dist_from_cursor,ys,Sk)
+        if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],txtdim[1]*lys*.75,GetSkCol(Sk) if GetAddonPrefs().ds_is_colored_marker else (.9,.9,.9,1))
     if (sender.list_sk_goal_out1==[]):
-        if DrawPrefs().ds_is_draw_point:
-            wp1 = PreparGetWP(mouse_pos,-DrawPrefs().ds_point_offset_x*.75); wp2 = PreparGetWP(mouse_pos,DrawPrefs().ds_point_offset_x*.75)
+        if GetAddonPrefs().ds_is_draw_point:
+            wp1 = PreparGetWP(mouse_pos,-GetAddonPrefs().ds_point_offset_x*.75); wp2 = PreparGetWP(mouse_pos,GetAddonPrefs().ds_point_offset_x*.75)
             DrawWidePoint(wp1[0],wp1[1]); DrawWidePoint(wp2[0],wp2[1])
     elif (sender.list_sk_goal_out1)and(sender.list_sk_goal_out2==[]):
         DrawRectangleOnSocket(sender.list_sk_goal_out1[1],sender.list_sk_goal_out1[3],GetSkVecCol(sender.list_sk_goal_out1[1],2.2))
-        wp1 = PreparGetWP(sender.list_sk_goal_out1[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0); col = Vector((1,1,1,1))
-        if DrawPrefs().ds_is_draw_line: DrawLine(wp1[0],mouse_region_pos,lw,GetSkCol(sender.list_sk_goal_out1[1]) if DrawPrefs().ds_is_colored_line else col,col)
-        if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out1[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
+        wp1 = PreparGetWP(sender.list_sk_goal_out1[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0); col = Vector((1,1,1,1))
+        if GetAddonPrefs().ds_is_draw_line: DrawLine(wp1[0],mouse_region_pos,lw,GetSkCol(sender.list_sk_goal_out1[1]) if GetAddonPrefs().ds_is_colored_line else col,col)
+        if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out1[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
         MixerDrawSk(sender.list_sk_goal_out1[1],-.5,0)
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out1[1],sender.list_sk_goal_out1[3],GetSkVecCol(sender.list_sk_goal_out1[1],2.2))
         DrawRectangleOnSocket(sender.list_sk_goal_out2[1],sender.list_sk_goal_out2[3],GetSkVecCol(sender.list_sk_goal_out2[1],2.2))
-        if DrawPrefs().ds_is_colored_line: col1 = GetSkCol(sender.list_sk_goal_out1[1]); col2 = GetSkCol(sender.list_sk_goal_out2[1])
+        if GetAddonPrefs().ds_is_colored_line: col1 = GetSkCol(sender.list_sk_goal_out1[1]); col2 = GetSkCol(sender.list_sk_goal_out2[1])
         else: col1 = (1,1,1,1); col2 = (1,1,1,1)
-        wp1 = PreparGetWP(sender.list_sk_goal_out1[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x)
-        wp2 = PreparGetWP(sender.list_sk_goal_out2[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x)
-        if DrawPrefs().ds_is_draw_line: DrawLine(mouse_region_pos,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouse_region_pos,lw,col1,col1)
-        if DrawPrefs().ds_is_draw_point:
+        wp1 = PreparGetWP(sender.list_sk_goal_out1[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x)
+        wp2 = PreparGetWP(sender.list_sk_goal_out2[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x)
+        if GetAddonPrefs().ds_is_draw_line: DrawLine(mouse_region_pos,wp2[0],lw,col2,col2); DrawLine(wp1[0],mouse_region_pos,lw,col1,col1)
+        if GetAddonPrefs().ds_is_draw_point:
             DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(sender.list_sk_goal_out1[1],2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(sender.list_sk_goal_out2[1],2.2))
         MixerDrawSk(sender.list_sk_goal_out1[1],.25,1); MixerDrawSk(sender.list_sk_goal_out2[1],-1.25,-1)
 class VoronoiMixer(bpy.types.Operator):
@@ -312,14 +312,20 @@ class VoronoiMixer(bpy.types.Operator):
                 if (event.value=='RELEASE')and(self.list_sk_goal_out1)and(self.list_sk_goal_out2):
                     mixerSks[0] = self.list_sk_goal_out1[1]; mixerSks[1] = self.list_sk_goal_out2[1]
                     mixerSkTyp[0] = mixerSks[0].type if mixerSks[0].bl_idname!='NodeSocketVirtual' else mixerSks[1].type
-                    try:
-                        dm = dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]
-                        if len(dm)!=0:
-                            if (DrawPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
-                            else:
-                                if DrawPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='VM_MT_voronoi_mixer_menu')
-                                else: bpy.ops.wm.call_menu(name='VM_MT_voronoi_mixer_menu')
-                    except: pass
+                    if GetAddonPrefs().fm_is_included:
+                        tgl0 = GetAddonPrefs().fm_trigger_activate=='FMA1'
+                        displayWho[0] = mixerSks[0].bl_idname=='NodeSocketVector'
+                        Check = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector']
+                        tgl1 = Check(mixerSks[0]); tgl2 = Check(mixerSks[1])
+                        if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and((tgl1)or(tgl2)):
+                            bpy.ops.node.a_voronoi_fastmath('INVOKE_DEFAULT')
+                            return {'FINISHED'}
+                    dm = dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]
+                    if len(dm)!=0:
+                        if (GetAddonPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
+                        else:
+                            if GetAddonPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='VL_MT_voronoi_mixer_menu')
+                            else: bpy.ops.wm.call_menu(name='VL_MT_voronoi_mixer_menu')
                     return {'FINISHED'}
                 else: return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -390,28 +396,28 @@ dict_mixer_main = {
         'TextureNodeTree':{'VALUE':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture'],'RGBA':['TextureNodeMixRGB','TextureNodeTexture'],
                 'VECTOR':['TextureNodeMixRGB','TextureNodeDistance'],'INT':['TextureNodeMixRGB','TextureNodeMath','TextureNodeTexture']}}
 class VoronoiMixerMenu(bpy.types.Menu):
-    bl_idname = 'VM_MT_voronoi_mixer_menu'; bl_label = ''
+    bl_idname = 'VL_MT_voronoi_mixer_menu'; bl_label = ''
     def draw(self,context):
-        who = self.layout.menu_pie() if DrawPrefs().vm_menu_style=='Pie' else self.layout
+        who = self.layout.menu_pie() if GetAddonPrefs().vm_menu_style=='Pie' else self.layout
         who.label(text=dict_mixer_user_sk_name.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
         for li in dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=dict_mixer_defs[li][2]).who=li
 
 def VoronoiPreviewerDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
-    if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = GetAddonPrefs().ds_line_width
+    if GetAddonPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
     if (sender.list_sk_goal_out==[])or(sender.list_sk_goal_out[1]==None): #Второе условие -- для (1).
-        if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+        if GetAddonPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out[1],sender.list_sk_goal_out[3],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
-        col = GetSkCol(sender.list_sk_goal_out[1]) if DrawPrefs().ds_is_colored_line else (1,1,1,1)
-        wp = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x)
-        if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
-        if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
+        col = GetSkCol(sender.list_sk_goal_out[1]) if GetAddonPrefs().ds_is_colored_line else (1,1,1,1)
+        wp = PreparGetWP(sender.list_sk_goal_out[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x)
+        if GetAddonPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
+        if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal_out[1],2.2))
         def PreviewerDrawSk(Sk):
-            txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,-.5,Sk)
-            if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+            txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),GetAddonPrefs().ds_text_dist_from_cursor,-.5,Sk)
+            if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0],0,GetSkCol(Sk) if GetAddonPrefs().ds_is_colored_marker else (.9,.9,.9,1))
         PreviewerDrawSk(sender.list_sk_goal_out[1])
 class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_previewer'; bl_label = 'Voronoi Previewer'; bl_options = {'UNDO'}
@@ -437,7 +443,7 @@ class VoronoiPreviewer(bpy.types.Operator):
                     tgl = (skout.bl_idname!='NodeSocketVirtual')and((context.space_data.tree_type!='GeometryNodeTree')or(skout.type=='GEOMETRY')or(ancohor_exist))
                     if tgl: sender.list_sk_goal_out = lso; break
                 break
-        if (DrawPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1])
+        if (GetAddonPrefs().vp_is_live_preview)and(sender.list_sk_goal_out): sender.list_sk_goal_out[1] = VoronoiPreviewer_DoPreview(context,sender.list_sk_goal_out[1])
     def modal(self,context,event):
         context.area.tag_redraw()
         match event.type:
@@ -452,10 +458,10 @@ class VoronoiPreviewer(bpy.types.Operator):
         if ('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
             match context.space_data.tree_type:
                 case 'GeometryNodeTree':
-                    if DrawPrefs().va_allow_classic_geo_viewer: return {'PASS_THROUGH'}
+                    if GetAddonPrefs().va_allow_classic_geo_viewer: return {'PASS_THROUGH'}
                 case 'CompositorNodeTree':
-                    if DrawPrefs().va_allow_classic_compos_viewer: return {'PASS_THROUGH'}
-        if (event.type=='RIGHTMOUSE')^DrawPrefs().vm_preview_hk_inverse:
+                    if GetAddonPrefs().va_allow_classic_compos_viewer: return {'PASS_THROUGH'}
+        if (event.type=='RIGHTMOUSE')^GetAddonPrefs().vm_preview_hk_inverse:
             nodes = context.space_data.edit_tree.nodes
             for nd in nodes: nd.select = False
             nnd = (nodes.get('Voronoi_Anchor') or nodes.new('NodeReroute'))
@@ -569,7 +575,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
         if nd_va: list_way_trnd[cyc][0].links.new(sock_out,nd_va.inputs[0]); break #Завершение после напарывания повышает возможности использования якоря.
         elif (sock_out)and(sock_in)and((sock_in.name=='voronoi_preview')or(cyc==hig_way)): list_way_trnd[cyc][0].links.new(sock_out,sock_in)
     #Выделить предпросматриваемый нод:
-    if DrawPrefs().vp_select_previewed_node:
+    if GetAddonPrefs().vp_select_previewed_node:
         for nd in cur_tree.nodes: nd.select = False
         cur_tree.nodes.active = goalSk.node; goalSk.node.select = True
     return goalSk #Возвращать сокет. Нужно для (1).
@@ -577,31 +583,31 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
 def VoronoiHiderDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
-    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = DrawPrefs().ds_line_width
-    if DrawPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; mouse_region_pos = PosViewToReg(mouse_pos.x,mouse_pos.y); lw = GetAddonPrefs().ds_line_width
+    if GetAddonPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
     if sender.is_target_node:
         if (sender.list_nd_goal==[]):
-            if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+            if GetAddonPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
         else:
             wp = PreparGetWP(sender.list_nd_goal[2]*gv_uifac[0],0); col = (1,1,1,1)
-            if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
-            if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1])
-            if DrawPrefs().vh_draw_text_for_unhide:
+            if GetAddonPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
+            if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1])
+            if GetAddonPrefs().vh_draw_text_for_unhide:
                 lbl = sender.list_nd_goal[1].label; l_ys = [.25,-1.25] if lbl else [-.5,-.5]
-                DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[0],sender.list_nd_goal[1].name,(1,1,1,1))
-                if lbl: DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor,l_ys[1],lbl,(1,1,1,1))
+                DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),GetAddonPrefs().ds_text_dist_from_cursor,l_ys[0],sender.list_nd_goal[1].name,(1,1,1,1))
+                if lbl: DrawText(PosViewToReg(mouse_pos.x,mouse_pos.y),GetAddonPrefs().ds_text_dist_from_cursor,l_ys[1],lbl,(1,1,1,1))
     else:
         if (sender.list_sk_goal==[]):
-            if DrawPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+            if GetAddonPrefs().ds_is_draw_point: wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
         else:
             DrawRectangleOnSocket(sender.list_sk_goal[1],sender.list_sk_goal[3],GetSkVecCol(sender.list_sk_goal[1],2.2))
-            col = GetSkCol(sender.list_sk_goal[1]) if DrawPrefs().ds_is_colored_line else (1,1,1,1)
-            wp = PreparGetWP(sender.list_sk_goal[2]*gv_uifac[0],DrawPrefs().ds_point_offset_x*(sender.list_sk_goal[1].is_output*2-1))
-            if DrawPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
-            if DrawPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal[1],2.2))
+            col = GetSkCol(sender.list_sk_goal[1]) if GetAddonPrefs().ds_is_colored_line else (1,1,1,1)
+            wp = PreparGetWP(sender.list_sk_goal[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x*(sender.list_sk_goal[1].is_output*2-1))
+            if GetAddonPrefs().ds_is_draw_line: DrawLine(wp[0],mouse_region_pos,lw,col,col)
+            if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp[0],wp[1],GetSkVecCol(sender.list_sk_goal[1],2.2))
             def HiderDrawSk(Sk):
-                txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),DrawPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
-                if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if DrawPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+                txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),GetAddonPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
+                if Sk.is_linked: DrawIsLinked(mouse_pos,txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if GetAddonPrefs().ds_is_colored_marker else (.9,.9,.9,1))
             HiderDrawSk(sender.list_sk_goal[1])
 class VoronoiHider(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_hider'; bl_label = 'Voronoi Hider'; bl_options = {'UNDO'}
@@ -647,6 +653,50 @@ class VoronoiHider(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
+listDictMathEditor = [{'ShaderNodeTree':'ShaderNodeMath','GeometryNodeTree':'ShaderNodeMath','CompositorNodeTree':'CompositorNodeMath','TextureNodeTree':'TextureNodeMath'},
+        {'ShaderNodeTree':'ShaderNodeVectorMath','GeometryNodeTree':'ShaderNodeVectorMath'}]
+displayList = [[]]; displayWho = [0]; displayDeep = [0]
+class FastMath_Main(bpy.types.Operator):
+    bl_idname = 'node.a_voronoi_fastmath'; bl_label = 'Fast Maths Pie'
+    bridge: bpy.props.StringProperty()
+    def modal(self,context,event): self.bridge = ''; return {'FINISHED'}
+    def invoke(self,context,event):
+        tree = context.space_data.edit_tree
+        if tree==None: return {'CANCELLED'}
+        def DispMenu(dp): displayDeep[0] = dp; bpy.ops.wm.call_menu_pie(name='VL_MT_voronoi_fastmath_pie')
+        whoList = listMathMap if displayWho[0]==0 else listVecMathMap; displayList[0] = [li[0] for li in whoList]
+        if self.bridge in ['',' ']: DispMenu(0)
+        elif self.bridge in displayList[0]: displayList[0] = [li[1] for li in whoList if li[0]==self.bridge][0]; DispMenu(1)
+        else:
+            typ = listDictMathEditor[displayWho[0]].get(context.space_data.tree_type,None)
+            if typ==None: return {'CANCELLED'}
+            bpy.ops.node.add_node('INVOKE_DEFAULT',type=typ,use_transform=True); aNd = context.space_data.edit_tree.nodes.active
+            aNd.operation = self.bridge
+            tree.links.new(mixerSks[0],aNd.inputs[0])
+            tree.links.new(mixerSks[1],aNd.inputs[1])
+        return {'RUNNING_MODAL'}
+listMathMap = [
+        ('Advanced',['SQRT','POWER','EXPONENT','LOGARITHM','INVERSE_SQRT','PINGPONG']),
+        ('Compatible Primitives',['SUBTRACT','ADD','DIVIDE','MULTIPLY','ABSOLUTE','MULTIPLY_ADD']),
+        ('Rounding',['SMOOTH_MIN','SMOOTH_MAX','LESS_THAN','GREATER_THAN','SIGN','COMPARE','TRUNC','ROUND']),
+        ('Compatible Vector',['MINIMUM','MAXIMUM','FLOOR','CEIL','MODULO','FRACT','WRAP','SNAP']),
+        ('',[]),('',[]),
+        ('Other',['COSH','RADIANS','DEGREES','SINH','TANH']),
+        ('Trigonometric',['SINE','COSINE','TANGENT','ARCTANGENT','ARCSINE','ARCCOSINE','ARCTAN2'])]
+listVecMathMap = [
+        ('Advanced',['NORMALIZE','SCALE','LENGTH','DISTANCE','SINE','COSINE','TANGENT']),
+        ('Compatible Primitives',['SUBTRACT','ADD','DIVIDE','MULTIPLY','ABSOLUTE','MULTIPLY_ADD']),
+        ('Rays',['DOT_PRODUCT','CROSS_PRODUCT','FACEFORWARD','PROJECT','REFRACT','REFLECT']),
+        ('Compatible Vector',['MINIMUM','MAXIMUM','FLOOR','CEIL','MODULO','FRACTION','WRAP','SNAP']),
+        (' ',[]),(' ',[]),(' ',[]),(' ',[])]
+class FastMath_Pie(bpy.types.Menu):
+    bl_idname = 'VL_MT_voronoi_fastmath_pie'; bl_label = ''
+    def draw(self,context):
+        pie = self.layout.menu_pie()
+        for li in displayList[0]:
+            if (GetAddonPrefs().fm_is_empty_hold==False)and(li==' '): continue
+            pie.operator(FastMath_Main.bl_idname,text=li.capitalize() if displayDeep[0]==1 else li).bridge = li
+
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = __name__ if __name__!='__main__' else 'VoronoiLinker'
@@ -677,10 +727,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     ds_shadow_col: bpy.props.FloatVectorProperty(name='Shadow Color',default=[0.0,0.0,0.0,.5],size=4,min=0,max=1,subtype='COLOR')
     ds_shadow_offset: bpy.props.IntVectorProperty(name='Shadow Offset',default=[2,-2],size=2,min=-20,max=20)
     ds_shadow_blur: bpy.props.IntProperty(name='Shadow Blur',default=2,min=0,max=2)
-    va_allow_classic_compos_viewer: bpy.props.BoolProperty(name='Allow classic compositor viewer',default=False)
-    va_allow_classic_geo_viewer: bpy.props.BoolProperty(name='Allow classic geonodes viewer',default=True)
+    va_allow_classic_compos_viewer: bpy.props.BoolProperty(name='Allow classic Compositor viewer',default=False)
+    va_allow_classic_geo_viewer: bpy.props.BoolProperty(name='Allow classic GeoNodes viewer',default=True)
     vh_draw_text_for_unhide: bpy.props.BoolProperty(name='Draw text for unhide node',default=False)
     ds_is_draw_debug: bpy.props.BoolProperty(name='draw debug',default=False)
+    fm_is_included: bpy.props.BoolProperty(name='Include Fast Math Pie',default=True)
+    fm_is_empty_hold: bpy.props.BoolProperty(name='Empty placeholders',default=True)
+    fm_trigger_activate: bpy.props.EnumProperty(name='Activate trigger',default='FMA0',items={('FMA0','If at least one is a math socket',''),('FMA1','If everyone is a math socket','')})
     def draw(self,context):
         col0 = self.layout.column()
         col1 = col0.column(align=True); col1.prop(self,'va_allow_classic_compos_viewer'); col1.prop(self,'va_allow_classic_geo_viewer')
@@ -704,9 +757,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Hider settings:')
         col1.prop(self,'vh_draw_text_for_unhide')
+        box = col0.box(); col1 = box.column(align=True); col1.prop(self,'fm_is_included')
+        if self.fm_is_included:
+            box = col1.box(); col1 = box.column(align=True); col1.prop(self,'fm_trigger_activate'); col1.prop(self,'fm_is_empty_hold')
 
 
-list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,VoronoiAddonPrefs]; list_addon_keymaps = []
+list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,FastMath_Main,FastMath_Pie,VoronoiAddonPrefs]; list_addon_keymaps = []
 kmi_defs = (
     (VoronoiLinker.bl_idname,'RIGHTMOUSE',False,False,True),
     (VoronoiMixer.bl_idname,'RIGHTMOUSE',True,False,True),
