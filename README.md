@@ -17,7 +17,7 @@ Auto-create link-path from a socket to an outlet or an anchor.
 It is bonus tool. Hide nearest socket to the cursor or unhide all sockets from the nearest node.
 
 = Voronoi Math =  
-It is bonus for Voronoi Mixer. Pie to quickly select the math operation and automatically connect sockets.
+It is bonus for "Voronoi Mixer" tool. Pie to quickly select the math operation and automatically connect sockets.
 
 ---
 ### Hotkeys
