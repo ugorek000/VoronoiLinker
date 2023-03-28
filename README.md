@@ -36,7 +36,8 @@ Bonus tool in any Tree Editor:
 
 ---
 
-Version 1.8.2 created on 28.03.2023
+First appearance of the addon 09.12.2022
+Version 1.8.3 created 29.03.2023
 
 Reach to autor (Russian):  
 coaltangle@gmail.com  
