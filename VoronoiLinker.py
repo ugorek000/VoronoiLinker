@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,2),'blender':(3,4,1), #28.03.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,3),'blender':(3,4,1), #29.03.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
@@ -315,12 +315,12 @@ class VoronoiMixer(bpy.types.Operator):
                     if GetAddonPrefs().fm_is_included:
                         tgl0 = GetAddonPrefs().fm_trigger_activate=='FMA1'
                         displayWho[0] = mixerSks[0].bl_idname=='NodeSocketVector'
-                        Check = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector']
+                        Check = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']
                         tgl1 = Check(mixerSks[0]); tgl2 = Check(mixerSks[1])
                         if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and((tgl1)or(tgl2)):
                             bpy.ops.node.a_voronoi_fastmath('INVOKE_DEFAULT')
                             return {'FINISHED'}
-                    dm = dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]
+                    dm = dictMixerMain[context.space_data.tree_type][mixerSkTyp[0]]
                     if len(dm)!=0:
                         if (GetAddonPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
                         else:
@@ -378,7 +378,7 @@ class VoronoiMixerMixer(bpy.types.Operator):
     def execute(self,context):
         DoMix(context,self.who)
         return {'FINISHED'}
-dict_mixer_main = {
+dictMixerMain = {
         'ShaderNodeTree':{'SHADER':['ShaderNodeMixShader','ShaderNodeAddShader'],'VALUE':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeMath'],
                 'RGBA':['ShaderNodeMix','ShaderNodeMixRGB'],'VECTOR':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeVectorMath'],'INT':['ShaderNodeMix','ShaderNodeMixRGB','ShaderNodeMath']},
         'GeometryNodeTree':{'VALUE':['GeometryNodeSwitch','ShaderNodeMixRGB','FunctionNodeCompare','ShaderNodeMath'],
@@ -400,7 +400,7 @@ class VoronoiMixerMenu(bpy.types.Menu):
     def draw(self,context):
         who = self.layout.menu_pie() if GetAddonPrefs().vm_menu_style=='Pie' else self.layout
         who.label(text=dict_mixer_user_sk_name.get(mixerSkTyp[0],mixerSkTyp[0].capitalize()))
-        for li in dict_mixer_main[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=dict_mixer_defs[li][2]).who=li
+        for li in dictMixerMain[context.space_data.tree_type][mixerSkTyp[0]]: who.operator('node.voronoi_mixer_mixer',text=dict_mixer_defs[li][2]).who=li
 
 def VoronoiPreviewerDrawCallback(sender,context):
     if gv_where[0]!=context.space_data: return
@@ -485,7 +485,7 @@ def VoronoiPreviewer_DoPreview(context,goalSk):
         #Я мирился с этим маленьким и редким недостатком до того, пока в один прекрасный момент не возмутился от странности этого метода.
         #После отправился на сёрфинг api документации и открытого исходного кода. Результатом было банальное обнаружение ".space_data.path"
         #См. https://docs.blender.org/api/current/bpy.types.SpaceNodeEditorPath.html
-        #Это "честный" api, дающий доступ у редактора узлов к пути от базы и до финального дерева, отображаемого прямо сейчас.
+        #Это "честный" api, дающий доступ у редактора узлов к пути от базы до финального дерева, отображаемого прямо сейчас.
         #Аддон, написанный 5-ю людьми, что встроен в Блендер по умолчанию, использует столь странный похожий на костыль метод получения пути? Может я что-то понимаю не так?
         way_trnd = []
         if False: #bad way by parody on NodeWrangler
