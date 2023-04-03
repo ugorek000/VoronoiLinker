@@ -23,10 +23,11 @@ It is bonus for "Voronoi Mixer" tool. Pie to quickly select the math operation a
 ### Hotkeys
 
 In any Tree Editor:  
- + Alt + RMB  -> activate Voronoi Linker  
+ + Alt + RMB -> Voronoi Linker  
  + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
- + Shift + E  -> activate Voronoi Hider  
- + Shift + Ctrl + E  -> activate Voronoi Hider with unhide all  
+ + Shift + E -> Voronoi Hider  
+ + Shift + Ctrl + E -> Voronoi Hider with unhide all  
+ + Shift + Ctrl + Alt + RMB -> Voronoi Mass Linker  
 
 In classic Tree Editor:  
  + Shift + Alt + RMB -> activate Voronoi Mixer
