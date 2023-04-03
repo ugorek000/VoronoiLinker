@@ -35,7 +35,7 @@ In classic Tree Editor:
 ---
 
 First appearance of the addon 09.12.2022  
-Version 1.8.3 created 29.03.2023
+Version 1.9.0 created 03.04.2023
 
 Reach to autor (Russia):  
 coaltangle@gmail.com  
