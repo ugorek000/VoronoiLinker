@@ -24,14 +24,12 @@ It is bonus for "Voronoi Mixer" tool. Pie to quickly select the math operation a
 
 In any Tree Editor:  
  + Alt + RMB -> Voronoi Linker  
- + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"
+ + Shift + Alt + RMB -> Voronoi Mixer (only classic Tree Editor)  
+ + Ctrl + Shift + LMB -> Voronoi Preview (only classic Tree Editor)  
+ + Ctrl + Shift + RMB -> create and select Reroute "Voronoi_Anchor"  
  + Shift + E -> Voronoi Hider  
  + Shift + Ctrl + E -> Voronoi Hider with unhide all  
  + Shift + Ctrl + Alt + RMB -> Voronoi Mass Linker  
-
-In classic Tree Editor:  
- + Shift + Alt + RMB -> activate Voronoi Mixer
- + Ctrl + Shift + LMB -> activate Voronoi Preview
 
 ---
 
