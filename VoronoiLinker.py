@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,8,3),'blender':(3,4,1), #29.03.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,9,0),'blender':(3,4,1), #03.04.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
@@ -185,7 +185,7 @@ def VoronoiLinkerDrawCallback(sender,context):
         LinkerDrawSk(sender.list_sk_goal_out[1]); LinkerDrawSk(sender.list_sk_goal_in[1])
 class VoronoiLinker(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_linker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
-    def NextAssign(sender,context,all):
+    def NextAssign(sender,context,isBoth):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
         sender.list_sk_goal_in = [] #Если не разрешён, то предыдущий остаётся, что не удобно. Поэтому обнуляется каждый раз перед поиском.
@@ -194,12 +194,12 @@ class VoronoiLinker(bpy.types.Operator):
             if (nd.type!='FRAME')and((nd.hide==False)or(nd.type=='REROUTE')):
                 list_socket_in,list_socket_out = GenNearestSocketsList(nd,pick_pos)
                 #Этот инструмент триггерится на любой выход
-                if all: sender.list_sk_goal_out = list_socket_out[0] if list_socket_out else []
+                if isBoth: sender.list_sk_goal_out = list_socket_out[0] if list_socket_out else []
                 #Получить вход по условиям:
                 if list_socket_in==[]: #На ноды без входов триггериться, и обнулять предыдущий результат если имеется.
                     sender.list_sk_goal_in = []; break # break можно делать, потому что далее вход искать негде.
                 skout = sender.list_sk_goal_out[1] if sender.list_sk_goal_out else None
-                if skout: #Первый заход всегда all=True, однако нод может не иметь выходов.
+                if skout: #Первый заход всегда isBoth=True, однако нод может не иметь выходов.
                     for lsi in list_socket_in:
                         skin = lsi[1]
                         #Для разрешённой-группы-между-собой разрешить "переходы". Рероутом для удобства можно в любой сокет минуя различные типы
@@ -225,8 +225,16 @@ class VoronoiLinker(bpy.types.Operator):
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
                 if (event.value=='RELEASE')and(self.list_sk_goal_out)and(self.list_sk_goal_in):
                     tree = context.space_data.edit_tree
-                    try: tree.links.new(self.list_sk_goal_out[1],self.list_sk_goal_in[1])
+                    try: lk = tree.links.new(self.list_sk_goal_out[1],self.list_sk_goal_in[1])
                     except: pass #NodeSocketUndefined
+                    tgl = (lk.from_socket.bl_idname=='NodeSocketVirtual')+(lk.to_socket.bl_idname=='NodeSocketVirtual')*2
+                    if tgl>0: #В версии 3.5 новый сокет автоматически не создаётся.
+                        if tgl==1:
+                            tree.inputs.new(lk.to_socket.bl_idname,lk.to_socket.name); tree.links.remove(lk)
+                            tree.links.new(self.list_sk_goal_out[1].node.outputs[-2],self.list_sk_goal_in[1])
+                        else:
+                            tree.outputs.new(lk.from_socket.bl_idname,lk.from_socket.name); tree.links.remove(lk)
+                            tree.links.new(self.list_sk_goal_out[1],self.list_sk_goal_in[1].node.inputs[-2])
                     if self.list_sk_goal_in[1].is_multi_input: #Если мультиинпут -- реализовать адекватный порядок подключения. Накой смысол последние лепятся в начало?.
                         list_sk_links = []
                         for lk in self.list_sk_goal_in[1].links: list_sk_links.append((lk.from_socket,lk.to_socket)); tree.links.remove(lk)
@@ -244,6 +252,80 @@ class VoronoiLinker(bpy.types.Operator):
         context.area.tag_redraw()
         VoronoiLinker.NextAssign(self,context,True)
         self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiLinkerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
+def VoronoiMassLinkerDrawCallback(sender,context):
+    if gv_where[0]!=context.space_data: return
+    gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR'); gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR'); bgl.glHint(bgl.GL_LINE_SMOOTH_HINT,bgl.GL_NICEST)
+    if GetAddonPrefs().ds_is_draw_debug: DebugDrawCallback(sender,context); return
+    mouse_pos = context.space_data.cursor_location*gv_uifac[0]; lw = GetAddonPrefs().ds_line_width
+    def LinkerDrawSk(Sk):
+        txtdim = DrawSkText(PosViewToReg(mouse_pos.x,mouse_pos.y),-GetAddonPrefs().ds_text_dist_from_cursor*(Sk.is_output*2-1),-.5,Sk)
+        if Sk.is_linked: DrawIsLinked(mouse_pos,-txtdim[0]*(Sk.is_output*2-1),0,GetSkCol(Sk) if GetAddonPrefs().ds_is_colored_marker else (.9,.9,.9,1))
+    def DrawIfNone(): wp = PreparGetWP(mouse_pos,0); DrawWidePoint(wp[0],wp[1])
+    if (sender.nd_goal_out==None): DrawIfNone()
+    elif (sender.nd_goal_out)and(sender.nd_goal_in==None):
+        list_Sks = GenNearestSocketsList(sender.nd_goal_out,mouse_pos)[1]
+        if list_Sks==[]: DrawIfNone()
+        for lsk in list_Sks:
+            DrawRectangleOnSocket(lsk[1],lsk[3],GetSkVecCol(lsk[1],2.2))
+            wp1 = PreparGetWP(lsk[2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x); wp2 = PreparGetWP(mouse_pos,0)
+            if (GetAddonPrefs().vlds_is_always_line)and(GetAddonPrefs().ds_is_draw_line):
+                DrawLine(wp1[0],wp2[0],lw,GetSkCol(lsk[1]) if GetAddonPrefs().ds_is_colored_line else (1,1,1,1),(1,1,1,1))
+            if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(lsk[1],2.2)); DrawWidePoint(wp2[0],wp2[1])
+    else:
+        list_SksOut = GenNearestSocketsList(sender.nd_goal_out,mouse_pos)[1]
+        list_SksIn = GenNearestSocketsList(sender.nd_goal_in,mouse_pos)[0]
+        sender.list_equalSks = []
+        for sko in list_SksOut:
+            for ski in list_SksIn:
+                if (sko[1].name==ski[1].name)and(ski[1].is_linked==False):
+                    sender.list_equalSks.append((sko,ski))
+                    continue
+        if sender.list_equalSks==[]: DrawIfNone()
+        for lsks in sender.list_equalSks:
+            DrawRectangleOnSocket(lsks[0][1],lsks[0][3],GetSkVecCol(lsks[0][1],2.2))
+            DrawRectangleOnSocket(lsks[1][1],lsks[1][3],GetSkVecCol(lsks[1][1],2.2))
+            if GetAddonPrefs().ds_is_colored_line: col1 = GetSkCol(lsks[0][1]); col2 = GetSkCol(lsks[1][1])
+            else: col1 = (1,1,1,1); col2 = (1,1,1,1)
+            wp1 = PreparGetWP(lsks[0][2]*gv_uifac[0],GetAddonPrefs().ds_point_offset_x)
+            wp2 = PreparGetWP(lsks[1][2]*gv_uifac[0],-GetAddonPrefs().ds_point_offset_x)
+            if GetAddonPrefs().ds_is_draw_line: DrawLine(wp1[0],wp2[0],lw,col1,col2)
+            if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp1[0],wp1[1],GetSkVecCol(lsks[0][1],2.2)); DrawWidePoint(wp2[0],wp2[1],GetSkVecCol(lsks[1][1],2.2))
+class VoronoiMassLinker(bpy.types.Operator):
+    bl_idname = 'node.a_voronoi_masslinker'; bl_label = 'Voronoi Linker'; bl_options = {'UNDO'}
+    def NextAssign(sender,context,isBoth):
+        pick_pos = context.space_data.cursor_location
+        list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
+        for li in list_nodes:
+            nd = li[1]
+            if (nd.type!='FRAME')and((nd.hide==False)or(nd.type=='REROUTE')):
+                sender.nd_goal_in = nd
+                if isBoth: sender.nd_goal_out = nd
+                break
+        if sender.nd_goal_out==sender.nd_goal_in: sender.nd_goal_in = None
+    def modal(self,context,event):
+        context.area.tag_redraw()
+        match event.type:
+            case 'MOUSEMOVE': VoronoiMassLinker.NextAssign(self,context,False)
+            case 'RIGHTMOUSE'|'ESC':
+                bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
+                if (event.value=='RELEASE')and(self.nd_goal_out)and(self.nd_goal_in):
+                    tree = context.space_data.edit_tree
+                    for lsks in self.list_equalSks:
+                        try: lk = tree.links.new(lsks[0][1],lsks[1][1])
+                        except: pass
+                    return {'FINISHED'}
+                else: return {'CANCELLED'}
+        return {'RUNNING_MODAL'}
+    def invoke(self,context,event):
+        if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
+        self.nd_goal_out = None; self.nd_goal_in = None
+        gv_uifac[0] = UiScale(); gv_where[0] = context.space_data; SetFont()
+        context.area.tag_redraw()
+        VoronoiMassLinker.NextAssign(self,context,True)
+        self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(VoronoiMassLinkerDrawCallback,(self,context),'WINDOW','POST_PIXEL')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
@@ -278,7 +360,7 @@ def VoronoiMixerDrawCallback(sender,context):
         MixerDrawSk(sender.list_sk_goal_out1[1],.25,1); MixerDrawSk(sender.list_sk_goal_out2[1],-1.25,-1)
 class VoronoiMixer(bpy.types.Operator):
     bl_idname = 'node.a_voronoi_mixer'; bl_label = 'Voronoi Mixer'; bl_options = {'UNDO'}
-    def NextAssign(sender,context,all):
+    def NextAssign(sender,context,isBoth):
         pick_pos = context.space_data.cursor_location
         list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes,pick_pos)
         for li in list_nodes:
@@ -286,7 +368,7 @@ class VoronoiMixer(bpy.types.Operator):
             if (nd.type!='FRAME')and((nd.hide==False)or(nd.type=='REROUTE')):
                 list_socket_in,list_socket_out = GenNearestSocketsList(nd,pick_pos)
                 #Этот инструмент триггерится на любой выход для первого
-                if all: sender.list_sk_goal_out1 = list_socket_out[0] if list_socket_out else []
+                if isBoth: sender.list_sk_goal_out1 = list_socket_out[0] if list_socket_out else []
                 #Для второго по условиям:
                 skout1 = sender.list_sk_goal_out1[1] if sender.list_sk_goal_out1 else None
                 if skout1:
@@ -762,20 +844,21 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             box = col1.box(); col1 = box.column(align=True); col1.prop(self,'fm_trigger_activate'); col1.prop(self,'fm_is_empty_hold')
 
 
-list_classes_all = [VoronoiLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,FastMath_Main,FastMath_Pie,VoronoiAddonPrefs]; list_addon_keymaps = []
+list_classes = [VoronoiLinker,VoronoiMassLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,FastMath_Main,FastMath_Pie,VoronoiAddonPrefs]; list_addon_keymaps = []
 kmi_defs = (
     (VoronoiLinker.bl_idname,'RIGHTMOUSE',False,False,True),
+    (VoronoiMassLinker.bl_idname,'RIGHTMOUSE',True,True,True),
     (VoronoiMixer.bl_idname,'RIGHTMOUSE',True,False,True),
     (VoronoiPreviewer.bl_idname,'LEFTMOUSE',True,True,False),
     (VoronoiPreviewer.bl_idname,'RIGHTMOUSE',True,True,False),
     (VoronoiHider.bl_idname,'E',True,False,False),
     (VoronoiHider.bl_idname,'E',True,True,False))
 def register():
-    for li in list_classes_all: bpy.utils.register_class(li)
+    for li in list_classes: bpy.utils.register_class(li)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor',space_type='NODE_EDITOR')
     for (bl_id,key,Shift,Ctrl,Alt) in kmi_defs: kmi = km.keymap_items.new(idname=bl_id,type=key,value='PRESS',shift=Shift,ctrl=Ctrl,alt=Alt); list_addon_keymaps.append((km,kmi))
 def unregister():
-    for li in reversed(list_classes_all): bpy.utils.unregister_class(li)
+    for li in reversed(list_classes): bpy.utils.unregister_class(li)
     for km,kmi in list_addon_keymaps: km.keymap_items.remove(kmi)
     list_addon_keymaps.clear()
 
