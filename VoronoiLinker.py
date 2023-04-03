@@ -314,7 +314,7 @@ class VoronoiMassLinker(bpy.types.Operator):
                 if (event.value=='RELEASE')and(self.nd_goal_out)and(self.nd_goal_in):
                     tree = context.space_data.edit_tree
                     for lsks in self.list_equalSks:
-                        try: lk = tree.links.new(lsks[0][1],lsks[1][1])
+                        try: tree.links.new(lsks[0][1],lsks[1][1])
                         except: pass
                     return {'FINISHED'}
                 else: return {'CANCELLED'}
@@ -835,13 +835,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         row = col1.row(align=True); row.prop(self,'ds_is_draw_area'); row.prop(self,'ds_is_colored_area')
         col1.prop(self,'ds_text_style'); col1.prop(self,'vlds_is_always_line')
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Mixer settings:'); col1.prop(self,'vm_menu_style'); col1.prop(self,'vm_is_one_skip')
+        box = box.box(); col1 = box.column(align=True); col1.prop(self,'fm_is_included')
+        if self.fm_is_included:
+            box = col1.box(); col1 = box.column(align=True); col1.prop(self,'fm_trigger_activate'); col1.prop(self,'fm_is_empty_hold')
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Preview settings:')
         col1.prop(self,'vp_is_live_preview'); col1.prop(self,'vp_select_previewed_node'); col1.prop(self,'vm_preview_hk_inverse')
         box = col0.box(); col1 = box.column(align=True); col1.label(text='Hider settings:')
         col1.prop(self,'vh_draw_text_for_unhide')
-        box = col0.box(); col1 = box.column(align=True); col1.prop(self,'fm_is_included')
-        if self.fm_is_included:
-            box = col1.box(); col1 = box.column(align=True); col1.prop(self,'fm_trigger_activate'); col1.prop(self,'fm_is_empty_hold')
 
 
 list_classes = [VoronoiLinker,VoronoiMassLinker,VoronoiMixer,VoronoiMixerMixer,VoronoiMixerMenu,VoronoiPreviewer,VoronoiHider,FastMath_Main,FastMath_Pie,VoronoiAddonPrefs]; list_addon_keymaps = []
