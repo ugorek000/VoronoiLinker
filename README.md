@@ -33,7 +33,7 @@ It is bonus for "Voronoi Mixer" tool. Pie to quickly select the math operation a
 ---
 
 First appearance of the addon 09.12.2022  
-Version 1.9.0 created 03.04.2023
+Version 1.9.1 created 05.04.2023
 
 Reach to autor (Russia):  
 coaltangle@gmail.com  
