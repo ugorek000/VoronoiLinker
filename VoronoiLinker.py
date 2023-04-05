@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,9,0),'blender':(3,4,1), #03.04.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,9,1),'blender':(3,4,1), #05.04.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
@@ -12,6 +12,7 @@ from builtins import len as length
 import bpy, bgl, blf, gpu; from gpu_extras.batch import batch_for_shader as BatchForShader
 from mathutils import Vector; from math import pi, inf, sin, cos, copysign
 
+#TODO: Ужасный бардак. Было бы не плохо навести здесь полный рефакторинг. Жаль навыков не хватает D:
 gv_shaders = [None,None]; gv_uifac = [1.0]; gv_font_id = [0]; gv_where = [None]
 def DrawWay(vtxs,vcol,siz):
     bgl.glEnable(bgl.GL_BLEND); bgl.glEnable(bgl.GL_LINE_SMOOTH); gv_shaders[0].bind()
@@ -104,7 +105,7 @@ def GenNearestNodeList(nodes,pick_pos): #Выдаёт список "ближай
     for nd in nodes:
         #Расчехлить иерархию родителей и получить итоговую позицию нода. Подготовить размер нода
         nd_location = RecrGetNodeFinalLoc(nd); nd_size = Vector((4,4)) if nd.bl_idname=='NodeReroute' else nd.dimensions/UiScale()
-        #Для рероута позицию в центр. Для нода позицию в нижний левый угол, чтобы быть миро-ориентированным и спокойно прибавлять половину размеров нода
+        #Для рероута позицию в центр. Для нода позицию в нижний левый угол, чтобы быть миро-ориентированным и спокойно прибавлять половину размера нода
         nd_location = nd_location-nd_size/2 if nd.bl_idname=='NodeReroute' else nd_location-Vector((0,nd_size[1]))
         #field_uv -- сырой от pick_pos. field_xy -- абсолютные предыдущего, нужен для восстановления направления
         field_uv = pick_pos-(nd_location+nd_size/2); field_xy = Vector((abs(field_uv.x),abs(field_uv.y)))-nd_size/2
@@ -391,25 +392,31 @@ class VoronoiMixer(bpy.types.Operator):
             case 'MOUSEMOVE': VoronoiMixer.NextAssign(self,context,False)
             case 'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.dcb_handle,'WINDOW')
-                if (event.value=='RELEASE')and(self.list_sk_goal_out1)and(self.list_sk_goal_out2):
-                    mixerSks[0] = self.list_sk_goal_out1[1]; mixerSks[1] = self.list_sk_goal_out2[1]
-                    mixerSkTyp[0] = mixerSks[0].type if mixerSks[0].bl_idname!='NodeSocketVirtual' else mixerSks[1].type
-                    if GetAddonPrefs().fm_is_included:
-                        tgl0 = GetAddonPrefs().fm_trigger_activate=='FMA1'
-                        displayWho[0] = mixerSks[0].bl_idname=='NodeSocketVector'
-                        Check = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']
-                        tgl1 = Check(mixerSks[0]); tgl2 = Check(mixerSks[1])
-                        if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and((tgl1)or(tgl2)):
+                if event.value=='RELEASE':
+                    if (self.list_sk_goal_out1)and(self.list_sk_goal_out2):
+                        mixerSks[0] = self.list_sk_goal_out1[1]; mixerSks[1] = self.list_sk_goal_out2[1]
+                        mixerSkTyp[0] = mixerSks[0].type if mixerSks[0].bl_idname!='NodeSocketVirtual' else mixerSks[1].type
+                        if GetAddonPrefs().fm_is_included:
+                            tgl0 = GetAddonPrefs().fm_trigger_activate=='FMA1'
+                            displayWho[0] = mixerSks[0].bl_idname=='NodeSocketVector'
+                            Check = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']
+                            tgl1 = Check(mixerSks[0]); tgl2 = Check(mixerSks[1])
+                            if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and((tgl1)or(tgl2)):
+                                bpy.ops.node.a_voronoi_fastmath('INVOKE_DEFAULT')
+                                return {'FINISHED'}
+                        dm = dictMixerMain[context.space_data.tree_type][mixerSkTyp[0]]
+                        if len(dm)!=0:
+                            if (GetAddonPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
+                            else:
+                                if GetAddonPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='VL_MT_voronoi_mixer_menu')
+                                else: bpy.ops.wm.call_menu(name='VL_MT_voronoi_mixer_menu')
+                    elif (self.list_sk_goal_out1)and(self.list_sk_goal_out2==[])and(GetAddonPrefs().fm_is_included):
+                        mixerSks[0] = self.list_sk_goal_out1[1]; displayWho[0] = mixerSks[0].bl_idname=='NodeSocketVector'
+                        if mixerSks[0].bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']:
                             bpy.ops.node.a_voronoi_fastmath('INVOKE_DEFAULT')
-                            return {'FINISHED'}
-                    dm = dictMixerMain[context.space_data.tree_type][mixerSkTyp[0]]
-                    if len(dm)!=0:
-                        if (GetAddonPrefs().vm_is_one_skip)and(len(dm)==1): DoMix(context,dm[0])
-                        else:
-                            if GetAddonPrefs().vm_menu_style=='Pie': bpy.ops.wm.call_menu_pie(name='VL_MT_voronoi_mixer_menu')
-                            else: bpy.ops.wm.call_menu(name='VL_MT_voronoi_mixer_menu')
                     return {'FINISHED'}
-                else: return {'CANCELLED'}
+                else:
+                    return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self,context,event):
         if (context.area.type!='NODE_EDITOR')or(context.space_data.edit_tree==None): return {'CANCELLED'}
@@ -755,7 +762,8 @@ class FastMath_Main(bpy.types.Operator):
             bpy.ops.node.add_node('INVOKE_DEFAULT',type=typ,use_transform=True); aNd = context.space_data.edit_tree.nodes.active
             aNd.operation = self.bridge
             tree.links.new(mixerSks[0],aNd.inputs[0])
-            tree.links.new(mixerSks[1],aNd.inputs[1])
+            if mixerSks[1]: #Чтобы можно было "вытягивать" быструю математику из сокета
+                tree.links.new(mixerSks[1],aNd.inputs[1])
         return {'RUNNING_MODAL'}
 listMathMap = [
         ('Advanced',['SQRT','POWER','EXPONENT','LOGARITHM','INVERSE_SQRT','PINGPONG']),
