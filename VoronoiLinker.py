@@ -17,7 +17,7 @@ bl_info = {
 # This addon is a self-writing for me personally, which I made publicly available to everyone wishing. Enjoy!
 
 from builtins import len as length
-import bpy, bgl, blf, gpu
+import bpy, blf, gpu
 from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
 from math import pi, inf, sin, cos, copysign
@@ -30,16 +30,19 @@ gv_where = [None]
 
 
 def draw_way(vtxs, vcol, siz):
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glEnable(bgl.GL_LINE_SMOOTH)
+    # bgl.glEnable(bgl.GL_BLEND)
+    # bgl.glEnable(bgl.GL_LINE_SMOOTH)
+    gpu.state.blend_set('ALPHA_PREMUL')
     gv_shaders[0].bind()
-    bgl.glLineWidth(siz)
+    # bgl.glLineWidth(siz)
+    gpu.state.line_width_set(siz)
     batch_for_shader(gv_shaders[0], 'LINE_STRIP', {'pos': vtxs, 'color': vcol}).draw(gv_shaders[0])
 
 
 def draw_area_fan(vtxs, col, sm):
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glEnable(bgl.GL_POLYGON_SMOOTH) if sm else bgl.glDisable(bgl.GL_POLYGON_SMOOTH)
+    # bgl.glEnable(bgl.GL_BLEND)
+    # bgl.glEnable(bgl.GL_POLYGON_SMOOTH) if sm else bgl.glDisable(bgl.GL_POLYGON_SMOOTH)
+    gpu.state.blend_set('ALPHA_PREMUL')
     gv_shaders[1].bind()
     gv_shaders[1].uniform_float('color', col)
     batch_for_shader(gv_shaders[1], 'TRI_FAN', {'pos': vtxs}).draw(gv_shaders[1])
@@ -62,7 +65,7 @@ def draw_circle_outer(pos, rd, siz=1, col=(1.0, 1.0, 1.0, 0.75), resolution=16):
 def draw_circle(pos, rd, col=(1.0, 1.0, 1.0, 0.75), resl=54):
     draw_area_fan([(pos[0], pos[1]),
                    *[(rd * cos(i * 2 * pi / resl) + pos[0], rd * sin(i * 2 * pi / resl) + pos[1]) for i in
-                   range(resl + 1)]], col, True)
+                     range(resl + 1)]], col, True)
 
 
 def draw_wide_point(pos, rd, colfac=Vector((1, 1, 1, 1))):
@@ -339,7 +342,7 @@ def voronoi_Linker_draw_callback(sender, context):
         return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
     gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+    # bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
     if get_addon_prefs().ds_is_draw_debug:
         debug_draw_callback(sender, context);
         return
@@ -506,7 +509,7 @@ def voronoi_mass_linker_draw_callback(sender, context):
         return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
     gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+    # bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
     if get_addon_prefs().ds_is_draw_debug:
         debug_draw_callback(sender, context);
         return
@@ -535,7 +538,8 @@ def voronoi_mass_linker_draw_callback(sender, context):
             wp1 = prepar_get_wp(lsk[2] * gv_uifac[0], get_addon_prefs().ds_point_offset_x)
             wp2 = prepar_get_wp(mouse_pos, 0)
             if (get_addon_prefs().vlds_is_always_line) and (get_addon_prefs().ds_is_draw_line):
-                draw_line(wp1[0], wp2[0], lw, get_sk_col(lsk[1]) if get_addon_prefs().ds_is_colored_line else (1, 1, 1, 1),
+                draw_line(wp1[0], wp2[0], lw,
+                          get_sk_col(lsk[1]) if get_addon_prefs().ds_is_colored_line else (1, 1, 1, 1),
                           (1, 1, 1, 1))
             if get_addon_prefs().ds_is_draw_point:
                 draw_wide_point(wp1[0], wp1[1], get_sk_vec_col(lsk[1], 2.2));
@@ -628,7 +632,7 @@ def voronoi_mixer_draw_callback(sender, context):
         return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
     gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+    # bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location * gv_uifac[0]
     mouse_region_pos = pos_view_to_reg(mouse_pos.x, mouse_pos.y)
     lw = get_addon_prefs().ds_line_width
@@ -637,7 +641,8 @@ def voronoi_mixer_draw_callback(sender, context):
         return
 
     def MixerDrawSk(Sk, ys, lys):
-        txtdim = draw_sk_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor, ys, Sk)
+        txtdim = draw_sk_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor, ys,
+                              Sk)
         if Sk.is_linked:
             draw_is_linked(mouse_pos, txtdim[0], txtdim[1] * lys * .75,
                            get_sk_col(Sk) if get_addon_prefs().ds_is_colored_marker else (.9, .9, .9, 1))
@@ -897,7 +902,7 @@ def voronoi_previewer_draw_callback(sender, context):
         return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
     gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+    # bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location * gv_uifac[0]
     mouse_region_pos = pos_view_to_reg(mouse_pos.x, mouse_pos.y)
     lw = get_addon_prefs().ds_line_width
@@ -919,7 +924,8 @@ def voronoi_previewer_draw_callback(sender, context):
             draw_wide_point(wp[0], wp[1], get_sk_vec_col(sender.list_sk_goal_out[1], 2.2))
 
         def PreviewerDrawSk(Sk):
-            txtdim = draw_sk_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor, -.5,
+            txtdim = draw_sk_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor,
+                                  -.5,
                                   Sk)
             if Sk.is_linked:
                 draw_is_linked(mouse_pos, txtdim[0], 0,
@@ -1007,7 +1013,8 @@ class NODE_OT_voronoi_previewer(bpy.types.Operator):
             set_font()
             context.area.tag_redraw()
             NODE_OT_voronoi_previewer.next_assign(self, context)
-            self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(voronoi_previewer_draw_callback, (self, context),
+            self.dcb_handle = bpy.types.SpaceNodeEditor.draw_handler_add(voronoi_previewer_draw_callback,
+                                                                         (self, context),
                                                                          'WINDOW', 'POST_PIXEL')
             context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
@@ -1172,7 +1179,7 @@ def VoronoiHiderDrawCallback(sender, context):
         return
     gv_shaders[0] = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
     gv_shaders[1] = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
-    bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+    # bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
     mouse_pos = context.space_data.cursor_location * gv_uifac[0]
     mouse_region_pos = pos_view_to_reg(mouse_pos.x, mouse_pos.y)
     lw = get_addon_prefs().ds_line_width
@@ -1194,10 +1201,12 @@ def VoronoiHiderDrawCallback(sender, context):
             if get_addon_prefs().vh_draw_text_for_unhide:
                 lbl = sender.list_nd_goal[1].label
                 l_ys = [.25, -1.25] if lbl else [-.5, -.5]
-                draw_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor, l_ys[0],
+                draw_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor,
+                          l_ys[0],
                           sender.list_nd_goal[1].name, (1, 1, 1, 1))
                 if lbl:
-                    draw_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor, l_ys[1],
+                    draw_text(pos_view_to_reg(mouse_pos.x, mouse_pos.y), get_addon_prefs().ds_text_dist_from_cursor,
+                              l_ys[1],
                               lbl, (1, 1, 1, 1))
     else:
         if (sender.list_sk_goal == []):
@@ -1363,7 +1372,8 @@ class VL_MT_voronoi_fastmath_pie(bpy.types.Menu):
         for li in displayList[0]:
             if (get_addon_prefs().fm_is_empty_hold == False) and (li == ' '):
                 continue
-            pie.operator(NODE_OT_voronoi_fastmath.bl_idname, text=li.capitalize() if displayDeep[0] == 1 else li).bridge = li
+            pie.operator(NODE_OT_voronoi_fastmath.bl_idname,
+                         text=li.capitalize() if displayDeep[0] == 1 else li).bridge = li
 
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
@@ -1489,7 +1499,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1.prop(self, 'vh_draw_text_for_unhide')
 
 
-list_classes = [NODE_OT_voronoi_linker, NODE_OT_voronoi_mass_linker, NODE_OT_voronoi_mixer, NODE_OT_voronoi_mixer_mixer, VL_MT_voronoi_mixer_menu, NODE_OT_voronoi_previewer,
+list_classes = [NODE_OT_voronoi_linker, NODE_OT_voronoi_mass_linker, NODE_OT_voronoi_mixer, NODE_OT_voronoi_mixer_mixer,
+                VL_MT_voronoi_mixer_menu, NODE_OT_voronoi_previewer,
                 NODE_OT_voronoi_hider, NODE_OT_voronoi_fastmath, VL_MT_voronoi_fastmath_pie, VoronoiAddonPrefs]
 list_addon_keymaps = []
 kmi_defs = ((NODE_OT_voronoi_linker.bl_idname, 'RIGHTMOUSE', False, False, True),
@@ -1497,7 +1508,8 @@ kmi_defs = ((NODE_OT_voronoi_linker.bl_idname, 'RIGHTMOUSE', False, False, True)
             (NODE_OT_voronoi_mixer.bl_idname, 'RIGHTMOUSE', True, False, True),
             (NODE_OT_voronoi_previewer.bl_idname, 'LEFTMOUSE', True, True, False),
             (NODE_OT_voronoi_previewer.bl_idname, 'RIGHTMOUSE', True, True, False),
-            (NODE_OT_voronoi_hider.bl_idname, 'E', True, False, False), (NODE_OT_voronoi_hider.bl_idname, 'E', True, True, False))
+            (NODE_OT_voronoi_hider.bl_idname, 'E', True, False, False),
+            (NODE_OT_voronoi_hider.bl_idname, 'E', True, True, False))
 
 
 def register():
