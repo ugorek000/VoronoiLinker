@@ -206,26 +206,23 @@ def DebugDrawCallback(sender, context):
     list_nodes = GenNearestNodeList(context.space_data.edit_tree.nodes, mouse_pos)
     sco = 0
     for li in list_nodes:
-        if li[1].type != 'FRAME': wp = PreparGetWP(li[2], 0)
+        if li[1].type == 'FRAME': continue
+        wp = PreparGetWP(li[2], 0)
         DrawWidePoint(wp[0], wp[1], Vector((1, .5, .5, 1)))
-
-        DrawDbText(wp[0],
-                   str(sco) + ' Node goal here',
-                   g=.5,
-                   b=.5)
+        DrawDbText(wp[0], str(sco) + ' Node goal here', g=.5, b=.5)
         sco += 1
+
     list_socket_in, list_socket_out = GenNearestSocketsList(list_nodes[0][1], mouse_pos)
-    if list_socket_out: wp = PreparGetWP(list_socket_out[0][2], 0)
-    DrawWidePoint(wp[0], wp[1],
-                  Vector((.5, .5, 1, 1)))
-    DrawDbText(
-        wp[0], 'Nearest socketOut here', r=.75, g=.75)
+    if list_socket_out:
+        wp = PreparGetWP(list_socket_out[0][2], 0)
+        DrawWidePoint(wp[0], wp[1], Vector((.5, .5, 1, 1)))
+        DrawDbText(wp[0], 'Nearest socketOut here', r=.75, g=.75)
+
     if list_socket_in:
         wp = PreparGetWP(list_socket_in[0][2], 0)
-        DrawWidePoint(wp[0], wp[1],
-                                                                                Vector((.5, 1, .5, 1)))
-    DrawDbText(
-        wp[0], 'Nearest socketIn here', r=.5, b=.5)
+        DrawWidePoint(wp[0], wp[1], Vector((.5, 1, .5, 1)))
+
+        DrawDbText(wp[0], 'Nearest socketIn here', r=.5, b=.5)
 
 
 def UiScale():
@@ -453,15 +450,17 @@ class VoronoiLinker(bpy.types.Operator):
                     if self.list_sk_goal_in[
                         1].is_multi_input:  # Если мультиинпут -- реализовать адекватный порядок подключения. Накой смысол последние лепятся в начало?.
                         list_sk_links = []
-                        for lk in self.list_sk_goal_in[1].links: list_sk_links.append(
-                            (lk.from_socket, lk.to_socket))
-                        tree.links.remove(lk)
+                        for lk in self.list_sk_goal_in[1].links:
+                            list_sk_links.append((lk.from_socket, lk.to_socket))
+                            tree.links.remove(lk)
+
                         if self.list_sk_goal_out[1].bl_idname == 'NodeSocketVirtual':
                             self.list_sk_goal_out[1] = self.list_sk_goal_out[1].node.outputs[
                                 length(self.list_sk_goal_out[1].node.outputs) - 2]
                         tree.links.new(self.list_sk_goal_out[1], self.list_sk_goal_in[1])
-                        for cyc in range(0, length(list_sk_links) - 1): tree.links.new(list_sk_links[cyc][0],
-                                                                                       list_sk_links[cyc][1])
+                        for cyc in range(0, length(list_sk_links) - 1):
+                            tree.links.new(list_sk_links[cyc][0],list_sk_links[cyc][1])
+
                     return {'FINISHED'}
                 else:
                     return {'CANCELLED'}
@@ -480,7 +479,6 @@ class VoronoiLinker(bpy.types.Operator):
                                                                      'WINDOW', 'POST_PIXEL')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
-
 
 def VoronoiMassLinkerDrawCallback(sender, context):
     if gv_where[0] != context.space_data: return
@@ -513,7 +511,8 @@ def VoronoiMassLinkerDrawCallback(sender, context):
             wp1 = PreparGetWP(lsk[2] * gv_uifac[0], GetAddonPrefs().ds_point_offset_x)
             wp2 = PreparGetWP(mouse_pos, 0)
             if (GetAddonPrefs().vlds_is_always_line) and (GetAddonPrefs().ds_is_draw_line):
-                DrawLine(wp1[0], wp2[0], lw, GetSkCol(lsk[1]) if GetAddonPrefs().ds_is_colored_line else (1, 1, 1, 1),
+                DrawLine(wp1[0], wp2[0], lw,
+                         GetSkCol(lsk[1]) if GetAddonPrefs().ds_is_colored_line else (1, 1, 1, 1),
                          (1, 1, 1, 1))
             if GetAddonPrefs().ds_is_draw_point:
                 DrawWidePoint(wp1[0], wp1[1], GetSkVecCol(lsk[1], 2.2))
@@ -532,23 +531,23 @@ def VoronoiMassLinkerDrawCallback(sender, context):
         for lsks in sender.list_equalSks:
             DrawRectangleOnSocket(lsks[0][1], lsks[0][3], GetSkVecCol(lsks[0][1], 2.2))
             DrawRectangleOnSocket(lsks[1][1], lsks[1][3], GetSkVecCol(lsks[1][1], 2.2))
+
             if GetAddonPrefs().ds_is_colored_line:
                 col1 = GetSkCol(lsks[0][1])
                 col2 = GetSkCol(lsks[1][1])
             else:
                 col1 = (1, 1, 1, 1)
                 col2 = (1, 1, 1, 1)
+
             wp1 = PreparGetWP(lsks[0][2] * gv_uifac[0], GetAddonPrefs().ds_point_offset_x)
             wp2 = PreparGetWP(lsks[1][2] * gv_uifac[0], -GetAddonPrefs().ds_point_offset_x)
-            if GetAddonPrefs().ds_is_draw_line: DrawLine(wp1[0], wp2[0], lw, col1, col2)
-            if GetAddonPrefs().ds_is_draw_point: DrawWidePoint(wp1[0], wp1[1],
-                                                               GetSkVecCol(lsks[0][1], 2.2))
-            DrawWidePoint(wp2[0],
-                          wp2[1],
-                          GetSkVecCol(
-                              lsks[1][
-                                  1],
-                              2.2))
+
+            if GetAddonPrefs().ds_is_draw_line:
+                DrawLine(wp1[0], wp2[0], lw, col1, col2)
+            if GetAddonPrefs().ds_is_draw_point:
+                DrawWidePoint(wp1[0], wp1[1], GetSkVecCol(lsks[0][1], 2.2))
+
+            DrawWidePoint(wp2[0], wp2[1], GetSkVecCol(lsks[1][1], 2.2))
 
 
 class VoronoiMassLinker(bpy.types.Operator):
@@ -633,10 +632,10 @@ def VoronoiMixerDrawCallback(sender, context):
         if GetAddonPrefs().ds_is_draw_line: DrawLine(wp1[0], mouse_region_pos, lw, GetSkCol(
             sender.list_sk_goal_out1[1]) if GetAddonPrefs().ds_is_colored_line else col, col)
         if GetAddonPrefs().ds_is_draw_point:
-            DrawWidePoint(wp1[0], wp1[1], GetSkVecCol(sender.list_sk_goal_out1[1],
-                                                      2.2))
-            DrawWidePoint(wp2[0],
-                          wp2[1])
+            DrawWidePoint(wp1[0], wp1[1], GetSkVecCol(sender.list_sk_goal_out1[1], 2.2))
+
+            DrawWidePoint(wp2[0], wp2[1])
+
         MixerDrawSk(sender.list_sk_goal_out1[1], -.5, 0)
     else:
         DrawRectangleOnSocket(sender.list_sk_goal_out1[1], sender.list_sk_goal_out1[3],
@@ -730,7 +729,9 @@ class VoronoiMixer(bpy.types.Operator):
                                     bpy.ops.wm.call_menu_pie(name='VL_MT_voronoi_mixer_menu')
                                 else:
                                     bpy.ops.wm.call_menu(name='VL_MT_voronoi_mixer_menu')
-                    elif (self.list_sk_goal_out1) and (self.list_sk_goal_out2 == []) and (
+
+                    elif (self.list_sk_goal_out1) and (
+                            self.list_sk_goal_out2 == []) and (
                             GetAddonPrefs().fm_is_included):
                         mixerSks[0] = self.list_sk_goal_out1[1]
                         displayWho[0] = mixerSks[0].bl_idname == 'NodeSocketVector'
@@ -1112,13 +1113,13 @@ def VoronoiPreviewer_DoPreview(context, goalSk):
         # Удобный сразу-в-шейдер. "and(sock_in)" -- если у корня нет вывода
         if (sock_out.type in ('RGBA')) and (cyc == hig_way) and (sock_in) and (len(sock_in.links) != 0):
             if (sock_in.links[0].from_node.type in list_shader_shaders_with_color) and (is_zero_preview_gen):
-                if len(sock_in.links[0].from_socket.links) == 1: sock_in = sock_in.links[0].from_node.inputs.get(
-                    'Color')
+                if len(sock_in.links[0].from_socket.links) == 1:
+                    sock_in = sock_in.links[0].from_node.inputs.get('Color')
+
         # Соединить:
         nd_va = list_way_trnd[cyc][0].nodes.get('Voronoi_Anchor')
         if nd_va:
-            list_way_trnd[cyc][0].links.new(sock_out, nd_va.inputs[
-                0])
+            list_way_trnd[cyc][0].links.new(sock_out, nd_va.inputs[0])
             break  # Завершение после напарывания повышает возможности использования якоря.
         elif (sock_out) and (sock_in) and ((sock_in.name == 'voronoi_preview') or (cyc == hig_way)):
             list_way_trnd[cyc][0].links.new(sock_out, sock_in)
@@ -1458,10 +1459,10 @@ def register():
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name='Node Editor', space_type='NODE_EDITOR')
     for (bl_id, key, Shift, Ctrl, Alt) in kmi_defs:
         kmi = km.keymap_items.new(idname=bl_id, type=key, value='PRESS',
-                                                                              shift=Shift, ctrl=Ctrl,
-                                                                              alt=Alt)
+                                  shift=Shift, ctrl=Ctrl,
+                                  alt=Alt)
         list_addon_keymaps.append(
-        (km, kmi))
+            (km, kmi))
 
 
 def unregister():
