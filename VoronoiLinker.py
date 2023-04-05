@@ -22,6 +22,7 @@ from bpy.props import BoolProperty, FloatProperty, IntProperty, EnumProperty, Fl
 from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
 from builtins import len as length
+from bpy.app.translations import pgettext_iface as _tips
 
 from math import pi, inf, sin, cos, copysign
 
@@ -35,7 +36,7 @@ gv_where = [None]
 def draw_way(vtxs, vcol, siz):
     # bgl.glEnable(bgl.GL_BLEND)
     # bgl.glEnable(bgl.GL_LINE_SMOOTH)
-    gpu.state.blend_set('ALPHA_PREMUL')
+    gpu.state.blend_set('ALPHA')
     gv_shaders[0].bind()
     # bgl.glLineWidth(siz)
     gpu.state.line_width_set(siz)
@@ -45,7 +46,7 @@ def draw_way(vtxs, vcol, siz):
 def draw_area_fan(vtxs, col, sm):
     # bgl.glEnable(bgl.GL_BLEND)
     # bgl.glEnable(bgl.GL_POLYGON_SMOOTH) if sm else bgl.glDisable(bgl.GL_POLYGON_SMOOTH)
-    gpu.state.blend_set('ALPHA_PREMUL')
+    gpu.state.blend_set('ALPHA')
     gv_shaders[1].bind()
     gv_shaders[1].uniform_float('color', col)
     batch_for_shader(gv_shaders[1], 'TRI_FAN', {'pos': vtxs}).draw(gv_shaders[1])
@@ -118,6 +119,7 @@ def draw_is_linked(loc, ofsx, ofsy, sk_col):
 
 
 def draw_text(pos, ofsx, ofsy, txt, draw_col):
+    txt_ = _tips(txt)
     isdrsh = get_addon_prefs().ds_is_draw_sk_text_shadow
     if isdrsh:
         blf.enable(gv_font_id[0], blf.SHADOW)
@@ -130,7 +132,7 @@ def draw_text(pos, ofsx, ofsy, txt, draw_col):
     tof = get_addon_prefs().ds_text_frame_offset
     txsz = get_addon_prefs().ds_font_size
     blf.size(gv_font_id[0], txsz, 72)
-    txdim = [blf.dimensions(gv_font_id[0], txt)[0], blf.dimensions(gv_font_id[0], '█')[1]]
+    txdim = [blf.dimensions(gv_font_id[0], txt_)[0], blf.dimensions(gv_font_id[0], '█')[1]]
     pos = [pos[0] - (txdim[0] + tof + 10) * (ofsx < 0) + (tof + 1) * (ofsx > -1), pos[1] + tof]
     pw = 1 / 1.975
     muv = round((txdim[1] + tof * 2) * ofsy)
@@ -167,7 +169,7 @@ def draw_text(pos, ofsx, ofsy, txt, draw_col):
         draw_line([pos1[0], pos2[1]], pos1, 2, col, col)
     blf.position(gv_font_id[0], pos[0] + ofsx + 3.5, pos[1] + muv + txdim[1] * .3, 0)
     blf.color(gv_font_id[0], draw_col[0] ** pw, draw_col[1] ** pw, draw_col[2] ** pw, 1.0)
-    blf.draw(gv_font_id[0], txt)
+    blf.draw(gv_font_id[0], txt_)
     return [txdim[0] + tof, txdim[1] + tof * 2]
 
 
