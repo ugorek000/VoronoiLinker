@@ -2,7 +2,7 @@
 # I don't understand about licenses.
 # Do what you want with it.
 ### END LICENSE BLOCK
-bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,9,1),'blender':(3,4,1), #05.04.2023
+bl_info = {'name':'Voronoi Linker','author':'ugorek','version':(1,9,1),'blender':(3,5,0), #05.04.2023
         'description':'Simplification of create node links.','location':'Node Editor > Alt + RMB','warning':'','category':'Node',
         'wiki_url':'https://github.com/ugorek000/VoronoiLinker/blob/main/README.md','tracker_url':'https://github.com/ugorek000/VoronoiLinker/issues'}
 #Этот аддон является самописом лично для меня, который я сделал публичным для всех желающих. Наслаждайтесь!
