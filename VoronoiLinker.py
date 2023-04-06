@@ -915,9 +915,10 @@ class VL_MT_voronoi_mixer_menu(bpy.types.Menu):
 
     def draw(self, context):
         who = self.layout.menu_pie() if get_addon_prefs().vm_menu_style == 'Pie' else self.layout
-        who.label(text=dict_mixer_user_sk_name.get(mixerSkTyp[0], mixerSkTyp[0].capitalize()))
+        text = dict_mixer_user_sk_name.get(mixerSkTyp[0], mixerSkTyp[0].capitalize())
+        who.label(text=_tips(text))
         for li in dictMixerMain[context.space_data.tree_type][mixerSkTyp[0]]:
-            who.operator('node.voronoi_mixer_mixer', text=dict_mixer_defs[li][2]).who = li
+            who.operator('node.voronoi_mixer_mixer', text=_tips(dict_mixer_defs[li][2])).who = li
 
 
 def voronoi_previewer_draw_callback(sender, context):
@@ -1392,10 +1393,11 @@ class VL_MT_voronoi_fastmath_pie(bpy.types.Menu):
     def draw(self, context):
         pie = self.layout.menu_pie()
         for li in displayList[0]:
-            if (get_addon_prefs().fm_is_empty_hold is False) and (li == ' '):
-                continue
-            pie.operator(NODE_OT_voronoi_fastmath.bl_idname,
-                         text=li.capitalize() if displayDeep[0] == 1 else li).bridge = li
+            if (get_addon_prefs().fm_is_empty_hold is False) and (li == ' '): continue
+
+            text = li.capitalize() if displayDeep[0] == 1 else li
+            op = pie.operator(NODE_OT_voronoi_fastmath.bl_idname, text=_tips(text))
+            op.bridge = li
 
 
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
@@ -1481,18 +1483,16 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 col4.prop(self, 'ds_shadow_blur')
             col2.prop(self, 'ds_is_draw_debug')
 
-
-
         row = col1.row()
         row.use_property_split = True
-        col_split1 = row.column(heading ='Draw')
+        col_split1 = row.column(heading='Draw')
         col_split1.prop(self, 'ds_is_draw_sk_text')
         col_split1.prop(self, 'ds_is_draw_marker')
         col_split1.prop(self, 'ds_is_draw_point')
         col_split1.prop(self, 'ds_is_draw_line')
         col_split1.prop(self, 'ds_is_draw_area')
 
-        col_split2 = row.column(heading = 'Color')
+        col_split2 = row.column(heading='Color')
         col_split2.prop(self, 'ds_is_colored_sk_text')
         col_split2.prop(self, 'ds_is_colored_marker')
         col_split2.prop(self, 'ds_is_colored_point')
