@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,0,0), 'blender':(3,5,0), #22.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,0,1), 'blender':(3,5,0), #23.04.2023
         'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
         'wiki_url':"https://github.com/ugorek000/VoronoiLinker#readme", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -254,8 +254,8 @@ def GetNearestSockets(nd, callPos): #Выдаёт список "ближайши
     #Если рероут, то имеем простой вариант, не требующий вычисления; вход и выход всего одни, позиции сокетов -- он сам
     if nd.bl_idname=='NodeReroute':
         len = Vector(callPos-ndLocation).length
-        list_fgSksIn.append(  [nd.inputs[0],  len, ndLocation, (-1,-1)] )
-        list_fgSksOut.append( [nd.outputs[0], len, ndLocation, (-1,-1)] )
+        list_fgSksIn.append( FoundTarget( nd.inputs[0],  len, ndLocation, (-1,-1), bpy.app.translations.pgettext_iface(nd.inputs[0].name ) ))
+        list_fgSksOut.append(FoundTarget( nd.outputs[0], len, ndLocation, (-1,-1), bpy.app.translations.pgettext_iface(nd.outputs[0].name) ))
         return list_fgSksIn, list_fgSksOut
     def GetFromPut(sideMark, ioPut):
         list_result = []
@@ -469,7 +469,8 @@ class VoronoiLinker(bpy.types.Operator):
                     lk = tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
                     #"Фантомный" инпут может принимать в себя прям как мультиинпут, офигеть. Теперь под всё это нужно подстраиваться.
                     #Проверяем, если линк соединился на виртуальные, но "ничего не произошло"
-                    num = (blIdSkOut=='NodeSocketVirtual')+(blIdSkIn=='NodeSocketVirtual')*2
+                    #Но так же важно проверить, что этот виртуальный сокет не является рероутом 
+                    num = (blIdSkOut=='NodeSocketVirtual')*(lk.from_node.type!='REROUTE')+(blIdSkIn=='NodeSocketVirtual')*(lk.to_node.type!='REROUTE')*2
                     #Рероуты тоже могут быть виртуальными, поэтому нужно отличить их. "0" если io групп не найдено.
                     num *= (lk.from_node.bl_idname=='NodeGroupInput')or(lk.to_node.bl_idname=='NodeGroupOutput')
                     #Ситуация "виртуальный в виртуальный из группы в группу" исключена в |1| с помощью xor, от чего её не нужно обрабатывать.
