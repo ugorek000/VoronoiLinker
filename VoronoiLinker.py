@@ -1067,7 +1067,7 @@ tuple_vecMathMap = (
         #Например, length проще, чем distance. Всем же остальным не очевидным и не осе-ориентированным достаётся как получится.
         ("Advanced",              ['SCALE',      'NORMALIZE',    'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT']),
         ("Compatible Primitives", ['SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD']),
-        ("Rays",                  ['DOT_PRODUCT','CROSS_PRODUCT','FACEFORWARD','PROJECT',     'REFRACT',     'REFLECT']),
+        ("Rays",                  ['DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT']),
         ("Compatible Vector",     ['MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP']),
         ("", []), ("", []), ("", []), ("", []))
 #Ассоциация типа нода математики для типа редактора дерева
