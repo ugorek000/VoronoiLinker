@@ -1065,7 +1065,7 @@ tuple_vecMathMap = (
         #За исключением примитивов, где прослеживается супер очевидная логика (право -- плюс -- add, лево -- минус -- sub; всё как на числовой оси),
         # лево и низ у меня имеют более высокую степень простоты, чем обратная сторона.
         #Например, length проще, чем distance. Всем же остальным не очевидным и не осе-ориентированным достаётся как получится.
-        ("Advanced",              ['NORMALIZE',  'SCALE',        'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT']),
+        ("Advanced",              ['SCALE',      'NORMALIZE',    'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT']),
         ("Compatible Primitives", ['SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD']),
         ("Rays",                  ['DOT_PRODUCT','CROSS_PRODUCT','FACEFORWARD','PROJECT',     'REFRACT',     'REFLECT']),
         ("Compatible Vector",     ['MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP']),
