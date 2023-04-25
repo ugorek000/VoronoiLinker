@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,0), 'blender':(3,5,0), #24.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,1), 'blender':(3,5,0), #25.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -783,7 +783,7 @@ def DoPreview(context, goalSk):
         #Удобный сразу-в-шейдер. (Такое же изобретение, как и |4|, только чуть менее удобное. Мб стоит избавиться от такой возможности)
         #Основной приём для шейдеров -- цвет, поэтому проверять нужно только для сокетов цвета.
         #Продолжить проверку если у корня есть вывод, и он куда-то подсоединён (может быть это окажется шейдер).
-        if (skOut.type=='RGBA')and(skIn)and(length(skIn.links)>0):
+        if (Prefs().vpIsAutoShader)and(skOut.type=='RGBA')and(skIn)and(length(skIn.links)>0):
             #Мультиинпутов у корней не бывает, так что проверяется первый линк сокета. И если его нод находится в группе с "шейдерами что имеют цвет", то продолжить
             #|5| isZeroPreviewGen нужен, чтобы если просмотр из группы, то не соединятся в шейдер; но если это был "тру" путь без создания voronoiSkPreviewName, то из групп соединяться можно
             if (skIn.links[0].from_node.type in tuple_shaderNodesWithColor)and(isZeroPreviewGen):
@@ -1037,7 +1037,7 @@ class VoronoiMixerPie(bpy.types.Menu):
 # с нужной операцией через два пирога (почему два пирога, читайте далее). Здесь происходит тоже самое, только дополнительно с удобными связями благодаря VL'у.
 #|7| Из-за того, что имеется возможность вызывать даже из однго сокета, быстрой математикой можно почти полноценно пользоваться и без моего основного аддона быстрой математики,
 # ("почти", потому что иногда есть редкая нужда просто добавить нод с нужной операцией без авто-соединений, типа Shift A, но не выцеливать операцию из большого списка.
-#  А так же потому, что здесь не получается использовать перетаскивание курсора для выбора сектора, нужно только кликать).
+#  А так же потому, что здесь не получается использовать перетаскивание курсора для выбора сектора, нужно только кликать. А так же потому, что не выбрать и не вставить нод на линк).
 #Для желающих избавиться от двойного пирога и сделать его одним -- пожалуйста. Прелесть пирога в том -- что в нём не нужно целиться. Его "кнопки" -- сектора, заполняют всё пространство,
 # (прям как VL). Но от сего есть побочный эффект -- только 8 пунктов выбора, если больше -- секторность пирога станет слишком не удобной. Проблема 8-ми секторов -- очевидная и геометрическая,
 # а значит я могу смело утверждать, что какую бы идею вы не придумали для сокращения двух пирогов до одного, вы будете вынуждены вернуться обратно в снайперское выцеливание курсором
@@ -1555,9 +1555,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vpAllowClassicCompositorViewer: bpy.props.BoolProperty(name="Allow using classic Compositor Viewer", default=False)
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow using classic GeoNodes Viewer",   default=True)
     #
-    vpIsLivePreview:         bpy.props.BoolProperty(name="Live Preview",          default=True)
-    vpIsSelectPreviewedNode: bpy.props.BoolProperty(name="Select Previewed Node", default=True)
-    vpHkInverse:             bpy.props.BoolProperty(name="Previews hotkey swap",  default=False)
+    vpIsAutoShader:          bpy.props.BoolProperty(name="Socket color directly into a shader", default=True)
+    vpIsLivePreview:         bpy.props.BoolProperty(name="Live Preview",                        default=True)
+    vpIsSelectPreviewedNode: bpy.props.BoolProperty(name="Select Previewed Node",               default=True)
+    vpHkInverse:             bpy.props.BoolProperty(name="Previews hotkey swap",                default=False)
     #Mixer
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
     vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
@@ -1581,6 +1582,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Preview settings")
+        col2.prop(self, 'vpIsAutoShader')
         col2.prop(self, 'vpIsLivePreview')
         col2.prop(self, 'vpIsSelectPreviewedNode')
         col2.prop(self, 'vpHkInverse')
@@ -1750,6 +1752,7 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                     #Settings
                     "Allow using classic Compositor Viewer": "Разрешить классический Viewer Композитора",
                     "Allow using classic GeoNodes Viewer":   "Разрешить классический Viewer Геометрических нодов",
+                    "Socket color directly into a shader":   "Сокет цвета сразу в шейдер",
                     "Live Preview":                          "Предпросмотр в реальном времени",
                     "Select Previewed Node":                 "Выделять предпросматриваемый нод",
                     "Previews hotkey swap":                  "Поменять местами горячие клавиши",
