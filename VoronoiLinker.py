@@ -1129,7 +1129,7 @@ class FastMathPie(bpy.types.Menu):
             pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
 
 #P.s. Инструменты здесь отсортированы в порядке их крутости.
-def VoronoiSwapperDrawCallback(self, context):
+def VoronoiSwaperDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     def DrawMixerSkText(cusorPos, fg, ofsY, facY):
@@ -1146,9 +1146,9 @@ def VoronoiSwapperDrawCallback(self, context):
             DrawMixerSkText(cusorPos, self.foundGoalSkIo1, -1.25, -1)
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiSwapper(bpy.types.Operator):
-    bl_idname = 'node.voronoi_swapper'
-    bl_label = "Voronoi Swapper"
+class VoronoiSwaper(bpy.types.Operator):
+    bl_idname = 'node.voronoi_swaper'
+    bl_label = "Voronoi Swaper"
     bl_options = {'UNDO'}
     @classmethod
     def poll(cls, context):
@@ -1196,7 +1196,7 @@ class VoronoiSwapper(bpy.types.Operator):
         match event.type:
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
-                    VoronoiSwapper.NextAssessment(self, context, False)
+                    VoronoiSwaper.NextAssessment(self, context, False)
             case 'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
@@ -1217,7 +1217,7 @@ class VoronoiSwapper(bpy.types.Operator):
                                 tree.links.remove(lk)
                             for lk in self.foundGoalSkIo1.tg.links:
                                 tree.links.new(self.foundGoalSkIo0.tg, lk.to_socket)
-                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
+                                if lk.to_socket.is_multi_input:
                                     tree.links.remove(lk)
                             for li in list_memSks:
                                 tree.links.new(self.foundGoalSkIo1.tg, li)
@@ -1238,8 +1238,8 @@ class VoronoiSwapper(bpy.types.Operator):
         else:
             self.foundGoalSkIo0 = None
             self.foundGoalSkIo1 = None
-            VoronoiSwapper.NextAssessment(self, context, True)
-            ToolInvokeStencilPrepare(self, context, VoronoiSwapperDrawCallback)
+            VoronoiSwaper.NextAssessment(self, context, True)
+            ToolInvokeStencilPrepare(self, context, VoronoiSwaperDrawCallback)
         return {'RUNNING_MODAL'}
 
 #VoronoiHider нужен только для наведения порядка и эстетики в дереве.
@@ -1778,7 +1778,7 @@ tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
                  VoronoiLinker,
                  VoronoiPreviewer,
                  VoronoiMixer, VoronoiMixerMixer,VoronoiMixerPie, FastMathMain,FastMathPie,
-                 VoronoiSwapper,
+                 VoronoiSwaper,
                  VoronoiHider,
                  VoronoiMassLinker)
 list_helpClasses = []
@@ -1787,7 +1787,7 @@ tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True)
                   (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False),
                   (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False),
                   (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True),
-                  (VoronoiSwapper.bl_idname,   'S',          True,  False, True),
+                  (VoronoiSwaper.bl_idname,    'S',          True,  False, True),
                   (VoronoiHider.bl_idname,     'E',          True,  True,  False), #Раскрытие раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiHider.bl_idname,     'E',          True,  False, False),
                   (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True))
