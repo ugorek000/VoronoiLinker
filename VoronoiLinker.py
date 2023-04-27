@@ -922,7 +922,7 @@ class VoronoiMixer(bpy.types.Operator):
             ToolInvokeStencilPrepare(self, context, VoronoiMixerDrawCallback)
         return {'RUNNING_MODAL'}
 
-dict_dictMixerMain = {                       #Порядок важен, самые частые(в этом списке) идут первее.
+dict_dictMixerMain = {                       #Порядок важен, самые частые(в этом списке) идут первее (кроме MixRGB).
         'ShaderNodeTree':     {'SHADER':     ['ShaderNodeMixShader','ShaderNodeAddShader'],
                                'VALUE':      ['ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath'],
                                'RGBA':       ['ShaderNodeMixRGB',  'ShaderNodeMix'],
@@ -1069,7 +1069,7 @@ tuple_vecMathMap = (
         ("Compatible Primitives", ['SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD']),
         ("Rays",                  ['DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT']),
         ("Compatible Vector",     ['MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP']),
-        ("", []), ("", []), ("", []), ("", []))
+        (" ", []), (" ", []), (" ", []), (" ", [])) #Из-за пробелов кнопка выглядит чуть шире для векторов. Мне так красивее.
 #Ассоциация типа нода математики для типа редактора дерева
 tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'GeometryNodeTree':   'ShaderNodeMath',
@@ -1097,7 +1097,7 @@ class FastMathMain(bpy.types.Operator):
             bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_fastmath_pie")
         tuple_who = tuple_vecMathMap if mixerGlbVars.displayWho else tuple_mathMap
         mixerGlbVars.list_displayList = [ti[0] for ti in tuple_who] #Установка списка здесь нужна для elif ниже.
-        if not self.operation: #Если вызов быстрой математики
+        if self.operation in (""," "): #Если вызов быстрой математики
             DispMenu(0)
         elif self.operation in mixerGlbVars.list_displayList: #Если выбор категории
             #Вычленить список с операциями из "глобального" списка
@@ -1123,9 +1123,9 @@ class FastMathPie(bpy.types.Menu):
     def draw(self, context):
         pie = self.layout.menu_pie()
         for li in mixerGlbVars.list_displayList:
-            if (li=='')and(not Prefs().vmIsFastMathEmptyHold):
+            if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
                 continue
-            #Автоматический перевод выключен, ибо оригинальные операции у нода тоже не переводятся.
+            #Автоматический перевод выключен, ибо оригинальные операции у нода так же не переводятся.
             pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
 
 #P.s. Инструменты здесь отсортированы в порядке их крутости.
