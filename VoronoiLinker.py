@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,2), 'blender':(3,5,0), #27.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,3), 'blender':(3,5,0), #27.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1217,7 +1217,8 @@ class VoronoiSwapper(bpy.types.Operator):
                                 tree.links.remove(lk)
                             for lk in self.foundGoalSkIo1.tg.links:
                                 tree.links.new(self.foundGoalSkIo0.tg, lk.to_socket)
-                                tree.links.remove(lk)
+                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
+                                    tree.links.remove(lk)
                             for li in list_memSks:
                                 tree.links.new(self.foundGoalSkIo1.tg, li)
                         else:
