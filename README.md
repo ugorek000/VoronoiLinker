@@ -32,7 +32,7 @@ See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 ----------------------
 First appearance of the addon 09.12.2022  
 Complete refactoring done at 22.04.2023  
-Version 2.1.1 created 25.04.2023
+Version 2.1.2 created 27.04.2023
 
 ----------------------
 Reach to autor (Russia):  
