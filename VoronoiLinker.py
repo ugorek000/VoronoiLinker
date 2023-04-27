@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,1), 'blender':(3,5,0), #25.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,2), 'blender':(3,5,0), #27.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1292,17 +1292,22 @@ class VoronoiHider(bpy.types.Operator):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            if not nd.type in ['FRAME','REROUTE']:
-                self.foundGoalNd = li
-                list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
-                def GetNotLinked(list_sks): #Выдать первого, кто не имеет линков.
-                    for li in list_sks:
-                        if not li.tg.links: #Выключенный сокет всё равно учитывается.
-                            return li
-                fgSkIn = GetNotLinked(list_fgSksIn)
-                fgSkOut = GetNotLinked(list_fgSksOut)
-                self.foundGoalSkIo = MinFromFgs(fgSkOut, fgSkIn)
-                break
+            #Для этого инструмента рероуты так же пропускаются, по очевидным причинам.
+            if nd.type in ['FRAME','REROUTE']:
+                continue
+            #Интересная идея включить присасывание к свёрнутым нодам при показе всего, но нет.
+            if nd.hide:# and(not self.isNodeToTarget):
+                continue
+            self.foundGoalNd = li
+            list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
+            def GetNotLinked(list_sks): #Выдать первого, кто не имеет линков.
+                for li in list_sks:
+                    if not li.tg.links: #Выключенный сокет всё равно учитывается.
+                        return li
+            fgSkIn = GetNotLinked(list_fgSksIn)
+            fgSkOut = GetNotLinked(list_fgSksOut)
+            self.foundGoalSkIo = MinFromFgs(fgSkOut, fgSkIn)
+            break
     def modal(self, context, event):
         context.area.tag_redraw()
         match event.type:
