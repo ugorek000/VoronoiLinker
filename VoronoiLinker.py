@@ -36,7 +36,7 @@ class MixerGlobalVariable: #То же самое, как и выше, тольк
     sk0 = None
     sk1 = None
     skType = None
-    list_displayList = []
+    list_displayItems = []
     displayWho = 0
     displayDeep = 0
 
@@ -94,10 +94,10 @@ def DrawRing(pos, rd, siz=1, col=(1.0, 1.0, 1.0, .75), rotation=0.0, resolution=
     DrawWay(vpos, vcol, siz)
 def DrawCircle(pos, rd, col=(1.0, 1.0, 1.0, .75), resolution=54):
     #Первая вершина гордо в центре круга, остальные по кругу. Нужно было чтобы артефакты сглаживания были красивыми в центр, а не наклонёнными в куда-то бок.
-    vpos = [ (pos[0],pos[1]), *[ (rd*cos(i*2.0*pi/resolution)+pos[0], rd*sin(i*2.0*pi/resolution)+pos[1]) for i in range(resolution+1) ] ]
+    vpos = ( (pos[0],pos[1]), *( (rd*cos(i*2.0*pi/resolution)+pos[0], rd*sin(i*2.0*pi/resolution)+pos[1]) for i in range(resolution+1) ) )
     DrawAreaFan(vpos, col)
 def DrawRectangle(pos1, pos2, col):
-    DrawAreaFan([ (pos1[0],pos1[1]), (pos2[0],pos1[1]), (pos2[0],pos2[1]), (pos1[0],pos2[1]) ], col)
+    DrawAreaFan(( (pos1[0],pos1[1]), (pos2[0],pos1[1]), (pos2[0],pos2[1]), (pos1[0],pos2[1]) ), col)
 
 def DrawSocketArea(sk, boxHeiBou, colfac=Vector( (1.0, 1.0, 1.0, 1.0) )):
     loc = RecrGetNodeFinalLoc(sk.node)
@@ -115,14 +115,14 @@ def DrawIsLinkedMarker(loc, ofs, skCol):
     col3 = (skCol[0], skCol[1], skCol[2], .925) #Цветная основа
     def DrawMarkerBacklight(tgl, res=16):
         rot = pi/res if tgl else 0.0
-        DrawRing( [vec[0]+ofs[0],     vec[1]+5.0+ofs[1]], 9.0, 3, col2, rot, res )
-        DrawRing( [vec[0]+ofs[0]-5.0, vec[1]-3.5+ofs[1]], 9.0, 3, col2, rot, res )
-    DrawRing( [vec[0]+ofs[0]+1.5, vec[1]+3.5+ofs[1]], 9.0, 3, col1)
-    DrawRing( [vec[0]+ofs[0]-3.5, vec[1]-5.0+ofs[1]], 9.0, 3, col1)
+        DrawRing( (vec[0]+ofs[0],     vec[1]+5.0+ofs[1]), 9.0, 3, col2, rot, res )
+        DrawRing( (vec[0]+ofs[0]-5.0, vec[1]-3.5+ofs[1]), 9.0, 3, col2, rot, res )
+    DrawRing( (vec[0]+ofs[0]+1.5, vec[1]+3.5+ofs[1]), 9.0, 3, col1)
+    DrawRing( (vec[0]+ofs[0]-3.5, vec[1]-5.0+ofs[1]), 9.0, 3, col1)
     DrawMarkerBacklight(True) #Маркер рисуется с артефактами "дырявых пикселей". Закостылить их дублированной отрисовкой с вращением.
     DrawMarkerBacklight(False) #Но из-за этого нужно уменьшить альфу белой обводки в два раза.
-    DrawRing( [vec[0]+ofs[0],     vec[1]+5.0+ofs[1]], 9.0, 1, col3)
-    DrawRing( [vec[0]+ofs[0]-5.0, vec[1]-3.5+ofs[1]], 9.0, 1, col3)
+    DrawRing( (vec[0]+ofs[0],     vec[1]+5.0+ofs[1]), 9.0, 1, col3)
+    DrawRing( (vec[0]+ofs[0]-5.0, vec[1]-3.5+ofs[1]), 9.0, 1, col3)
 
 def DrawWidePoint(loc, colfac=Vector( (1.0, 1.0, 1.0, 1.0) ), resolution=54, forciblyCol=False): #"forciblyCol" нужен только для DrawDebug'а.
     #Подготовка:
@@ -144,7 +144,7 @@ def DrawText(pos, ofs, txt, drawCol):
     if Prefs().dsIsAllowTextShadow:
         blf.enable(globalVars.fontId, blf.SHADOW)
         muv = Prefs().dsShadowCol
-        blf.shadow(globalVars.fontId, [0, 3, 5][Prefs().dsShadowBlur], muv[0], muv[1], muv[2], muv[3])
+        blf.shadow(globalVars.fontId, (0, 3, 5)[Prefs().dsShadowBlur], muv[0], muv[1], muv[2], muv[3])
         muv = Prefs().dsShadowOffset
         blf.shadow_offset(globalVars.fontId, muv[0], muv[1])
     else: #Большую часть времени бесполезно, но нужно использовать, когда опция рисования тени переключается.
@@ -156,13 +156,13 @@ def DrawText(pos, ofs, txt, drawCol):
     #Но этого недостаточно, некоторые буквы некоторых шрифтов могут вылезти за рамку. Это не чинится, ибо изначально всё было вылизано и отшлифовано для Consolas.
     #И если починить это для всех шрифтов, то тогда рамка для Consolas'а потеряет красоту. P.s. Consolas -- мой самый любимый шрифт после Comic Sans.
     #Если вы хотите тру центрирование -- сделайте это сами.
-    txtDim = [blf.dimensions(globalVars.fontId, txt)[0], blf.dimensions(globalVars.fontId, "█GJKLPgjklp!?")[1]]
+    txtDim = (blf.dimensions(globalVars.fontId, txt)[0], blf.dimensions(globalVars.fontId, "█GJKLPgjklp!?")[1])
     pos = VecWorldToRegScale(pos)
-    pos = [ pos[0]-(txtDim[0]+frameOffset+10)*(ofs[0]<0)+(frameOffset+1)*(ofs[0]>-1), pos[1]+frameOffset ]
+    pos = ( pos[0]-(txtDim[0]+frameOffset+10)*(ofs[0]<0)+(frameOffset+1)*(ofs[0]>-1), pos[1]+frameOffset )
     pw = 1/1.975 #Осветлить текст. Почему 1.975 -- не помню.
     placePosY = round( (txtDim[1]+frameOffset*2)*ofs[1] ) #Без округления красивость горизонтальных линий пропадет.
-    pos1 = [pos[0]+ofs[0]-frameOffset,              pos[1]+placePosY-frameOffset]
-    pos2 = [pos[0]+ofs[0]+10+txtDim[0]+frameOffset, pos[1]+placePosY+txtDim[1]+frameOffset]
+    pos1 = (pos[0]+ofs[0]-frameOffset,              pos[1]+placePosY-frameOffset)
+    pos2 = (pos[0]+ofs[0]+10+txtDim[0]+frameOffset, pos[1]+placePosY+txtDim[1]+frameOffset)
     gradientResolution = 12
     girderHeight = 1/gradientResolution*(txtDim[1]+frameOffset*2)
     #Рамка для текста
@@ -170,37 +170,37 @@ def DrawText(pos, ofs, txt, drawCol):
         #Прозрачный фон:
         def Fx(x, a, b): return ((x+b)/(b+1))**.6*(1-a)+a
         for cyc in range(gradientResolution):
-            DrawRectangle( [pos1[0], pos1[1]+cyc*girderHeight], [pos2[0], pos1[1]+cyc*girderHeight+girderHeight], (drawCol[0]/2, drawCol[1]/2, drawCol[2]/2, Fx(cyc/gradientResolution,.2,.05)) )
+            DrawRectangle( (pos1[0], pos1[1]+cyc*girderHeight), (pos2[0], pos1[1]+cyc*girderHeight+girderHeight), (drawCol[0]/2, drawCol[1]/2, drawCol[2]/2, Fx(cyc/gradientResolution,.2,.05)) )
         #Яркая основная обводка:
         col = (drawCol[0]**pw, drawCol[1]**pw, drawCol[2]**pw, 1.0)
-        DrawLine(       pos1,        [pos2[0],pos1[1]], 1, col, col)
-        DrawLine( [pos2[0],pos1[1]],        pos2,       1, col, col)
-        DrawLine(       pos2,        [pos1[0],pos2[1]], 1, col, col)
-        DrawLine( [pos1[0],pos2[1]],        pos1,       1, col, col)
+        DrawLine(       pos1,        (pos2[0],pos1[1]), 1, col, col)
+        DrawLine( (pos2[0],pos1[1]),        pos2,       1, col, col)
+        DrawLine(       pos2,        (pos1[0],pos2[1]), 1, col, col)
+        DrawLine( (pos1[0],pos2[1]),        pos1,       1, col, col)
         #Мягкая дополнительная обвода, придающая красоты:
         col = (col[0], col[1], col[2], .375)
         lineOffset = 2.0
-        DrawLine( [pos1[0], pos1[1]-lineOffset], [pos2[0], pos1[1]-lineOffset], 1, col, col )
-        DrawLine( [pos2[0]+lineOffset, pos1[1]], [pos2[0]+lineOffset, pos2[1]], 1, col, col )
-        DrawLine( [pos2[0], pos2[1]+lineOffset], [pos1[0], pos2[1]+lineOffset], 1, col, col )
-        DrawLine( [pos1[0]-lineOffset, pos2[1]], [pos1[0]-lineOffset, pos1[1]], 1, col, col )
+        DrawLine( (pos1[0], pos1[1]-lineOffset), (pos2[0], pos1[1]-lineOffset), 1, col, col )
+        DrawLine( (pos2[0]+lineOffset, pos1[1]), (pos2[0]+lineOffset, pos2[1]), 1, col, col )
+        DrawLine( (pos2[0], pos2[1]+lineOffset), (pos1[0], pos2[1]+lineOffset), 1, col, col )
+        DrawLine( (pos1[0]-lineOffset, pos2[1]), (pos1[0]-lineOffset, pos1[1]), 1, col, col )
         #Уголки. Их маленький размер -- маскировка под тру-скругление:
-        DrawLine( [pos1[0]-lineOffset, pos1[1]], [pos1[0], pos1[1]-lineOffset], 1, col, col )
-        DrawLine( [pos2[0]+lineOffset, pos1[1]], [pos2[0], pos1[1]-lineOffset], 1, col, col )
-        DrawLine( [pos2[0]+lineOffset, pos2[1]], [pos2[0], pos2[1]+lineOffset], 1, col, col )
-        DrawLine( [pos1[0]-lineOffset, pos2[1]], [pos1[0], pos2[1]+lineOffset], 1, col, col )
+        DrawLine( (pos1[0]-lineOffset, pos1[1]), (pos1[0], pos1[1]-lineOffset), 1, col, col )
+        DrawLine( (pos2[0]+lineOffset, pos1[1]), (pos2[0], pos1[1]-lineOffset), 1, col, col )
+        DrawLine( (pos2[0]+lineOffset, pos2[1]), (pos2[0], pos2[1]+lineOffset), 1, col, col )
+        DrawLine( (pos1[0]-lineOffset, pos2[1]), (pos1[0], pos2[1]+lineOffset), 1, col, col )
     elif Prefs().dsDisplayStyle=='SIMPLIFIED': #Упрощённая рамка. Создана в честь нытиков с гипертрофированным чувством дизайнерской эстетики, я вас не понимаю.
-        DrawRectangle( [pos1[0], pos1[1]], [pos2[0], pos2[1]], (drawCol[0]/2.4, drawCol[1]/2.4, drawCol[2]/2.4, .8) )
+        DrawRectangle( (pos1[0], pos1[1]), (pos2[0], pos2[1]), (drawCol[0]/2.4, drawCol[1]/2.4, drawCol[2]/2.4, .8) )
         col = (.1, .1, .1, .95)
-        DrawLine(       pos1,        [pos2[0],pos1[1]], 2, col, col)
-        DrawLine( [pos2[0],pos1[1]],        pos2,       2, col, col)
-        DrawLine(       pos2,        [pos1[0],pos2[1]], 2, col, col)
-        DrawLine( [pos1[0],pos2[1]],        pos1,       2, col, col)
+        DrawLine(       pos1,        (pos2[0],pos1[1]), 2, col, col)
+        DrawLine( (pos2[0],pos1[1]),        pos2,       2, col, col)
+        DrawLine(       pos2,        (pos1[0],pos2[1]), 2, col, col)
+        DrawLine( (pos1[0],pos2[1]),        pos1,       2, col, col)
     #Сам текст:
     blf.position(globalVars.fontId, pos[0]+ofs[0]+3.5, pos[1]+placePosY+txtDim[1]*.3, 0)
     blf.color(   globalVars.fontId, drawCol[0]**pw, drawCol[1]**pw, drawCol[2]**pw, 1.0)
     blf.draw(    globalVars.fontId, txt)
-    return [txtDim[0]+frameOffset, txtDim[1]+frameOffset*2]
+    return (txtDim[0]+frameOffset, txtDim[1]+frameOffset*2)
 def DrawSkText(pos, ofs, fgSk):
     if not Prefs().dsIsDrawSkText:
         return [1, 0] #"1" нужен для сохранения информации для направления для позиции маркеров
@@ -246,7 +246,7 @@ def GetNearestSockets(nd, callPos): #Выдаёт список "ближайши
     list_fgSksOut = []
     #Обработать ситуацию, когда искать не у кого
     if not nd:
-        return [], []
+        return list_fgSksIn, list_fgSksOut
     #Так же расшифровать иерархию родителей, как и в поиске ближайшего нода, потому что теперь ищутся сокеты
     ndLocation = RecrGetNodeFinalLoc(nd)
     #"nd.dimensions" уже содержат в себе корректировку на масштаб интерфейса, поэтому вернуть его обратно в мир делением
@@ -363,7 +363,7 @@ def DrawToolOftenStencil(cusorPos, list_twoTgSks, isLineToCursor=False, textSide
     if isDrawText:
         for li in list_twoTgSks:
             side = (textSideFlip*2-1)
-            txtDim = DrawSkText( cusorPos, [Prefs().dsDistFromCursor*(li.tg.is_output*2-1)*side, -.5], li )
+            txtDim = DrawSkText( cusorPos, (Prefs().dsDistFromCursor*(li.tg.is_output*2-1)*side, -.5), li )
             #В условии ".links", но не ".is_linked", потому что линки могут быть выключены (замьючены, красные).
             if (Prefs().dsIsDrawMarker)and( (li.tg.links)and(not isDrawMarkersMoreTharOne)or(length(li.tg.links)>1) ):
                 DrawIsLinkedMarker( cusorPos, [txtDim[0]*(li.tg.is_output*2-1)*side, 0], GetSkCol(li.tg) )
@@ -707,10 +707,10 @@ def DoPreview(context, goalSk):
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
                     for nd in list_wayTreeNd[higWay][0].nodes:
-                        if nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT']:
+                        if nd.type in ('OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT'):
                             if nd.is_active_output:
                                 #Совать в сокет объёма если предпросматриваемый сокет имеет имя "Объём" и тип принимающего нода имеет вход для объёма
-                                skIn = nd.inputs[ (goalSk.name=="Volume")*(nd.type in ['OUTPUT_MATERIAL','OUTPUT_WORLD']) ]
+                                skIn = nd.inputs[ (goalSk.name=="Volume")*(nd.type in ('OUTPUT_MATERIAL','OUTPUT_WORLD')) ]
                 case 'GeometryNodeTree':
                     for nd in list_wayTreeNd[higWay][0].nodes:
                         if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
@@ -812,9 +812,9 @@ def VoronoiMixerDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     def DrawMixerSkText(cusorPos, fg, ofsY, facY):
-        txtDim = DrawSkText( cusorPos, [Prefs().dsDistFromCursor*(fg.tg.is_output*2-1), ofsY], fg )
+        txtDim = DrawSkText( cusorPos, (Prefs().dsDistFromCursor*(fg.tg.is_output*2-1), ofsY), fg )
         if (fg.tg.links)and(Prefs().dsIsDrawMarker):
-            DrawIsLinkedMarker( cusorPos, [txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75], GetSkCol(fg.tg) )
+            DrawIsLinkedMarker( cusorPos, (txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75), GetSkCol(fg.tg) )
     cusorPos = context.space_data.cursor_location
     if (self.foundGoalSkOut0):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut0], True, isDrawText=False )
@@ -878,7 +878,7 @@ class VoronoiMixer(bpy.types.Operator):
                 if not context.space_data.edit_tree:
                     return {'FINISHED'}
                 if event.value=='RELEASE':
-                    LSkCheck = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']
+                    LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
                     if (self.foundGoalSkOut0)and(self.foundGoalSkOut1):
                         mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
                         mixerGlbVars.sk1 = self.foundGoalSkOut1.tg
@@ -894,7 +894,7 @@ class VoronoiMixer(bpy.types.Operator):
                             if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and( (tgl1)or(tgl2) ):
                                 bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
                                 return {'FINISHED'}
-                        di = dict_dictMixerMain.get(context.space_data.tree_type, False)
+                        di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
                         if not di: #Если не в классических редакторах, то просто выйти. Ибо классические у всех одинаковые, а аддонских есть бесчисленное количество.
                             return {'CANCELLED'}
                         di = di.get(mixerGlbVars.skType, False)
@@ -922,61 +922,61 @@ class VoronoiMixer(bpy.types.Operator):
             ToolInvokeStencilPrepare(self, context, VoronoiMixerDrawCallback)
         return {'RUNNING_MODAL'}
 
-dict_dictMixerMain = {                       #Порядок важен, самые частые(в этом списке) идут первее (кроме MixRGB).
-        'ShaderNodeTree':     {'SHADER':     ['ShaderNodeMixShader','ShaderNodeAddShader'],
-                               'VALUE':      ['ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath'],
-                               'RGBA':       ['ShaderNodeMixRGB',  'ShaderNodeMix'],
-                               'VECTOR':     ['ShaderNodeMixRGB',  'ShaderNodeMix',                                       'ShaderNodeVectorMath'],
-                               'INT':        ['ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath']},
+dict_dictTupleMixerMain = {                   #Порядок важен, самые частые(в этом списке) идут первее (кроме MixRGB).
+        'ShaderNodeTree':     {'SHADER':     ('ShaderNodeMixShader','ShaderNodeAddShader'),
+                               'VALUE':      ('ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath'),
+                               'RGBA':       ('ShaderNodeMixRGB',  'ShaderNodeMix'),
+                               'VECTOR':     ('ShaderNodeMixRGB',  'ShaderNodeMix',                                       'ShaderNodeVectorMath'),
+                               'INT':        ('ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath')},
 
-        'GeometryNodeTree':   {'VALUE':      ['GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'],
-                               'RGBA':       ['GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare'],
-                               'VECTOR':     ['GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare',                 'ShaderNodeVectorMath'],
-                               'STRING':     ['GeometryNodeSwitch',                'FunctionNodeCompare',                                         'GeometryNodeStringJoin'],
-                               'INT':        ['GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'],
-                               'BOOLEAN':    ['GeometryNodeSwitch','ShaderNodeMixRGB',                   'ShaderNodeMath',                        'FunctionNodeBooleanMath'],
-                               'OBJECT':     ['GeometryNodeSwitch'], # ^ для микса миксом болеана нужно слишком много дополнительных условий, так что не поддерживается.
-                               'MATERIAL':   ['GeometryNodeSwitch'],
-                               'COLLECTION': ['GeometryNodeSwitch'],
-                               'TEXTURE':    ['GeometryNodeSwitch'],
-                               'IMAGE':      ['GeometryNodeSwitch'],
-                               'GEOMETRY':   ['GeometryNodeSwitch','GeometryNodeJoinGeometry','GeometryNodeInstanceOnPoints','GeometryNodeCurveToMesh','GeometryNodeMeshBoolean','GeometryNodeGeometryToInstance']},
+        'GeometryNodeTree':   {'VALUE':      ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
+                               'RGBA':       ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare'),
+                               'VECTOR':     ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare',                 'ShaderNodeVectorMath'),
+                               'STRING':     ('GeometryNodeSwitch',                'FunctionNodeCompare',                                         'GeometryNodeStringJoin'),
+                               'INT':        ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
+                               'BOOLEAN':    ('GeometryNodeSwitch','ShaderNodeMixRGB',                   'ShaderNodeMath',                        'FunctionNodeBooleanMath'),
+                               'OBJECT':     ('GeometryNodeSwitch'), # ^ для микса миксом болеана нужно слишком много дополнительных условий, так что не поддерживается.
+                               'MATERIAL':   ('GeometryNodeSwitch'),
+                               'COLLECTION': ('GeometryNodeSwitch'),
+                               'TEXTURE':    ('GeometryNodeSwitch'),
+                               'IMAGE':      ('GeometryNodeSwitch'),
+                               'GEOMETRY':   ('GeometryNodeSwitch','GeometryNodeJoinGeometry','GeometryNodeInstanceOnPoints','GeometryNodeCurveToMesh','GeometryNodeMeshBoolean','GeometryNodeGeometryToInstance')},
 
-        'CompositorNodeTree': {'VALUE':      ['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath'],
-                               'RGBA':       ['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView',                      'CompositorNodeAlphaOver'],
-                               'VECTOR':     ['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'],
-                               'INT':        ['CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath']},
+        'CompositorNodeTree': {'VALUE':      ('CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath'),
+                               'RGBA':       ('CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView',                      'CompositorNodeAlphaOver'),
+                               'VECTOR':     ('CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
+                               'INT':        ('CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath')},
 
-        'TextureNodeTree':    {'VALUE':      ['TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath'],
-                               'RGBA':       ['TextureNodeMixRGB','TextureNodeTexture'],
-                               'VECTOR':     ['TextureNodeMixRGB',                                        'TextureNodeDistance'],
-                               'INT':        ['TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath']}}
-dict_listMixerNodesDefs = { #"-1" означает визуальную здесь метку, что их подключения высчитываются автоматически (См. |8|), а не указаны явно в этом списке.
-        'GeometryNodeSwitch':             [-1, -1, "Switch"],
-        'ShaderNodeMix':                  [-1, -1, "Mix"],
-        'FunctionNodeCompare':            [-1, -1, "Compare"],
-        'ShaderNodeMath':                 [0, 1, "Max"],
-        'ShaderNodeMixRGB':               [1, 2, "Mix RGB"],
-        'CompositorNodeMixRGB':           [1, 2, "Mix"],
-        'CompositorNodeSwitch':           [0, 1, "Switch"],
-        'CompositorNodeSplitViewer':      [0, 1, "Split Viewer"],
-        'CompositorNodeSwitchView':       [0, 1, "Switch View"],
-        'TextureNodeMixRGB':              [1, 2, "Mix"],
-        'TextureNodeTexture':             [0, 1, "Texture"],
-        'ShaderNodeVectorMath':           [0, 1, "Max"],
-        'CompositorNodeMath':             [0, 1, "Max"],
-        'TextureNodeMath':                [0, 1, "Max"],
-        'ShaderNodeMixShader':            [1, 2, "Mix"],
-        'ShaderNodeAddShader':            [0, 1, "Add"],
-        'GeometryNodeStringJoin':         [1, 1, "Join"],
-        'FunctionNodeBooleanMath':        [0, 1, "Or"],
-        'CompositorNodeAlphaOver':        [1, 2, "Alpha Over"],
-        'TextureNodeDistance':            [0, 1, "Distance"],
-        'GeometryNodeJoinGeometry':       [0, 0, "Join"],
-        'GeometryNodeInstanceOnPoints':   [0, 2, "Instance on Points"],
-        'GeometryNodeCurveToMesh':        [0, 1, "Curve to Mesh"],
-        'GeometryNodeMeshBoolean':        [0, 1, "Boolean"],
-        'GeometryNodeGeometryToInstance': [0, 0, "To Instance"]}
+        'TextureNodeTree':    {'VALUE':      ('TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath'),
+                               'RGBA':       ('TextureNodeMixRGB','TextureNodeTexture'),
+                               'VECTOR':     ('TextureNodeMixRGB',                                        'TextureNodeDistance'),
+                               'INT':        ('TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath')}}
+dict_tupleMixerNodesDefs = { #"-1" означает визуальную здесь метку, что их подключения высчитываются автоматически (См. |8|), а не указаны явно в этом списке.
+        'GeometryNodeSwitch':             (-1, -1, "Switch"),
+        'ShaderNodeMix':                  (-1, -1, "Mix"),
+        'FunctionNodeCompare':            (-1, -1, "Compare"),
+        'ShaderNodeMath':                 (0, 1, "Max"),
+        'ShaderNodeMixRGB':               (1, 2, "Mix RGB"),
+        'CompositorNodeMixRGB':           (1, 2, "Mix"),
+        'CompositorNodeSwitch':           (0, 1, "Switch"),
+        'CompositorNodeSplitViewer':      (0, 1, "Split Viewer"),
+        'CompositorNodeSwitchView':       (0, 1, "Switch View"),
+        'TextureNodeMixRGB':              (1, 2, "Mix"),
+        'TextureNodeTexture':             (0, 1, "Texture"),
+        'ShaderNodeVectorMath':           (0, 1, "Max"),
+        'CompositorNodeMath':             (0, 1, "Max"),
+        'TextureNodeMath':                (0, 1, "Max"),
+        'ShaderNodeMixShader':            (1, 2, "Mix"),
+        'ShaderNodeAddShader':            (0, 1, "Add"),
+        'GeometryNodeStringJoin':         (1, 1, "Join"),
+        'FunctionNodeBooleanMath':        (0, 1, "Or"),
+        'CompositorNodeAlphaOver':        (1, 2, "Alpha Over"),
+        'TextureNodeDistance':            (0, 1, "Distance"),
+        'GeometryNodeJoinGeometry':       (0, 0, "Join"),
+        'GeometryNodeInstanceOnPoints':   (0, 2, "Instance on Points"),
+        'GeometryNodeCurveToMesh':        (0, 1, "Curve to Mesh"),
+        'GeometryNodeMeshBoolean':        (0, 1, "Boolean"),
+        'GeometryNodeGeometryToInstance': (0, 0, "To Instance")}
 def DoMix(context, txt):
     tree = context.space_data.edit_tree
     if not tree:
@@ -1008,11 +1008,11 @@ def DoMix(context, txt):
             tree.links.new(mixerGlbVars.sk1, list_foundSk[not tgl])
         case _:
             #Такая плотная суета ради мультиинпута -- для него нужно изменить порядок подключения:
-            if aNd.inputs[dict_listMixerNodesDefs[aNd.bl_idname][0]].is_multi_input:
-                tree.links.new( mixerGlbVars.sk1, aNd.inputs[dict_listMixerNodesDefs[aNd.bl_idname][1]] )
-            tree.links.new( mixerGlbVars.sk0, aNd.inputs[dict_listMixerNodesDefs[aNd.bl_idname][0]] )
-            if not aNd.inputs[dict_listMixerNodesDefs[aNd.bl_idname][0]].is_multi_input:
-                tree.links.new( mixerGlbVars.sk1, aNd.inputs[dict_listMixerNodesDefs[aNd.bl_idname][1]] )
+            if aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input:
+                tree.links.new( mixerGlbVars.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1]] )
+            tree.links.new( mixerGlbVars.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] )
+            if not aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input:
+                tree.links.new( mixerGlbVars.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1]] )
 class VoronoiMixerMixer(bpy.types.Operator):
     bl_idname = 'node.voronoi_mixer_mixer'
     bl_label = "Voronoi Mixer Mixer"
@@ -1030,8 +1030,8 @@ class VoronoiMixerPie(bpy.types.Menu):
     def draw(self, context):
         pie = self.layout.menu_pie()
         pie.label( text={'VALUE':'Float','RGBA':'Color'}.get( mixerGlbVars.skType, mixerGlbVars.skType.capitalize() ) )
-        for li in dict_dictMixerMain[context.space_data.tree_type][mixerGlbVars.skType]:
-            pie.operator('node.voronoi_mixer_mixer', text=dict_listMixerNodesDefs[li][2], translate=False).txt=li
+        for li in dict_dictTupleMixerMain[context.space_data.tree_type][mixerGlbVars.skType]:
+            pie.operator('node.voronoi_mixer_mixer', text=dict_tupleMixerNodesDefs[li][2], translate=False).txt=li
 
 #"FastMath" -- мой другой аддон, чьи возможности я принёс сюда, чтобы использовать их вместе с мощностью VoronoiLinker'а. Вся суть моей "быстрой математики" -- заполучить нод
 # с нужной операцией через два пирога (почему два пирога, читайте далее). Здесь происходит тоже самое, только дополнительно с удобными связями благодаря VL'у.
@@ -1049,27 +1049,27 @@ class VoronoiMixerPie(bpy.types.Menu):
 # у вас глаза разбегались от такой паники -- такое себе удовольствие. К тому же вы вынуждены делать кнопки не прозрачными, в то время как кнопка-сектор-пирога догадайтесь сами.
 #Спасибо за ваши геройские рвения по улучшению, но я буду пользоваться двойным пирогом.
 #Хотите вишенку на торте? Пирог -- встроенная возможность Блендера. От чего нет нужды выстраивать свой огород велосипедов, с блек-джеком и костылями.
-tuple_mathMap = (
+tuple_tupleMathMap = (
         #Было бы не круто разбросать их бездумно, поэтому я пытался соблюсти некоторую логическую последовательность. Например, расставляя пары по смыслу диаметрально противоположными.
         #Пирог располагает в себе элементы следующим образом: лево, право, низ, верх, после чего классическое построчное заполнение.
         #"Compatible..." -- чтобы у векторов и у математики одинаковые операции были на одинаковых местах (кроме тригонометрических).
-        ("Advanced",              ['SQRT',       'POWER',        'EXPONENT',   'LOGARITHM',   'INVERSE_SQRT','PINGPONG']),
-        ("Compatible Primitives", ['SUBTRACT',   'ADD',          'DIVIDE'   ,  'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD']),
-        ("Rounding",              ['SMOOTH_MIN', 'SMOOTH_MAX',   'LESS_THAN',  'GREATER_THAN','SIGN',        'COMPARE',     'TRUNC',  'ROUND']),
-        ("Compatible Vector",     ['MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACT',       'WRAP',   'SNAP']),
-        ("", []),
-        ("", []),
-        ("Other",                 ['COSH',       'RADIANS',      'DEGREES',    'SINH',        'TANH']),
-        ("Trigonometric",         ['SINE',       'COSINE',       'TANGENT',    'ARCTANGENT',  'ARCSINE',     'ARCCOSINE',   'ARCTAN2']))
-tuple_vecMathMap = (
+        ("Advanced",              ('SQRT',       'POWER',        'EXPONENT',   'LOGARITHM',   'INVERSE_SQRT','PINGPONG')),
+        ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE'   ,  'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
+        ("Rounding",              ('SMOOTH_MIN', 'SMOOTH_MAX',   'LESS_THAN',  'GREATER_THAN','SIGN',        'COMPARE',     'TRUNC',  'ROUND')),
+        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACT',       'WRAP',   'SNAP')),
+        ("", ()),
+        ("", ()),
+        ("Other",                 ('COSH',       'RADIANS',      'DEGREES',    'SINH',        'TANH')),
+        ("Trigonometric",         ('SINE',       'COSINE',       'TANGENT',    'ARCTANGENT',  'ARCSINE',     'ARCCOSINE',   'ARCTAN2')))
+tuple_tupleVecMathMap = (
         #За исключением примитивов, где прослеживается супер очевидная логика (право -- плюс -- add, лево -- минус -- sub; всё как на числовой оси),
         # лево и низ у меня имеют более высокую степень простоты, чем обратная сторона.
         #Например, length проще, чем distance. Всем же остальным не очевидным и не осе-ориентированным достаётся как получится.
-        ("Advanced",              ['SCALE',      'NORMALIZE',    'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT']),
-        ("Compatible Primitives", ['SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD']),
-        ("Rays",                  ['DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT']),
-        ("Compatible Vector",     ['MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP']),
-        (" ", []), (" ", []), (" ", []), (" ", [])) #Из-за пробелов кнопка выглядит чуть шире для векторов. Мне так красивее.
+        ("Advanced",              ('SCALE',      'NORMALIZE',    'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT')),
+        ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
+        ("Rays",                  ('DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT')),
+        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP')),
+        (" ", ()), (" ", ()), (" ", ()), (" ", ())) #Из-за пробелов кнопка выглядит чуть шире для векторов. Мне так красивее.
 #Ассоциация типа нода математики для типа редактора дерева
 tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'GeometryNodeTree':   'ShaderNodeMath',
@@ -1095,13 +1095,13 @@ class FastMathMain(bpy.types.Operator):
         def DispMenu(num):
             mixerGlbVars.displayDeep = num #Указывает пирогу, какую глубину вложенности он отображает. Ему это нужно только для ".capitalize()"
             bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_fastmath_pie")
-        tuple_who = tuple_vecMathMap if mixerGlbVars.displayWho else tuple_mathMap
-        mixerGlbVars.list_displayList = [ti[0] for ti in tuple_who] #Установка списка здесь нужна для elif ниже.
+        tuple_who = tuple_tupleVecMathMap if mixerGlbVars.displayWho else tuple_tupleMathMap
+        mixerGlbVars.list_displayItems = [ti[0] for ti in tuple_who] #Установка списка здесь, нужна для elif ниже.
         if self.operation in (""," "): #Если вызов быстрой математики
             DispMenu(0)
-        elif self.operation in mixerGlbVars.list_displayList: #Если выбор категории
+        elif self.operation in mixerGlbVars.list_displayItems: #Если выбор категории
             #Вычленить список с операциями из "глобального" списка
-            mixerGlbVars.list_displayList = [ti[1] for ti in tuple_who if ti[0]==self.operation][0]
+            mixerGlbVars.list_displayItems = [ti[1] for ti in tuple_who if ti[0]==self.operation][0]
             DispMenu(1)
         else: #Иначе установка выбранной операции.
             txt = tuple_dictEditorMathNodes[mixerGlbVars.displayWho].get(context.space_data.tree_type, '')
@@ -1122,7 +1122,7 @@ class FastMathPie(bpy.types.Menu):
     bl_label = "" #Текст здесь будет отображаться в центре пирога.
     def draw(self, context):
         pie = self.layout.menu_pie()
-        for li in mixerGlbVars.list_displayList:
+        for li in mixerGlbVars.list_displayItems:
             if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
                 continue
             #Автоматический перевод выключен, ибо оригинальные операции у нода так же не переводятся.
@@ -1133,7 +1133,7 @@ def VoronoiSwaperDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     def DrawMixerSkText(cusorPos, fg, ofsY, facY):
-        txtDim = DrawSkText( cusorPos, [Prefs().dsDistFromCursor*(fg.tg.is_output*2-1), ofsY], fg )
+        txtDim = DrawSkText( cusorPos, (Prefs().dsDistFromCursor*(fg.tg.is_output*2-1), ofsY), fg )
         if (fg.tg.links)and(Prefs().dsIsDrawMarker):
             DrawIsLinkedMarker( cusorPos, [txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75], GetSkCol(fg.tg) )
     cusorPos = context.space_data.cursor_location
@@ -1205,7 +1205,7 @@ class VoronoiSwaper(bpy.types.Operator):
                     return {'FINISHED'}
                 if event.value=='RELEASE':
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                    LSkCheck = lambda sk: sk.bl_idname in ['NodeSocketFloat','NodeSocketVector','NodeSocketInt']
+                    LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
                     if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
                         #Поменять местами все соединения у первого и у второго сокета:
                         tgl = self.foundGoalSkIo0.tg.is_output #Проверка одинаковости is_output -- забота для NextAssessment
@@ -1217,7 +1217,7 @@ class VoronoiSwaper(bpy.types.Operator):
                                 tree.links.remove(lk)
                             for lk in self.foundGoalSkIo1.tg.links:
                                 tree.links.new(self.foundGoalSkIo0.tg, lk.to_socket)
-                                if lk.to_socket.is_multi_input:
+                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
                                     tree.links.remove(lk)
                             for li in list_memSks:
                                 tree.links.new(self.foundGoalSkIo1.tg, li)
@@ -1263,17 +1263,17 @@ def VoronoiHiderDrawCallback(self, context):
                 DrawStick( self.foundGoalNd.pos, cusorPos, col, col )
             if Prefs().dsIsDrawPoint:
                 DrawWidePoint( self.foundGoalNd.pos, white if Prefs().dsIsColoredPoint else GetUniformColVec() )
-            tgl1 = Prefs().vhDrawNodeNameLabel in ['NAME','LABELNAME']
-            tgl2 = Prefs().vhDrawNodeNameLabel in ['LABEL','LABELNAME']
+            tgl1 = Prefs().vhDrawNodeNameLabel in ('NAME', 'LABELNAME')
+            tgl2 = Prefs().vhDrawNodeNameLabel in ('LABEL','LABELNAME')
             if (tgl1)or(tgl2):
                 txt = self.foundGoalNd.tg.label
-                list_ofsY = [.25,-1.25] if (txt)and(Prefs().vhDrawNodeNameLabel=='LABELNAME') else [-.5,-.5]
+                tuple_ofsY = (.25,-1.25) if (txt)and(Prefs().vhDrawNodeNameLabel=='LABELNAME') else (-.5,-.5)
                 col = white if Prefs().dsIsColoredSkText else GetUniformColVec()
                 if Prefs().dsIsDrawSkText: #Именно, "Sk". Тут весь аддон про что?.
                     if tgl1:
-                        DrawText( cusorPos, [Prefs().dsDistFromCursor, list_ofsY[0]], self.foundGoalNd.tg.name, col)
+                        DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[0]), self.foundGoalNd.tg.name, col)
                     if (txt)and(tgl2):
-                        DrawText( cusorPos, [Prefs().dsDistFromCursor, list_ofsY[1]], txt, col)
+                        DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[1]), txt, col)
         elif Prefs().dsIsDrawPoint:
             DrawWidePoint(cusorPos)
     else:
@@ -1294,7 +1294,7 @@ class VoronoiHider(bpy.types.Operator):
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             #Для этого инструмента рероуты так же пропускаются, по очевидным причинам.
-            if nd.type in ['FRAME','REROUTE']:
+            if nd.type in ('FRAME','REROUTE'):
                 continue
             #Интересная идея включить присасывание к свёрнутым нодам при показе всего, но нет.
             if nd.hide:# and(not self.isNodeToTarget):
@@ -1518,11 +1518,11 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = voronoiAddonName if __name__=="__main__" else __name__
     #AddonPrefs
-    vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=[('SETTINGS','Settings',''),
-                                                                                         ('DRAW',    'Draw',    ''),
-                                                                                         ('KEYMAP',  'Keymap',  '')])
+    vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=( ('SETTINGS','Settings',''),
+                                                                                          ('DRAW',    'Draw',    ''),
+                                                                                          ('KEYMAP',  'Keymap',  '') ))
     #Draw
-    dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform Color", default=[.632502, .408091, .174378, .9], min=0, max=1, size=4, subtype='COLOR') #[.65, .65, .65, 1.0]
+    dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform Color", default=(.632502, .408091, .174378, .9), min=0, max=1, size=4, subtype='COLOR') #(.65, .65, .65, 1.0)
     #
     dsFontFile: bpy.props.StringProperty(name="Font File", default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
     #
@@ -1542,9 +1542,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     #
-    dsDisplayStyle: bpy.props.EnumProperty(name="Display Frame Style", default='CLASSIC', items={('CLASSIC',   'Classic',   '1'), #Если существует способ указать порядок
-                                                                                                 ('SIMPLIFIED','Simplified','2'), # и чтобы работало -- дайте мне знать.
-                                                                                                 ('ONLYTEXT',  'Only text', '3')})
+    dsDisplayStyle: bpy.props.EnumProperty(name="Display Frame Style", default='CLASSIC', items=( ('CLASSIC',   'Classic',   '1'), #Если существует способ указать порядок
+                                                                                                  ('SIMPLIFIED','Simplified','2'), # и чтобы работало -- дайте мне знать.
+                                                                                                  ('ONLYTEXT',  'Only text', '3') ))
     dsLineWidth:      bpy.props.IntProperty(name=  "Line Width",                default=1,  min=1, max=16, subtype="FACTOR")
     dsPointRadius:    bpy.props.FloatProperty(name="Point size",                default=1,  min=0, max=3)
     dsDistFromCursor: bpy.props.FloatProperty(name="Text distance from cursor", default=25, min=5, max=50)
@@ -1569,13 +1569,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
     vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
     #
-    vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items={('ANY','At least one is a math socket',''),
-                                                                                                         ('ALL','Everyone is a math socket',    '')})
+    vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY','At least one is a math socket',''),
+                                                                                                          ('ALL','Everyone is a math socket',    '') ))
     #Hider
-    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items={('NONE','None',''),
-                                                                                                     ('NAME','Only name',''),
-                                                                                                     ('LABEL','Only label',''),
-                                                                                                     ('LABELNAME','Name and label','')})
+    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE','None',''),
+                                                                                                      ('NAME','Only name',''),
+                                                                                                      ('LABEL','Only label',''),
+                                                                                                      ('LABELNAME','Name and label','') ))
     #MassLinker
     vlIsIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore Existing Links", default=True)
     #
@@ -1643,7 +1643,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1 = where.column(align=True)
         col1.use_property_split = True
         col1.prop(self, 'dsFontFile')
-        if not os.path.splitext(self.dsFontFile)[1] in [".ttf",".otf"]:
+        if not os.path.splitext(self.dsFontFile)[1] in (".ttf",".otf"):
             spl = col1.split(factor=.4, align=True)
             spl.label(text="")
             spl.label(text="Only .ttf or .otf format", icon='ERROR')
@@ -1787,7 +1787,7 @@ tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True)
                   (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False),
                   (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False),
                   (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True),
-                  (VoronoiSwaper.bl_idname,    'S',          True,  False, True),
+                  (VoronoiSwaper.bl_idname,   'S',          True,  False, True),
                   (VoronoiHider.bl_idname,     'E',          True,  True,  False), #Раскрытие раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiHider.bl_idname,     'E',          True,  False, False),
                   (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True))
