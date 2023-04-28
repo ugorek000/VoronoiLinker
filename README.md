@@ -9,7 +9,7 @@ Simplification of connection of nodes. Works in any node editor, including edito
 = *Voronoi Preview* =  
 Auto-create link-path from a socket to an outlet or an anchor.  
 = *Voronoi Mixer* =  
-Wide possibilities of mixing different sockets in different editors using power VoronoiLinker!
+Wide possibilities of mixing different sockets in different editors!
 
 And also adds bonus tools:
 
