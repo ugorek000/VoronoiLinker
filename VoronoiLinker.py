@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,4), 'blender':(3,5,0), #28.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,5), 'blender':(3,5,0), #28.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -32,6 +32,8 @@ class GlobalVariableParody: #Мои знания Python'а слишком мал
     fontId = 0
     uiScale = 1.0
     whereActivated = None #CallBack рисуется во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
+    lastCrutchCollapseNdOut = None
+    lastCrutchCollapseNdIn = None
 class MixerGlobalVariable: #То же самое, как и выше, только оформленный под инструмент. Мои знания питона всё ещё слишком малы.
     sk0 = None
     sk1 = None
@@ -303,6 +305,15 @@ def MinFromFgs(fgSk1, fgSk2):
             return fgSk2 if fgSk2.dist<fgSk1.dist else fgSk1
     return None
 
+def DrawDoubleNone(self, context):
+    cusorPos = context.space_data.cursor_location
+    col = Vector( (1, 1, 1, 1) ) if Prefs().dsIsColoredPoint else GetUniformColVec()
+    vec = Vector( (Prefs().dsPointOffsetX*.75, 0) )
+    if (Prefs().dsIsDrawLine)and(Prefs().dsIsAlwaysLine):
+        DrawStick( cusorPos-vec, cusorPos+vec, col, col )
+    if Prefs().dsIsDrawPoint:
+        DrawWidePoint(cusorPos-vec, col)
+        DrawWidePoint(cusorPos+vec, col)
 def EditTreeIsNoneDrawCallback(self, context): #Именно. Ибо эстетика. Вдруг пользователь потеряется; нужно подать признаки жизни.
     if StartDrawCallbackStencil(self, context):
         return
@@ -384,15 +395,21 @@ def ToolInvokeStencilPrepare(self, context, f):
     context.window_manager.modal_handler_add(self)
 
 
-def DrawDoubleNone(self, context):
-    cusorPos = context.space_data.cursor_location
-    col = Vector( (1, 1, 1, 1) ) if Prefs().dsIsColoredPoint else GetUniformColVec()
-    vec = Vector( (Prefs().dsPointOffsetX*.75, 0) )
-    if (Prefs().dsIsDrawLine)and(Prefs().dsIsAlwaysLine):
-        DrawStick( cusorPos-vec, cusorPos+vec, col, col )
-    if Prefs().dsIsDrawPoint:
-        DrawWidePoint(cusorPos-vec, col)
-        DrawWidePoint(cusorPos+vec, col)
+def CrutchWithCollapseNode(nd, who, isFinal=False): #Спасибо пользователю с ником "碳酸铷" за идею хоть какой-то обработки свёрнутых нодов. Это должно облегчить симптомы у любителей сворачивать всё.
+    if not Prefs().vlAllowCrutchWithCollapsedNode: 
+        return
+    att = getattr(globalVars,'lastCrutchCollapseNd'+who)
+    if att:
+        if globalVars.lastCrutchCollapseNdIn==globalVars.lastCrutchCollapseNdOut:
+            globalVars.lastCrutchCollapseNdIn = None
+            return
+        att.hide = True
+    if (nd)and(nd.hide):
+        setattr(globalVars,'lastCrutchCollapseNd'+who, nd)
+    if isFinal:
+        setattr(globalVars,'lastCrutchCollapseNd'+who, None)
+    if nd:
+        nd.hide = False
 def VoronoiLinkerDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
@@ -401,7 +418,7 @@ def VoronoiLinkerDrawCallback(self, context):
         DrawDoubleNone(self, context)
     elif (self.foundGoalSkOut)and(not self.foundGoalSkIn):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut], Prefs().dsIsAlwaysLine )
-        if Prefs().dsIsDrawPoint: #Точка под курсором, шаблоном не обрабатывается.
+        if Prefs().dsIsDrawPoint: #Точка под курсором шаблоном не обрабатывается.
             DrawWidePoint(cusorPos)
     else:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut, self.foundGoalSkIn] )
@@ -420,6 +437,11 @@ class VoronoiLinker(bpy.types.Operator):
             nd = li.tg
             if nd.type=='FRAME': #Рамки пропускаются по очевидным причинам.
                 continue
+            #Обработать костыль-возможность-использования-свёрнутых-нодов:
+            CrutchWithCollapseNode(nd, 'In')
+            if isBoth:
+                globalVars.lastCrutchCollapseNdOut = globalVars.lastCrutchCollapseNdIn
+            #"nd.hide" должно быть использовано после обработки костыля. По очевидным причинам.
             if (nd.hide)and(nd.type!='REROUTE'): #Свёрнутость для рероутов работает, хоть и не отображается визуально.
                 continue
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
@@ -465,6 +487,9 @@ class VoronoiLinker(bpy.types.Operator):
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 if not context.space_data.edit_tree:
                     return {'FINISHED'}
+                if event.value=='RELEASE':
+                    CrutchWithCollapseNode(None, 'In', True)
+                    CrutchWithCollapseNode(None, 'Out', True)
                 if (event.value=='RELEASE')and(self.foundGoalSkOut)and(self.foundGoalSkIn):
                     tree = context.space_data.edit_tree
                     #|2| Если дерево нодов от к.-н. аддона исчезло, то остатки имеют NodeUndefined и NodeSocketUndefined.
@@ -549,7 +574,7 @@ def VoronoiPreviewerDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if (self.foundGoalSkOut):
+    if self.foundGoalSkOut:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut], True, True, True, True )
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
@@ -816,7 +841,7 @@ def VoronoiMixerDrawCallback(self, context):
         if (fg.tg.links)and(Prefs().dsIsDrawMarker):
             DrawIsLinkedMarker( cusorPos, (txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75), GetSkCol(fg.tg) )
     cusorPos = context.space_data.cursor_location
-    if (self.foundGoalSkOut0):
+    if self.foundGoalSkOut0:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut0], True, isDrawText=False )
         tgl = not not self.foundGoalSkOut1
         DrawMixerSkText(cusorPos, self.foundGoalSkOut0, -.5+.75*tgl, int(tgl))
@@ -1137,7 +1162,7 @@ def VoronoiSwaperDrawCallback(self, context):
         if (fg.tg.links)and(Prefs().dsIsDrawMarker):
             DrawIsLinkedMarker( cusorPos, [txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75], GetSkCol(fg.tg) )
     cusorPos = context.space_data.cursor_location
-    if (self.foundGoalSkIo0):
+    if self.foundGoalSkIo0:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkIo0], True, isDrawText=False )
         tgl = not not self.foundGoalSkIo1
         DrawMixerSkText(cusorPos, self.foundGoalSkIo0, -.5+.75*tgl, int(tgl))
@@ -1381,7 +1406,7 @@ def VoronoiMassLinkerDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if (not self.ndGoalOut):
+    if not self.ndGoalOut:
         DrawDoubleNone(self, context)
     elif (self.ndGoalOut)and(not self.ndGoalIn):
         list_sks = GetNearestSockets(self.ndGoalOut, cusorPos)[1] #Взять только сокеты вывода.
@@ -1584,6 +1609,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsAlwaysLine:     bpy.props.BoolProperty(name="Always draw line for VoronoiLinker", default=False)
     dsIsDrawDebug:      bpy.props.BoolProperty(name="Display debugging",                  default=False)
     # =====================================================================================================================================================
+    #Linker
+    vlAllowCrutchWithCollapsedNode: bpy.props.BoolProperty(name="Allow crutch with collapsed node", default=False)
     #Preview
     vpAllowClassicCompositorViewer: bpy.props.BoolProperty(name="Allow using classic Compositor Viewer", default=False)
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow using classic GeoNodes Viewer",   default=True)
@@ -1612,6 +1639,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         #Чтобы это выглядело чуть менее чем "ты берега попутал?", они вынесены из коробки, а так же помещены в самое начало (да ещё и на вкладке по умолчанию).
         col1.prop(self, 'vpAllowClassicCompositorViewer')
         col1.prop(self, 'vpAllowClassicGeoViewer')
+        box = where.box()
+        col2 = box.column(align=True)
+        col2.label(text="Voronoi Linker settings")
+        col2.prop(self, 'vlAllowCrutchWithCollapsedNode')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Preview settings")
@@ -1760,6 +1791,7 @@ class TranslationHelper():
 dict_translateRU = {"Various utilities for nodes connecting, based on the distance field": "Разнообразные помогалочки для соединения нодов, основанные на поле расстояний",
                     "Virtual":                               "Виртуальный",
                     #Draw
+                    "Voronoi Linker settings":               "Настройки Voronoi Linker",
                     "Voronoi Preview settings":              "Настройки Voronoi Preview",
                     "Voronoi Mixer settings":                "Настройки Voronoi Mixer",
                     "Voronoi Hider settings":                "Настройки Voronoi Hider",
@@ -1783,6 +1815,7 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                     "Always draw line for VoronoiLinker":    "Всегда рисовать линию для VoronoiLinker",
                     "Display debugging":                     "Отображать отладку",
                     #Settings
+                    "Allow crutch with collapsed node":      "Включить костыль со свёрнутыми нодами",
                     "Allow using classic Compositor Viewer": "Разрешить классический Viewer Композитора",
                     "Allow using classic GeoNodes Viewer":   "Разрешить классический Viewer Геометрических нодов",
                     "Socket color directly into a shader":   "Сокет цвета сразу в шейдер",
