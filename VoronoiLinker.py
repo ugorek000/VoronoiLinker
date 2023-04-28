@@ -9,7 +9,7 @@
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,0), 'blender':(3,5,0), #28.04.2023
-           'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
+           'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
 from builtins import len as length #Невозможность использования "мобильной" 3-х буквенной переменной с именем "len" -- проклятье воплати.
