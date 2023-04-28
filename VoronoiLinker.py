@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,3), 'blender':(3,5,0), #27.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,4), 'blender':(3,5,0), #28.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -557,6 +557,7 @@ class VoronoiPreviewer(bpy.types.Operator):
     bl_idname = 'node.voronoi_previewer'
     bl_label = "Voronoi Previewer"
     bl_options = {'UNDO'}
+    isPlaceAnAnchor: bpy.props.BoolProperty()
     @classmethod
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR'
@@ -609,7 +610,6 @@ class VoronoiPreviewer(bpy.types.Operator):
                 return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        isPlaceAnAnchor = (event.type=='RIGHTMOUSE')^(Prefs().vpHkInverse)
         if not context.space_data.edit_tree:
             if isPlaceAnAnchor:
                 return {'FINISHED'}
@@ -1069,7 +1069,7 @@ tuple_tupleVecMathMap = (
         ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
         ("Rays",                  ('DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT')),
         ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP')),
-        (" ", ()), (" ", ()), (" ", ()), (" ", ())) #Из-за пробелов кнопка выглядит чуть шире для векторов. Мне так красивее.
+        (" ", ()), (" ", ()), (" ", ()), (" ", ())) #Из-за пробелов кнопки выглядит чуть шире для векторов. Мне так красивее.
 #Ассоциация типа нода математики для типа редактора дерева
 tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'GeometryNodeTree':   'ShaderNodeMath',
@@ -1201,10 +1201,10 @@ class VoronoiSwaper(bpy.types.Operator):
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
             case 'S':
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
                 if event.value=='RELEASE':
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+                    if not context.space_data.edit_tree:
+                        return {'FINISHED'}
                     LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
                     if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
                         #Поменять местами все соединения у первого и у второго сокета:
@@ -1253,61 +1253,60 @@ def VoronoiHiderDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if self.isNodeToTarget:
-        if (self.foundGoalNd):
+    if self.isHideSocket:
+        if self.foundGoalTg:
+            DrawToolOftenStencil( cusorPos, [self.foundGoalTg], True, True )
+        elif Prefs().dsIsDrawPoint:
+            DrawWidePoint(cusorPos)
+    else:
+        if self.foundGoalTg:
             #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
             #Поэтому для нода всё одноцветное, белое или пользовательское.
             white = Vector( (1, 1, 1, 1) )
             if Prefs().dsIsDrawLine:
                 col = white if Prefs().dsIsColoredLine else GetUniformColVec()
-                DrawStick( self.foundGoalNd.pos, cusorPos, col, col )
+                DrawStick( self.foundGoalTg.pos, cusorPos, col, col )
             if Prefs().dsIsDrawPoint:
-                DrawWidePoint( self.foundGoalNd.pos, white if Prefs().dsIsColoredPoint else GetUniformColVec() )
+                DrawWidePoint( self.foundGoalTg.pos, white if Prefs().dsIsColoredPoint else GetUniformColVec() )
             tgl1 = Prefs().vhDrawNodeNameLabel in ('NAME', 'LABELNAME')
             tgl2 = Prefs().vhDrawNodeNameLabel in ('LABEL','LABELNAME')
             if (tgl1)or(tgl2):
-                txt = self.foundGoalNd.tg.label
+                txt = self.foundGoalTg.tg.label
                 tuple_ofsY = (.25,-1.25) if (txt)and(Prefs().vhDrawNodeNameLabel=='LABELNAME') else (-.5,-.5)
                 col = white if Prefs().dsIsColoredSkText else GetUniformColVec()
                 if Prefs().dsIsDrawSkText: #Именно, "Sk". Тут весь аддон про что?.
                     if tgl1:
-                        DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[0]), self.foundGoalNd.tg.name, col)
+                        DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[0]), self.foundGoalTg.tg.name, col)
                     if (txt)and(tgl2):
                         DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[1]), txt, col)
-        elif Prefs().dsIsDrawPoint:
-            DrawWidePoint(cusorPos)
-    else:
-        if self.foundGoalSkIo:
-            DrawToolOftenStencil( cusorPos, [self.foundGoalSkIo], True, True )
         elif Prefs().dsIsDrawPoint:
             DrawWidePoint(cusorPos)
 class VoronoiHider(bpy.types.Operator):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
     bl_options = {'UNDO'}
+    isHideSocket: bpy.props.BoolProperty()
     @classmethod
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context):
-        self.foundGoalSkIo = None #Важно обнулять; так же как и в линкере.
+        self.foundGoalTg = None #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             #Для этого инструмента рероуты так же пропускаются, по очевидным причинам.
-            if nd.type in ('FRAME','REROUTE'):
+            if (nd.hide)or(nd.type in ('FRAME','REROUTE')):
                 continue
-            #Интересная идея включить присасывание к свёрнутым нодам при показе всего, но нет.
-            if nd.hide:# and(not self.isNodeToTarget):
-                continue
-            self.foundGoalNd = li
-            list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
-            def GetNotLinked(list_sks): #Выдать первого, кто не имеет линков.
-                for li in list_sks:
-                    if not li.tg.links: #Выключенный сокет всё равно учитывается.
-                        return li
-            fgSkIn = GetNotLinked(list_fgSksIn)
-            fgSkOut = GetNotLinked(list_fgSksOut)
-            self.foundGoalSkIo = MinFromFgs(fgSkOut, fgSkIn)
+            self.foundGoalTg = li
+            if self.isHideSocket:
+                list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
+                def GetNotLinked(list_sks): #Выдать первого, кто не имеет линков.
+                    for li in list_sks:
+                        if not li.tg.links: #Выключенный сокет всё равно учитывается.
+                            return li
+                fgSkIn = GetNotLinked(list_fgSksIn)
+                fgSkOut = GetNotLinked(list_fgSksOut)
+                self.foundGoalTg = MinFromFgs(fgSkOut, fgSkIn)
             break
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -1319,28 +1318,55 @@ class VoronoiHider(bpy.types.Operator):
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
             case 'E':
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
                 if event.value=='RELEASE':
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                    if not self.isNodeToTarget: #Для сокрытия сокета.
-                        if self.foundGoalSkIo:
-                            self.foundGoalSkIo.tg.hide = True
-                    elif self.foundGoalNd: #Для раскрытия всего нода.
-                        #Нутром чую, что ниже -- не "по питонически". И ещё dry глаза мозолит. Мои знания python'a слишком малы.
-                        for sk in self.foundGoalNd.tg.inputs:
-                            sk.hide = False
-                        for sk in self.foundGoalNd.tg.outputs:
-                            sk.hide = False
+                    if not context.space_data.edit_tree:
+                        return {'FINISHED'}
+                    if self.isHideSocket: #Если сокрытие сокета
+                        if self.foundGoalTg:
+                            self.foundGoalTg.tg.hide = True
+                    else: #Иначе обработка нода.
+                        def HideFromNode(nd, lastResult, isCanToggleHide=False):
+                            def ToggleHideForAllSockets(where, f):
+                                for sk in where:
+                                    sk.hide = f(sk)
+                            def CheckSkZeroDefaultValue(sk): # 0 -- нет, 1 -- да, 2 -- не содержит "default_value" или все остальные.
+                                result = False
+                                match sk.type:
+                                    case 'VALUE'|'INT':
+                                        result = sk.default_value==0
+                                    case 'VECTOR'|'RGBA':
+                                        result = (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
+                                    case 'STRING':
+                                        result = sk.default_value==''
+                                    case _:
+                                        result = 2
+                                return int(result)
+                            if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для isCanToggleHide
+                                def CheckAndDoForIo(where, f):
+                                    success = False
+                                    for sk in where:
+                                        if (sk.enabled)and(not sk.links)and(f(sk)):
+                                            success = (success)or(not sk.hide)
+                                            if isCanToggleHide:
+                                                sk.hide = True
+                                    return success
+                                success = CheckAndDoForIo(nd.inputs, lambda sk: bool(CheckSkZeroDefaultValue(sk)) )
+                                if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
+                                    success = (CheckAndDoForIo(nd.outputs, lambda sk: True ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
+                                return success
+                            elif isCanToggleHide: #Иначе раскрыть всё.
+                                for att in ('inputs','outputs'):
+                                    ToggleHideForAllSockets( getattr(self.foundGoalTg.tg, att), lambda sk: False )
+                        #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
+                        HideFromNode(self.foundGoalTg.tg, HideFromNode(self.foundGoalTg.tg, True), True)
                     return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
-            self.foundGoalSkIo = None
-            self.foundGoalNd = None
-            self.isNodeToTarget = event.ctrl #Достаточно проверить ctrl; shift уже включён в активацию оператора.
+            self.foundGoalTg = None
             VoronoiHider.NextAssessment(self, context)
             ToolInvokeStencilPrepare(self, context, VoronoiHiderDrawCallback)
         return {'RUNNING_MODAL'}
@@ -1783,22 +1809,25 @@ tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
                  VoronoiMassLinker)
 list_helpClasses = []
 list_addonKeymaps = []
-tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True),
-                  (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False),
-                  (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False),
-                  (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True),
-                  (VoronoiSwaper.bl_idname,   'S',          True,  False, True),
-                  (VoronoiHider.bl_idname,     'E',          True,  True,  False), #Раскрытие раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
-                  (VoronoiHider.bl_idname,     'E',          True,  False, False),
-                  (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True))
+tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,  {} ),
+                  (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False, {'isPlaceAnAnchor': False} ),
+                  (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False, {'isPlaceAnAnchor': True } ),
+                  (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True,  {} ),
+                  (VoronoiSwaper.bl_idname,    'S',          True,  False, True,  {} ),
+                  (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ),
+                  (VoronoiHider.bl_idname,     'E',          True,  False, False, {'isHideSocket': True} ),
+                  (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True,  {} ))
 
 
 def register():
     for ti in tuple_classes:
         bpy.utils.register_class(ti)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name="Node Editor", space_type='NODE_EDITOR')
-    for blId, key, shift, ctrl, alt in tuple_kmiDefs:
+    for blId, key, shift, ctrl, alt, dict_props in tuple_kmiDefs:
         kmi = km.keymap_items.new(idname=blId, type=key, value='PRESS', shift=shift, ctrl=ctrl, alt=alt)
+        if dict_props:
+            for ti in dict_props:
+                setattr(kmi.properties, ti, dict_props[ti])
         list_addonKeymaps.append( (km,kmi) )
     #Переводы:
     list_helpClasses.append(TranslationHelper( dict_translateRU, 'ru_RU' ))
