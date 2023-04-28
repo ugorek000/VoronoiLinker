@@ -1418,7 +1418,7 @@ def VoronoiMassLinkerDrawCallback(self, context):
 #|10| Этот инструмент слишком странный и редко используемый, чтобы париться о грамотной реализации.
 class VoronoiMassLinker(bpy.types.Operator):
     bl_idname = 'node.voronoi_mass_linker'
-    bl_label = "Voronoi Linker"
+    bl_label = "Voronoi MassLinker"
     bl_options = {'UNDO'}
     @classmethod
     def poll(cls, context):
@@ -1811,11 +1811,11 @@ tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
 list_helpClasses = []
 list_addonKeymaps = []
 tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,  {} ),
+                  (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False, {'isPlaceAnAnchor': True } ), #Якорь раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False, {'isPlaceAnAnchor': False} ),
-                  (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False, {'isPlaceAnAnchor': True } ),
                   (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True,  {} ),
                   (VoronoiSwaper.bl_idname,    'S',          True,  False, True,  {} ),
-                  (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ),
+                  (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ), #Не-сокет раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiHider.bl_idname,     'E',          True,  False, False, {'isHideSocket': True} ),
                   (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True,  {} ))
 
