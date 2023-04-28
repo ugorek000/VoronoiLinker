@@ -1601,9 +1601,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY','At least one is a math socket',''),
                                                                                                           ('ALL','Everyone is a math socket',    '') ))
     #Hider
-    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE','None',''),
-                                                                                                      ('NAME','Only name',''),
-                                                                                                      ('LABEL','Only label',''),
+    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     'None',          ''),
+                                                                                                      ('NAME',     'Only name',     ''),
+                                                                                                      ('LABEL',    'Only label',    ''),
                                                                                                       ('LABELNAME','Name and label','') ))
     #MassLinker
     vlIsIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore Existing Links", default=True)
