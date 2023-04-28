@@ -13,10 +13,10 @@ Wide possibilities of mixing different sockets in different editors using power 
 
 And also adds bonus tools:
 
-= *Voronoi Swaper* =  
-Swap all links between two sockets.  
 = *Fast Math* =  
 Bonus for "Voronoi Mixer" tool. Pie to quickly select the math operation and automatically connect sockets.  
+= *Voronoi Swaper* =  
+Swap all links between two sockets.  
 = *Voronoi Hider* =  
 Bonus tool. Hide nearest socket to the cursor or unhide all sockets from the nearest node.  
 = *Voronoi MassLinker* =  
@@ -27,7 +27,7 @@ See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 ----------------------
 First appearance of the addon 09.12.2022  
 Complete refactoring done at 22.04.2023  
-Version 2.1.3 created 27.04.2023
+Version 2.1.5 created 28.04.2023
 
 ----------------------
 Reach to autor (Russia):  
