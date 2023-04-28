@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,1,5), 'blender':(3,5,0), #28.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,0), 'blender':(3,5,0), #28.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':'', 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1271,9 +1271,8 @@ class VoronoiSwaper(bpy.types.Operator):
 #Для тех, кого (например я) напрягают "торчащие без дела" пустые сокеты выхода, или очевидные (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
 #Например, мне больно смотреть, как при манипуляции с "типа 2D" векторами у всех нодов "Combine-" и "SeparateXYZ" торчит этот "Z" сокет абсолютно без дела, когда контекст подразумевает только 2D.
 #На самом деле история Hider'а такая же, как и у быстрой математики. Я припёр сюда свои помогалочки ради использоваться с мощностями VoronoiLinler'а.
-#Надеюсь вы простите мне, что среди трёх потрясно-бомбезных возможностей, здесь что-то делает не пойми что зачем это вообще нужно?. У него даже хоткей выбивается из общего списка.
 #P.s. Если вы тоже хотите припереть сюда свою помогалочку, то милости прошу. Я весь аддон заботливо раскоментил тут всё подряд, в первую очередь чтобы самому не забыть.
-# Просто скопируйте к.-н. имеющийся оператор или шаблон, и на его основе сделайте свой.
+# Просто скопируйте к.-н. имеющийся оператор или шаблон, и на его основе создайте свой.
 def VoronoiHiderDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
@@ -1286,7 +1285,7 @@ def VoronoiHiderDrawCallback(self, context):
     else:
         if self.foundGoalTg:
             #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
-            #Поэтому для нода всё одноцветное, белое или пользовательское.
+            #Поэтому, для нода всё одноцветное -- белое или пользовательское.
             white = Vector( (1, 1, 1, 1) )
             if Prefs().dsIsDrawLine:
                 col = white if Prefs().dsIsColoredLine else GetUniformColVec()
@@ -1356,18 +1355,16 @@ class VoronoiHider(bpy.types.Operator):
                             def ToggleHideForAllSockets(where, f):
                                 for sk in where:
                                     sk.hide = f(sk)
-                            def CheckSkZeroDefaultValue(sk): # 0 -- нет, 1 -- да, 2 -- не содержит "default_value" или все остальные.
-                                result = False
+                            def CheckSkZeroDefaultValue(sk): #Не содержащие "default_value" или все остальные воспринимаются как True.
                                 match sk.type:
                                     case 'VALUE'|'INT':
-                                        result = sk.default_value==0
+                                        return sk.default_value==0
                                     case 'VECTOR'|'RGBA':
-                                        result = (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
+                                        return(sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
                                     case 'STRING':
-                                        result = sk.default_value==''
+                                        return sk.default_value==''
                                     case _:
-                                        result = 2
-                                return int(result)
+                                        return True
                             if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для isCanToggleHide
                                 def CheckAndDoForIo(where, f):
                                     success = False
@@ -1377,7 +1374,7 @@ class VoronoiHider(bpy.types.Operator):
                                             if isCanToggleHide:
                                                 sk.hide = True
                                     return success
-                                success = CheckAndDoForIo(nd.inputs, lambda sk: bool(CheckSkZeroDefaultValue(sk)) )
+                                success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk) )
                                 if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
                                     success = (CheckAndDoForIo(nd.outputs, lambda sk: True ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
                                 return success
