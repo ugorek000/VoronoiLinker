@@ -623,7 +623,7 @@ class VoronoiPreviewer(bpy.types.Operator):
                 case 'GeometryNodeTree':
                     if Prefs().vpAllowClassicGeoViewer:
                         return {'PASS_THROUGH'}
-        if isPlaceAnAnchor:
+        if self.isPlaceAnAnchor:
             tree = context.space_data.edit_tree
             for nd in tree.nodes:
                 nd.select = False
@@ -1290,7 +1290,7 @@ class VoronoiHider(bpy.types.Operator):
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context):
-        self.foundGoalTg = None #Важно обнулять; так же как и в линкере.
+        self.foundGoalTg = [] #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
@@ -1322,9 +1322,10 @@ class VoronoiHider(bpy.types.Operator):
                     bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                     if not context.space_data.edit_tree:
                         return {'FINISHED'}
+                    if not self.foundGoalTg:
+                        return {'CANCELLED'}
                     if self.isHideSocket: #Если сокрытие сокета
-                        if self.foundGoalTg:
-                            self.foundGoalTg.tg.hide = True
+                        self.foundGoalTg.tg.hide = True
                     else: #Иначе обработка нода.
                         def HideFromNode(nd, lastResult, isCanToggleHide=False):
                             def ToggleHideForAllSockets(where, f):
@@ -1366,7 +1367,7 @@ class VoronoiHider(bpy.types.Operator):
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
-            self.foundGoalTg = None
+            self.foundGoalTg = []
             VoronoiHider.NextAssessment(self, context)
             ToolInvokeStencilPrepare(self, context, VoronoiHiderDrawCallback)
         return {'RUNNING_MODAL'}
