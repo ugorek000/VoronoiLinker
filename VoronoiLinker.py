@@ -395,6 +395,11 @@ def ToolInvokeStencilPrepare(self, context, f):
     context.window_manager.modal_handler_add(self)
 
 
+class VoronoiOpBase:
+    @classmethod
+    def poll(cls, context):
+        return context.area.type=='NODE_EDITOR'
+
 def CrutchWithCollapseNode(nd, who, isFinal=False): #Спасибо пользователю с ником "碳酸铷" за идею хоть какой-то обработки свёрнутых нодов. Это должно облегчить симптомы у любителей сворачивать всё.
     if not Prefs().vlAllowCrutchWithCollapsedNode: 
         return
@@ -422,13 +427,10 @@ def VoronoiLinkerDrawCallback(self, context):
             DrawWidePoint(cusorPos)
     else:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut, self.foundGoalSkIn] )
-class VoronoiLinker(bpy.types.Operator):
+class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_linker'
     bl_label = "Voronoi Linker"
     bl_options = {'UNDO'}
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context, isBoth):
         #В случае ненайденного подходящего предыдущий выбор остаётся, отчего нельзя вернуть курсор обратно и "отменить" выбор, что очень неудобно.
         self.foundGoalSkIn = None #Поэтому обнуляется каждый раз перед поиском.
@@ -578,14 +580,11 @@ def VoronoiPreviewerDrawCallback(self, context):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut], True, True, True, True )
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiPreviewer(bpy.types.Operator):
+class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_previewer'
     bl_label = "Voronoi Previewer"
     bl_options = {'UNDO'}
     isPlaceAnAnchor: bpy.props.BoolProperty()
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context):
         isAncohorExist = not not context.space_data.edit_tree.nodes.get(voronoiAnchorName) #Если в геонодах есть якорь, то не триггериться только на геосокеты.
         self.foundGoalSkOut = None #Нет нужды, но сбрасывается для ясности картины. Было полезно для отладки.
@@ -850,13 +849,10 @@ def VoronoiMixerDrawCallback(self, context):
             DrawMixerSkText(cusorPos, self.foundGoalSkOut1, -1.25, -1)
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiMixer(bpy.types.Operator):
+class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_mixer'
     bl_label = "Voronoi Mixer"
     bl_options = {'UNDO'}
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context, isBoth):
         self.foundGoalSkOut1 = None #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
@@ -1038,14 +1034,11 @@ def DoMix(context, txt):
             tree.links.new( mixerGlbVars.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] )
             if not aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input:
                 tree.links.new( mixerGlbVars.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1]] )
-class VoronoiMixerMixer(bpy.types.Operator):
+class VoronoiMixerMixer(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_mixer_mixer'
     bl_label = "Voronoi Mixer Mixer"
     bl_options = {'UNDO'}
     txt: bpy.props.StringProperty()
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def execute(self, context):
         DoMix(context, self.txt)
         return {'FINISHED'}
@@ -1102,14 +1095,11 @@ tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'TextureNodeTree':    'TextureNodeMath'},
                               {'ShaderNodeTree':   'ShaderNodeVectorMath',
                                'GeometryNodeTree': 'ShaderNodeVectorMath'} )
-class FastMathMain(bpy.types.Operator):
+class FastMathMain(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_fastmath'
     bl_label = "Fast Maths"
     bl_options = {'UNDO'}
     operation: bpy.props.StringProperty() #Мост между глубинами вызова.
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def modal(self, context, event):
         #Раньше нужно было отчищать мост вручную, потому что он оставался равным последней записи; сейчас вроде не нужно.
         return {'FINISHED'}
@@ -1171,13 +1161,10 @@ def VoronoiSwaperDrawCallback(self, context):
             DrawMixerSkText(cusorPos, self.foundGoalSkIo1, -1.25, -1)
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiSwaper(bpy.types.Operator):
+class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_swaper'
     bl_label = "Voronoi Swaper"
     bl_options = {'UNDO'}
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context, isBoth):
         self.foundGoalSkIo1 = None #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
@@ -1305,14 +1292,11 @@ def VoronoiHiderDrawCallback(self, context):
                         DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[1]), txt, col)
         elif Prefs().dsIsDrawPoint:
             DrawWidePoint(cusorPos)
-class VoronoiHider(bpy.types.Operator):
+class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
     bl_options = {'UNDO'}
     isHideSocket: bpy.props.BoolProperty()
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context):
         self.foundGoalTg = [] #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
@@ -1438,13 +1422,10 @@ def VoronoiMassLinkerDrawCallback(self, context):
             DrawToolOftenStencil( cusorPos, [li[0],li[1]], isDrawText=False )
 #Здесь нарушается местный шаблон чтения-записи, и DrawCallback ищет и пишет в список найденные сокеты вместо того, чтобы просто читать и рисовать. Мне показалось, что так реализация проще,
 #|10| Этот инструмент слишком странный и редко используемый, чтобы париться о грамотной реализации.
-class VoronoiMassLinker(bpy.types.Operator):
+class VoronoiMassLinker(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_mass_linker'
     bl_label = "Voronoi MassLinker"
     bl_options = {'UNDO'}
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context, isBoth):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
@@ -1502,13 +1483,10 @@ def VoronoiDummyDrawCallback(self, context):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkIo], True, True )
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiDummy(bpy.types.Operator):
+class VoronoiDummy(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_dummy'
     bl_label = "Voronoi Dummy"
     bl_options = {'UNDO'}
-    @classmethod
-    def poll(cls, context):
-        return context.area.type=='NODE_EDITOR'
     def NextAssessment(self, context):
         self.foundGoalSkIo = None
         callPos = context.space_data.cursor_location
