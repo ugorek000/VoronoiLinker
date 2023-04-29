@@ -1545,9 +1545,9 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = voronoiAddonName if __name__=="__main__" else __name__
     #AddonPrefs
-    vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=( ('SETTINGS','Settings',''),
-                                                                                          ('DRAW',    'Draw',    ''),
-                                                                                          ('KEYMAP',  'Keymap',  '') ))
+    vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=( ('SETTINGS',"Settings",""),
+                                                                                          ('DRAW',    "Draw",    ""),
+                                                                                          ('KEYMAP',  "Keymap",  "") ))
     #Draw
     dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform Color", default=(.632502, .408091, .174378, .9), min=0, max=1, size=4, subtype='COLOR') #(.65, .65, .65, 1.0)
     #
@@ -1569,9 +1569,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     #
-    dsDisplayStyle: bpy.props.EnumProperty(name="Display Frame Style", default='CLASSIC', items=( ('CLASSIC',   'Classic',   '1'), #Если существует способ указать порядок
-                                                                                                  ('SIMPLIFIED','Simplified','2'), # и чтобы работало -- дайте мне знать.
-                                                                                                  ('ONLYTEXT',  'Only text', '3') ))
+    dsDisplayStyle: bpy.props.EnumProperty(name="Display Frame Style", default='CLASSIC', items=( ('CLASSIC',   "Classic",   "1"), #Если существует способ указать порядок
+                                                                                                  ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте мне знать.
+                                                                                                  ('ONLYTEXT',  "Only text", "3") ))
     dsLineWidth:      bpy.props.IntProperty(name=  "Line Width",                default=1,  min=1, max=16, subtype="FACTOR")
     dsPointRadius:    bpy.props.FloatProperty(name="Point size",                default=1,  min=0, max=3)
     dsDistFromCursor: bpy.props.FloatProperty(name="Text distance from cursor", default=25, min=5, max=50)
@@ -1598,13 +1598,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
     vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
     #
-    vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY','At least one is a math socket',''),
-                                                                                                          ('ALL','Everyone is a math socket',    '') ))
+    vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY',"At least one is a math socket",""),
+                                                                                                          ('ALL',"Everyone is a math socket",    "") ))
     #Hider
-    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     'None',          ''),
-                                                                                                      ('NAME',     'Only name',     ''),
-                                                                                                      ('LABEL',    'Only label',    ''),
-                                                                                                      ('LABELNAME','Name and label','') ))
+    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
+                                                                                                      ('NAME',     "Only name",     ""),
+                                                                                                      ('LABEL',    "Only label",    ""),
+                                                                                                      ('LABELNAME',"Name and label","") ))
     #MassLinker
     vlIsIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore Existing Links", default=True)
     #
