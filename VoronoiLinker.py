@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,0), 'blender':(3,5,1), #28.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,1), 'blender':(3,5,1), #30.04.2023
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -401,7 +401,7 @@ class VoronoiOpBase:
         return context.area.type=='NODE_EDITOR'
 
 def CrutchWithCollapseNode(nd, who, isFinal=False): #Спасибо пользователю с ником "碳酸铷" за идею хоть какой-то обработки свёрнутых нодов. Это должно облегчить симптомы у любителей сворачивать всё.
-    if not Prefs().vlAllowCrutchWithCollapsedNode: 
+    if not Prefs().vlAllowCrutchWithCollapsedNode:
         return
     att = getattr(globalVars,'lastCrutchCollapseNd'+who)
     if att:
@@ -832,13 +832,13 @@ def DoPreview(context, goalSk):
         goalSk.node.select = True
     return goalSk #Вернуть сокет. Нужно для |3|.
 
-def VoronoiMixerDrawCallback(self, context):
+def VoronoiMixerDrawCallback(self, context): 
     if StartDrawCallbackStencil(self, context):
         return
     def DrawMixerSkText(cusorPos, fg, ofsY, facY):
         txtDim = DrawSkText( cusorPos, (Prefs().dsDistFromCursor*(fg.tg.is_output*2-1), ofsY), fg )
         if (fg.tg.links)and(Prefs().dsIsDrawMarker):
-            DrawIsLinkedMarker( cusorPos, (txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75), GetSkCol(fg.tg) )
+            DrawIsLinkedMarker( cusorPos, [txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*.75], GetSkCol(fg.tg) )
     cusorPos = context.space_data.cursor_location
     if self.foundGoalSkOut0:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut0], True, isDrawText=False )
