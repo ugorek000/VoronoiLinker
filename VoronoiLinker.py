@@ -635,7 +635,7 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
         if not context.space_data.edit_tree:
-            if isPlaceAnAnchor:
+            if self.isPlaceAnAnchor:
                 return {'FINISHED'}
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
             return {'RUNNING_MODAL'}
