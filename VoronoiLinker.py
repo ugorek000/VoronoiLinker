@@ -1339,7 +1339,7 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                             def ToggleHideForAllSockets(where, f):
                                 for sk in where:
                                     sk.hide = f(sk)
-                            def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True
+                            def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True.
                                 match sk.type:
                                     case 'VALUE'|'INT':
                                         return sk.default_value==0
