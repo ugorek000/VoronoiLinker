@@ -832,7 +832,7 @@ def DoPreview(context, goalSk):
         goalSk.node.select = True
     return goalSk #Вернуть сокет. Нужно для |3|.
 
-def VoronoiMixerDrawCallback(self, context): 
+def VoronoiMixerDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
     def DrawMixerSkText(cusorPos, fg, ofsY, facY):
@@ -1339,7 +1339,7 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                             def ToggleHideForAllSockets(where, f):
                                 for sk in where:
                                     sk.hide = f(sk)
-                            def CheckSkZeroDefaultValue(sk): #Не содержащие "default_value" или все остальные воспринимаются как True.
+                            def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True
                                 match sk.type:
                                     case 'VALUE'|'INT':
                                         return sk.default_value==0
@@ -1347,6 +1347,8 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                                         return(sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
                                     case 'STRING':
                                         return sk.default_value==''
+                                    case 'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE':
+                                        return not sk.default_value
                                     case _:
                                         return True
                             if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для isCanToggleHide
