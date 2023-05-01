@@ -698,7 +698,7 @@ def DoPreview(context, goalSk):
                         break #Починка этой глубины произошла успешно.
         return list_wayTreeNd
     def GetSocketIndex(sk): #Нашёл этот способ где-то на просторах blender.stackexchange.com
-        return int(sk.path_from_id().split('.')[-1].split('[')[-1][:-1])
+        return int(sk.path_from_id().split(".")[-1].split("[")[-1][:-1])
     #Удалить все свои следы предыдущего использования для всех нод-групп, чей тип текущего редактора
     for ng in bpy.data.node_groups:
         if ng.bl_idname==context.space_data.tree_type:
