@@ -1119,7 +1119,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             mixerGlbVars.list_displayItems = [ti[1] for ti in tuple_who if ti[0]==self.operation][0]
             DispMenu(1)
         else: #Иначе установка выбранной операции.
-            txt = tuple_dictEditorMathNodes[mixerGlbVars.displayWho].get(context.space_data.tree_type, '')
+            txt = tuple_dictEditorMathNodes[mixerGlbVars.displayWho].get(context.space_data.tree_type, "")
             if not txt: #Если нет в списке, то этот нод отсутствует в типе редактора => "смешивать" нечем.
                 return {'CANCELLED'}
             #Ядро быстрой математики. Добавить нод и создать линки.
@@ -1614,59 +1614,59 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1 = where.column(align=True)
         #Эти две настройки слишком важные и "мощные", ибо VL дерзко перебевает классические Viewer'ы.
         #Чтобы это выглядело чуть менее чем "ты берега попутал?", они вынесены из коробки, а так же помещены в самое начало (да ещё и на вкладке по умолчанию).
-        col1.prop(self, 'vpAllowClassicCompositorViewer')
-        col1.prop(self, 'vpAllowClassicGeoViewer')
+        col1.prop(self,'vpAllowClassicCompositorViewer')
+        col1.prop(self,'vpAllowClassicGeoViewer')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Linker settings")
-        col2.prop(self, 'vlAllowCrutchWithCollapsedNode')
+        col2.prop(self,'vlAllowCrutchWithCollapsedNode')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Preview settings")
-        col2.prop(self, 'vpIsAutoShader')
-        col2.prop(self, 'vpIsLivePreview')
-        col2.prop(self, 'vpIsSelectPreviewedNode')
-        col2.prop(self, 'vpHkInverse')
+        col2.prop(self,'vpIsAutoShader')
+        col2.prop(self,'vpIsLivePreview')
+        col2.prop(self,'vpIsSelectPreviewedNode')
+        col2.prop(self,'vpHkInverse')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Mixer settings")
-        col2.prop(self, 'vmIsFastMathIncluded')
+        col2.prop(self,'vmIsFastMathIncluded')
         if self.vmIsFastMathIncluded:
-            col2.prop(self, 'vmIsFastMathEmptyHold')
+            col2.prop(self,'vmIsFastMathEmptyHold')
             col2.use_property_split = True
-            col2.prop(self, 'vmFastMathActivationTrigger')
+            col2.prop(self,'vmFastMathActivationTrigger')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Hider settings")
         col2.use_property_split = True
-        col2.prop(self, 'vhDrawNodeNameLabel')
+        col2.prop(self,'vhDrawNodeNameLabel')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi MassLinker settings")
-        col2.prop(self, 'vlIsIgnoreExistingLinks')
+        col2.prop(self,'vlIsIgnoreExistingLinks')
 
     def draw_tabDraw(self, context, where):
         col1 = where.column(align=True)
         row0 = col1.row(align=True)
         row0.use_property_split = True
         spl = row0.column(heading='Draw')
-        spl.prop(self, 'dsIsDrawSkText', text_ctxt='a')
-        spl.prop(self, 'dsIsDrawMarker')
-        spl.prop(self, 'dsIsDrawPoint')
-        spl.prop(self, 'dsIsDrawLine')
-        spl.prop(self, 'dsIsDrawSkArea')
+        spl.prop(self,'dsIsDrawSkText')
+        spl.prop(self,'dsIsDrawMarker')
+        spl.prop(self,'dsIsDrawPoint')
+        spl.prop(self,'dsIsDrawLine')
+        spl.prop(self,'dsIsDrawSkArea')
         spl = row0.column(heading='Colored')
         def FastPropWithActive(where, txt): #Выключено
             row = where.row(align=True)
             row.prop(self, txt)
             row.active = True or getattr(self, txt.replace("Colored","Draw"))
-        FastPropWithActive(spl, 'dsIsColoredSkText')
-        FastPropWithActive(spl, 'dsIsColoredMarker')
-        FastPropWithActive(spl, 'dsIsColoredPoint')
-        FastPropWithActive(spl, 'dsIsColoredLine')
-        FastPropWithActive(spl, 'dsIsColoredSkArea')
+        FastPropWithActive(spl,'dsIsColoredSkText')
+        FastPropWithActive(spl,'dsIsColoredMarker')
+        FastPropWithActive(spl,'dsIsColoredPoint')
+        FastPropWithActive(spl,'dsIsColoredLine')
+        FastPropWithActive(spl,'dsIsColoredSkArea')
         col1.use_property_split = True
-        col1.prop(self, 'dsIsAlwaysLine')
+        col1.prop(self,'dsIsAlwaysLine')
         if ( (self.dsIsDrawSkText and not self.dsIsColoredSkText)or
              (self.dsIsDrawMarker and not self.dsIsColoredMarker)or
              (self.dsIsDrawPoint  and not self.dsIsColoredPoint )or
@@ -1674,34 +1674,34 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
              (self.dsIsDrawSkArea and not self.dsIsColoredSkArea) ):
             col1.prop(self, 'dsUniformColor')
         col1.separator()
-        col1.prop(self, 'dsDisplayStyle')
+        col1.prop(self,'dsDisplayStyle')
         col1 = where.column(align=True)
         col1.use_property_split = True
-        col1.prop(self, 'dsFontFile')
+        col1.prop(self,'dsFontFile')
         if not os.path.splitext(self.dsFontFile)[1] in (".ttf",".otf"):
             spl = col1.split(factor=.4, align=True)
             spl.label(text="")
             spl.label(text="Only .ttf or .otf format", icon='ERROR')
         col1.separator()
-        col1.prop(self, 'dsLineWidth')
-        col1.prop(self, 'dsPointRadius')
-        col1.prop(self, 'dsFontSize')
+        col1.prop(self,'dsLineWidth')
+        col1.prop(self,'dsPointRadius')
+        col1.prop(self,'dsFontSize')
         col1 = where.column(align=True)
         col1.use_property_split = True
-        col1.prop(self, 'dsPointOffsetX')
-        col1.prop(self, 'dsFrameOffset')
-        col1.prop(self, 'dsDistFromCursor')
-        col1.prop(self, 'dsIsAllowTextShadow')
+        col1.prop(self,'dsPointOffsetX')
+        col1.prop(self,'dsFrameOffset')
+        col1.prop(self,'dsDistFromCursor')
+        col1.prop(self,'dsIsAllowTextShadow')
         col1.use_property_split = True
         if self.dsIsAllowTextShadow:
-            col1.prop(self, 'dsShadowCol')
+            col1.prop(self,'dsShadowCol')
             col1 = where.column(align=True)
             col1.use_property_split = True
             row = col1.row(align=True)
-            row.prop(self, 'dsShadowOffset')
+            row.prop(self,'dsShadowOffset')
             col1 = col1.column()
-            col1.prop(self, 'dsShadowBlur')
-        col1.prop(self, 'dsIsDrawDebug')
+            col1.prop(self,'dsShadowBlur')
+        col1.prop(self,'dsIsDrawDebug')
 
     def draw_tabKeymaps(self, context, where):
         col1 = where.column(align=True)
