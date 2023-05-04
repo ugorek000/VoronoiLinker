@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_?info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,1), 'blender':(3,5,1), #30.04.2023
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,2), 'blender':(3,5,1), #2023.05.04
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1129,6 +1129,8 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             tree.links.new(mixerGlbVars.sk0, aNd.inputs[0])
             if mixerGlbVars.sk1: #Проверка нужна, чтобы можно было "вытягивать" быструю математику даже из одного сокета, см. |7|.
                 tree.links.new(mixerGlbVars.sk1, aNd.inputs[1])
+            else: #Иначе обнулить содержимое второго сокета. Нужно для красоты; и вообще это математика.
+                aNd.inputs[1].default_value = 0.0
             # ! Учтите, что в некоторых операциях второй сокет не показывается, но линк к нему всё равно устанавливается.
             #Ибо всё это в первую очередь "миксер", чьё именование как бы предполагает наличие двух сокетов.
         return {'RUNNING_MODAL'}
@@ -1140,7 +1142,7 @@ class FastMathPie(bpy.types.Menu):
         for li in mixerGlbVars.list_displayItems:
             if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
                 continue
-            #Автоматический перевод выключен, ибо оригинальные операции у нода так же не переводятся.
+            #Автоматический перевод выключен, ибо оригинальные операции у нода математики так же не переводятся.
             pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
 
 #P.s. Инструменты здесь отсортированы в порядке их крутости.
@@ -1189,7 +1191,7 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
                         fgSkIn = li
                         break
                 self.foundGoalSkIo0 = MinFromFgs(fgSkOut, fgSkIn)
-                #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих типа "высокоуровневых" функций, что я тут понаизобретал.
+                #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих "типа высокоуровневых" функций, что я тут понаизобретал.
                 #Расчихлять всё и спаивать вместе, теряя немного читабельности и повышая "типа производительность" (камон, это же питон) пока не хочется.
             skOut0 = self.foundGoalSkIo0.tg if self.foundGoalSkIo0 else None
             if skOut0:
@@ -1220,28 +1222,34 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
                     LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
                     if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
                         #Поменять местами все соединения у первого и у второго сокета:
-                        tgl = self.foundGoalSkIo0.tg.is_output #Проверка одинаковости is_output -- забота для NextAssessment
+                        skIo0 = self.foundGoalSkIo0.tg
+                        skIo1 = self.foundGoalSkIo1.tg
+                        tgl = skIo0.is_output #Проверка одинаковости is_output -- забота для NextAssessment
                         list_memSks = []
                         tree = context.space_data.edit_tree
                         if tgl:
-                            for lk in self.foundGoalSkIo0.tg.links:
-                                list_memSks.append(lk.to_socket)
-                                tree.links.remove(lk)
-                            for lk in self.foundGoalSkIo1.tg.links:
-                                tree.links.new(self.foundGoalSkIo0.tg, lk.to_socket)
-                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
+                            for lk in skIo0.links:
+                                if lk.to_node!=skIo1.node: #Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
+                                    list_memSks.append(lk.to_socket)
+                                    tree.links.remove(lk)
+                            for lk in skIo1.links:
+                                if lk.to_node!=skIo0.node: #
+                                    tree.links.new(skIo0, lk.to_socket)
+                                    if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
+                                        tree.links.remove(lk)
+                            for li in list_memSks:
+                                tree.links.new(skIo1, li)
+                        else:
+                            for lk in skIo0.links:
+                                if lk.from_node!=skIo1.node: #
+                                    list_memSks.append(lk.from_socket)
+                                    tree.links.remove(lk)
+                            for lk in skIo1.links:
+                                if lk.from_node!=skIo0.node: #
+                                    tree.links.new(lk.from_socket, skIo0)
                                     tree.links.remove(lk)
                             for li in list_memSks:
-                                tree.links.new(self.foundGoalSkIo1.tg, li)
-                        else:
-                            for lk in self.foundGoalSkIo0.tg.links:
-                                list_memSks.append(lk.from_socket)
-                                tree.links.remove(lk)
-                            for lk in self.foundGoalSkIo1.tg.links:
-                                tree.links.new(lk.from_socket, self.foundGoalSkIo0.tg)
-                                tree.links.remove(lk)
-                            for li in list_memSks:
-                                tree.links.new(li, self.foundGoalSkIo1.tg)
+                                tree.links.new(li, skIo1)
                     return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
@@ -1595,7 +1603,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vpIsAutoShader:          bpy.props.BoolProperty(name="Socket color directly into a shader", default=True)
     vpIsLivePreview:         bpy.props.BoolProperty(name="Live Preview",                        default=True)
     vpIsSelectPreviewedNode: bpy.props.BoolProperty(name="Select Previewed Node",               default=True)
-    vpHkInverse:             bpy.props.BoolProperty(name="Previews hotkey swap",                default=False)
     #Mixer
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
     vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
@@ -1626,7 +1633,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col2.prop(self,'vpIsAutoShader')
         col2.prop(self,'vpIsLivePreview')
         col2.prop(self,'vpIsSelectPreviewedNode')
-        col2.prop(self,'vpHkInverse')
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Mixer settings")
@@ -1798,7 +1804,6 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                     "Socket color directly into a shader":   "Сокет цвета сразу в шейдер",
                     "Live Preview":                          "Предпросмотр в реальном времени",
                     "Select Previewed Node":                 "Выделять предпросматриваемый нод",
-                    "Previews hotkey swap":                  "Поменять местами горячие клавиши",
                     "Include Fast Math Pie":                 "Подключить пирог быстрой математики",
                     "Empty placeholders":                    "Пустые заполнители",
                     "Activation trigger":                    "Триггер активации",
