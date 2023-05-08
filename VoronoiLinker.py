@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,2), 'blender':(3,5,1), #2023.05.04
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,3), 'blender':(3,5,1), #2023.05.08
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -39,7 +39,7 @@ class MixerGlobalVariable: #То же самое, как и выше, тольк
     sk1 = None
     skType = None
     list_displayItems = []
-    displayWho = 0
+    isDisplayVec = 0
     displayDeep = 0
 
 globalVars = GlobalVariableParody()
@@ -910,7 +910,7 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                             tgl1 = LSkCheck(mixerGlbVars.sk0)
                             tgl2 = LSkCheck(mixerGlbVars.sk1)
                             #Для двух сокетов -- выбрать "вектор" если первый "вектор", или считать выбор со второго если первый не математический сокет
-                            mixerGlbVars.displayWho = (mixerGlbVars.sk0.bl_idname=='NodeSocketVector')or(not tgl1)and(mixerGlbVars.sk1.bl_idname=='NodeSocketVector')
+                            mixerGlbVars.isDisplayVec = (mixerGlbVars.sk0.bl_idname=='NodeSocketVector')or(not tgl1)and(mixerGlbVars.sk1.bl_idname=='NodeSocketVector')
                             #tgl0 -- "исключающая" маска. Если оба сокета для "ALL" или один из них для "ANY"
                             if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and( (tgl1)or(tgl2) ):
                                 bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
@@ -927,7 +927,7 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                     elif (self.foundGoalSkOut0)and(not self.foundGoalSkOut1)and(Prefs().vmIsFastMathIncluded): #См. |7|
                         mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
                         mixerGlbVars.sk1 = None #Самая важная часть для вытягивания из одного сокета.
-                        mixerGlbVars.displayWho = mixerGlbVars.sk0.bl_idname=='NodeSocketVector' #Для одного сокета -- выбор тривиален.
+                        mixerGlbVars.isDisplayVec = mixerGlbVars.sk0.bl_idname=='NodeSocketVector' #Для одного сокета -- выбор тривиален.
                         if LSkCheck(mixerGlbVars.sk0):
                             bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
                     return {'FINISHED'}
@@ -1110,7 +1110,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
         def DispMenu(num):
             mixerGlbVars.displayDeep = num #Указывает пирогу, какую глубину вложенности он отображает. Ему это нужно только для ".capitalize()"
             bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_fastmath_pie")
-        tuple_who = tuple_tupleVecMathMap if mixerGlbVars.displayWho else tuple_tupleMathMap
+        tuple_who = tuple_tupleVecMathMap if mixerGlbVars.isDisplayVec else tuple_tupleMathMap
         mixerGlbVars.list_displayItems = [ti[0] for ti in tuple_who] #Установка списка здесь, нужна для elif ниже.
         if self.operation in (""," "): #Если вызов быстрой математики
             DispMenu(0)
@@ -1119,7 +1119,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             mixerGlbVars.list_displayItems = [ti[1] for ti in tuple_who if ti[0]==self.operation][0]
             DispMenu(1)
         else: #Иначе установка выбранной операции.
-            txt = tuple_dictEditorMathNodes[mixerGlbVars.displayWho].get(context.space_data.tree_type, "")
+            txt = tuple_dictEditorMathNodes[mixerGlbVars.isDisplayVec].get(context.space_data.tree_type, "")
             if not txt: #Если нет в списке, то этот нод отсутствует в типе редактора => "смешивать" нечем.
                 return {'CANCELLED'}
             #Ядро быстрой математики. Добавить нод и создать линки.
@@ -1130,7 +1130,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             if mixerGlbVars.sk1: #Проверка нужна, чтобы можно было "вытягивать" быструю математику даже из одного сокета, см. |7|.
                 tree.links.new(mixerGlbVars.sk1, aNd.inputs[1])
             else: #Иначе обнулить содержимое второго сокета. Нужно для красоты; и вообще это математика.
-                aNd.inputs[1].default_value = 0.0
+                aNd.inputs[1].default_value = (0.0, 0.0, 0.0) if mixerGlbVars.isDisplayVec else 0.0
             # ! Учтите, что в некоторых операциях второй сокет не показывается, но линк к нему всё равно устанавливается.
             #Ибо всё это в первую очередь "миксер", чьё именование как бы предполагает наличие двух сокетов.
         return {'RUNNING_MODAL'}
