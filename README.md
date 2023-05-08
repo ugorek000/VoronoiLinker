@@ -25,9 +25,8 @@ The same as an Voronoi Linker, only a lot at the same time.
 See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 
 ----------------------
-First appearance of the addon 09.12.2022  
-Complete refactoring done at 22.04.2023  
-Version 2.2.2 created 04.05.2023
+First appearance of the addon 2022.12.09  
+Version 2.2.3 created 2023.05.08
 
 ----------------------
 Reach to autor (Russia):  
