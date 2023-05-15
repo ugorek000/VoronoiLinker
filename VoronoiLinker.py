@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,3), 'blender':(3,5,1), #2023.05.08
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,4), 'blender':(3,5,1), #2023.05.16
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -39,7 +39,7 @@ class MixerGlobalVariable: #То же самое, как и выше, тольк
     sk1 = None
     skType = None
     list_displayItems = []
-    isDisplayVec = 0
+    isDisplayVec = False
     displayDeep = 0
 
 globalVars = GlobalVariableParody()
@@ -485,6 +485,11 @@ class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
                     VoronoiLinker.NextAssessment(self, context, False)
+                    if self.isMoveOut: #
+                        self.foundGoalSkOut = None
+                        VoronoiLinker.NextAssessment(self, context, True)
+            case 'LEFT_SHIFT'|'SPACE': #Спасибо пользователю с ником "bzikarius" за банальную идею функционала "клавиши пробела".
+                self.isMoveOut = event.value=='PRESS' #Пока что реализовано только для линкера, а там посмотрим.
             case 'RIGHTMOUSE'|'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 if not context.space_data.edit_tree:
@@ -566,6 +571,7 @@ class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
             self.isTwo = True
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
+            self.isMoveOut = False
             self.foundGoalSkOut = None
             self.foundGoalSkIn = None
             VoronoiLinker.NextAssessment(self, context, True)
