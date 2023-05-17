@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,4), 'blender':(3,5,1), #2023.05.16
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,5), 'blender':(3,5,1), #2023.05.17
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -909,7 +909,7 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                     if (self.foundGoalSkOut0)and(self.foundGoalSkOut1):
                         mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
                         mixerGlbVars.sk1 = self.foundGoalSkOut1.tg
-                        #Поддержка виртуальных выключена, читается только из первого.
+                        #Поддержка виртуальных выключена, читается только из первого
                         mixerGlbVars.skType = mixerGlbVars.sk0.type# if mixerGlbVars.sk0.bl_idname!='NodeSocketVirtual' else mixerGlbVars.sk1.type
                         if Prefs().vmIsFastMathIncluded:
                             tgl0 = Prefs().vmFastMathActivationTrigger=='ALL'
@@ -922,7 +922,7 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                                 bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
                                 return {'FINISHED'}
                         di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
-                        if not di: #Если не в классических редакторах, то просто выйти. Ибо классические у всех одинаковые, а аддонских есть бесчисленное количество.
+                        if not di: #Если не в классических редакторах, то просто выйти. Ибо классические у всех одинаковые, а аддонских есть бесчисленное множество.
                             return {'CANCELLED'}
                         di = di.get(mixerGlbVars.skType, False)
                         if di:
@@ -962,11 +962,11 @@ dict_dictTupleMixerMain = {                   #Порядок важен, сам
                                'STRING':     ('GeometryNodeSwitch',                'FunctionNodeCompare',                                         'GeometryNodeStringJoin'),
                                'INT':        ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
                                'BOOLEAN':    ('GeometryNodeSwitch','ShaderNodeMixRGB',                   'ShaderNodeMath',                        'FunctionNodeBooleanMath'),
-                               'OBJECT':     ('GeometryNodeSwitch'), # ^ для микса миксом болеана нужно слишком много дополнительных условий, так что не поддерживается.
-                               'MATERIAL':   ('GeometryNodeSwitch'),
-                               'COLLECTION': ('GeometryNodeSwitch'),
-                               'TEXTURE':    ('GeometryNodeSwitch'),
-                               'IMAGE':      ('GeometryNodeSwitch'),
+                               'OBJECT':     ('GeometryNodeSwitch',), # ^ для микса миксом болеана нужно слишком много дополнительных условий, так что не поддерживается.
+                               'MATERIAL':   ('GeometryNodeSwitch',),
+                               'COLLECTION': ('GeometryNodeSwitch',),
+                               'TEXTURE':    ('GeometryNodeSwitch',),
+                               'IMAGE':      ('GeometryNodeSwitch',),
                                'GEOMETRY':   ('GeometryNodeSwitch','GeometryNodeJoinGeometry','GeometryNodeInstanceOnPoints','GeometryNodeCurveToMesh','GeometryNodeMeshBoolean','GeometryNodeGeometryToInstance')},
 
         'CompositorNodeTree': {'VALUE':      ('CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView','CompositorNodeMath'),
