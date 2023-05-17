@@ -592,7 +592,13 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
     bl_options = {'UNDO'}
     isPlaceAnAnchor: bpy.props.BoolProperty()
     def NextAssessment(self, context):
-        isAncohorExist = not not context.space_data.edit_tree.nodes.get(voronoiAnchorName) #Если в геонодах есть якорь, то не триггериться только на геосокеты.
+        isAncohorExist = context.space_data.edit_tree.nodes.get(voronoiAnchorName) #Если в геонодах есть якорь, то не триггериться только на геосокеты.
+        #Некоторые пользователи в "начале знакомства" захотят переименовать якорь.
+        #Каждый призыв якоря одинаковый по заголовку, а при повторном призыве заголовок всё равно меняется обратно на стандартный.
+        #После чего пользователи поймут, что переименовывать якорь бесполезно. Эта проверка лишь ускоряет процесс осознания
+        if isAncohorExist:
+            isAncohorExist.label = voronoiAnchorName
+        isAncohorExist = not not isAncohorExist
         self.foundGoalSkOut = None #Нет нужды, но сбрасывается для ясности картины. Было полезно для отладки.
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
@@ -610,8 +616,8 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
             if not [sk for sk in nd.outputs if (not sk.hide)and(sk.enabled)and(sk.bl_idname!='NodeSocketVirtual')]:
                 continue
             #Всё выше нужно было для того, чтобы точка не висела просто так и нод не мешал для удобного использования инструмента. По ощущениям получаются "прозрачные" ноды.
-            #Игнорировать свой собственный спец-рероут-якорь (полное совпадение имени и заголовка)
-            if ( (nd.name==voronoiAnchorName)and(nd.label==voronoiAnchorName) ):
+            #Игнорировать свой собственный спец-рероут-якорь (проверка на тип и имя)
+            if ( (nd.type=='REROUTE')and(nd.name==voronoiAnchorName) ):
                 continue
             #В случае успеха переходить к сокетам:
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
