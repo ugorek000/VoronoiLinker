@@ -31,7 +31,7 @@ class GlobalVariableParody: #Мои знания Python'а слишком мал
     gpuArea: gpu.types.GPUShader = None
     fontId = 0
     uiScale = 1.0
-    whereActivated = None #CallBack'и рисуется во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
+    whereActivated = None #CallBack'и рисуются во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
     lastCrutchCollapseNdOut = None
     lastCrutchCollapseNdIn = None
 class MixerGlobalVariable: #То же самое, как и выше, только оформленный под инструмент. Мои знания питона всё ещё слишком малы.
@@ -1140,7 +1140,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             aNd.operation = self.operation
             tree.links.new(mixerGlbVars.sk0, aNd.inputs[0])
             if mixerGlbVars.sk1: #Проверка нужна, чтобы можно было "вытягивать" быструю математику даже из одного сокета, см. |7|.
-                #Второй ищется "визуально"; чтобы операция 'SCALE' корректно подсоединялась:
+                #Второй ищется "визуально"; чтобы операция 'SCALE' корректно подсоединялась
                 for cyc in range(1, length(aNd.inputs)):
                     if aNd.inputs[cyc].enabled:
                         tree.links.new(mixerGlbVars.sk1, aNd.inputs[cyc])
