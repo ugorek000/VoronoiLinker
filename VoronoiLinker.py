@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,5), 'blender':(3,5,1), #2023.05.17
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,6), 'blender':(3,5,1), #2023.05.18
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -31,7 +31,7 @@ class GlobalVariableParody: #Мои знания Python'а слишком мал
     gpuArea: gpu.types.GPUShader = None
     fontId = 0
     uiScale = 1.0
-    whereActivated = None #CallBack рисуется во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
+    whereActivated = None #CallBack'и рисуется во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
     lastCrutchCollapseNdOut = None
     lastCrutchCollapseNdIn = None
 class MixerGlobalVariable: #То же самое, как и выше, только оформленный под инструмент. Мои знания питона всё ещё слишком малы.
@@ -1134,17 +1134,19 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
             txt = tuple_dictEditorMathNodes[mixerGlbVars.isDisplayVec].get(context.space_data.tree_type, "")
             if not txt: #Если нет в списке, то этот нод отсутствует в типе редактора => "смешивать" нечем.
                 return {'CANCELLED'}
-            #Ядро быстрой математики. Добавить нод и создать линки.
+            #Ядро быстрой математики. Добавить нод и создать линки:
             bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt, use_transform=True)
             aNd = tree.nodes.active
             aNd.operation = self.operation
             tree.links.new(mixerGlbVars.sk0, aNd.inputs[0])
             if mixerGlbVars.sk1: #Проверка нужна, чтобы можно было "вытягивать" быструю математику даже из одного сокета, см. |7|.
-                tree.links.new(mixerGlbVars.sk1, aNd.inputs[1])
+                #Второй ищется "визуально"; чтобы операция 'SCALE' корректно подсоединялась:
+                for cyc in range(1, length(aNd.inputs)):
+                    if aNd.inputs[cyc].enabled:
+                        tree.links.new(mixerGlbVars.sk1, aNd.inputs[cyc])
             else: #Иначе обнулить содержимое второго сокета. Нужно для красоты; и вообще это математика.
-                aNd.inputs[1].default_value = (0.0, 0.0, 0.0) if mixerGlbVars.isDisplayVec else 0.0
-            # ! Учтите, что в некоторых операциях второй сокет не показывается, но линк к нему всё равно устанавливается.
-            #Ибо всё это в первую очередь "миксер", чьё именование как бы предполагает наличие двух сокетов.
+                if not mixerGlbVars.isDisplayVec: #Теперь нод вектора уже создаётся по нулям, так что для него обнулять без нужды.
+                    aNd.inputs[1].default_value = 0.0
         return {'RUNNING_MODAL'}
 class FastMathPie(bpy.types.Menu):
     bl_idname = 'VL_MT_voronoi_fastmath_pie'
@@ -1157,7 +1159,7 @@ class FastMathPie(bpy.types.Menu):
             #Автоматический перевод выключен, ибо оригинальные операции у нода математики так же не переводятся.
             pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
 
-#P.s. Инструменты здесь отсортированы в порядке их крутости.
+#P.s. Инструменты здесь отсортированы по убыванию их "крутости".
 def VoronoiSwaperDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
