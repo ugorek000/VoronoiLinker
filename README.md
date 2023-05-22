@@ -26,7 +26,7 @@ See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 
 ----------------------
 First appearance of the addon 2022.12.09  
-Version 2.2.8 created 2023.05.22
+Version 2.2.9 created 2023.05.22
 
 ----------------------
 Reach to autor (Russia):  
