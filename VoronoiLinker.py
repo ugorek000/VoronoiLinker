@@ -1631,7 +1631,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                       ('LABEL',    "Only label",    ""),
                                                                                                       ('LABELNAME',"Name and label","") ))
     #MassLinker
-    vlIsIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore Existing Links", default=True)
+    vlIsIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore existing links", default=True)
     #
     def draw_tabSettings(self, context, where):
         col1 = where.column(align=True)
@@ -1829,7 +1829,7 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                         "Only name":                            "Только имя",
                         "Only label":                           "Только заголовок",
                         "Name and label":                       "Имя и заголовок",
-                    "Ignore Existing Links":                 "Игнорировать имеющиеся соединения"}
+                    "Ignore existing links":                 "Игнорировать имеющиеся соединения"}
 
 
 tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
