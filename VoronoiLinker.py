@@ -1279,7 +1279,7 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
         return {'RUNNING_MODAL'}
 
 #VoronoiHider нужен только для наведения порядка и эстетики в дереве.
-#Для тех, кого (например я) напрягают "торчащие без дела" пустые сокеты выхода, или очевидные (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
+#Для тех, кого (например меня) напрягают "торчащие без дела" пустые сокеты выхода, или нулевые (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
 #Например, мне больно смотреть, как при манипуляции с "типа 2D" векторами у всех нодов "Combine-" и "SeparateXYZ" торчит этот "Z" сокет абсолютно без дела, когда контекст подразумевает только 2D.
 #На самом деле история Hider'а такая же, как и у быстрой математики. Я припёр сюда свои помогалочки ради использоваться с мощностями VoronoiLinler'а.
 #P.s. Если вы тоже хотите припереть сюда свою помогалочку, то милости прошу. Я весь аддон заботливо раскоментил тут всё подряд, в первую очередь чтобы самому не забыть.
@@ -1381,11 +1381,14 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                                             if isCanToggleHide:
                                                 sk.hide = True
                                     return success
+                                tgl = False
+                                if nd.type=='GROUP_INPUT': #Проверка -- "хороший тон" оптимизации; строчка ниже нужна для LCheckOver.
+                                    tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
                                 #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
-                                #Но потом я передумал. Оставлю на низком старте, вдруг снова передумаю.
-                                LCheckOver = lambda sk: (True)or(not( (sk.bl_idname=='NodeSocketVirtual')and
-                                                                      (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
-                                                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) ))
+                                LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
+                                                             (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
+                                                             (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
+                                                             (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
                                 success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
                                 if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
                                     success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
