@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,7), 'blender':(3,5,1), #2023.05.22
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,8), 'blender':(3,5,1), #2023.05.22
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1086,7 +1086,7 @@ tuple_tupleMathMap = (
         ("Advanced",              ('SQRT',       'POWER',        'EXPONENT',   'LOGARITHM',   'INVERSE_SQRT','PINGPONG')),
         ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE'   ,  'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
         ("Rounding",              ('SMOOTH_MIN', 'SMOOTH_MAX',   'LESS_THAN',  'GREATER_THAN','SIGN',        'COMPARE',     'TRUNC',  'ROUND')),
-        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACT',       'WRAP',   'SNAP')),
+        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'FRACT',        'CEIL',       'MODULO',      'SNAP',   'WRAP')),
         ("", ()),
         ("", ()),
         ("Other",                 ('COSH',       'RADIANS',      'DEGREES',    'SINH',        'TANH')),
@@ -1098,7 +1098,7 @@ tuple_tupleVecMathMap = (
         ("Advanced",              ('SCALE',      'NORMALIZE',    'LENGTH',     'DISTANCE',    'SINE',        'COSINE',      'TANGENT')),
         ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
         ("Rays",                  ('DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT')),
-        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'CEIL',        'MODULO',      'FRACTION',    'WRAP',   'SNAP')),
+        ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'FRACTION',    'CEIL',        'MODULO',      'SNAP',   'WRAP')),
         (" ", ()), (" ", ()), (" ", ()), (" ", ())) #Из-за пробелов кнопки выглядит чуть шире для векторов. Мне так красивее.
 #Ассоциация типа нода математики для типа редактора дерева
 tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
