@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,6), 'blender':(3,5,1), #2023.05.18
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,7), 'blender':(3,5,1), #2023.05.22
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1144,9 +1144,11 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase):
                 for cyc in range(1, length(aNd.inputs)):
                     if aNd.inputs[cyc].enabled:
                         tree.links.new(mixerGlbVars.sk1, aNd.inputs[cyc])
-            else: #Иначе обнулить содержимое второго сокета. Нужно для красоты; и вообще это математика.
-                if not mixerGlbVars.isDisplayVec: #Теперь нод вектора уже создаётся по нулям, так что для него обнулять без нужды.
-                    aNd.inputs[1].default_value = 0.0
+                    break #Нужно соединить только в первый попавшийся, иначе у 'MulAdd' будет соединено во все.
+            #Обнулить содержимое второго сокета. Нужно для красоты; и вообще это математика.
+            if not mixerGlbVars.isDisplayVec: #Теперь нод вектора уже создаётся по нулям, так что для него обнулять без нужды.
+                for sk in aNd.inputs:
+                    sk.default_value = 0.0
         return {'RUNNING_MODAL'}
 class FastMathPie(bpy.types.Menu):
     bl_idname = 'VL_MT_voronoi_fastmath_pie'
@@ -1843,7 +1845,7 @@ tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,
                   (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False, {'isPlaceAnAnchor': True } ), #Якорь раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False, {'isPlaceAnAnchor': False} ),
                   (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True,  {} ),
-                  (VoronoiSwaper.bl_idname,    'S',          True,  False, True,  {} ),
+                  (VoronoiSwaper.bl_idname,    'S',          True,  False, False, {} ),
                   (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ), #Не-сокет раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiHider.bl_idname,     'E',          True,  False, False, {'isHideSocket': True} ),
                   (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True,  {} ))
