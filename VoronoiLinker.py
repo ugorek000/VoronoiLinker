@@ -688,6 +688,8 @@ tuple_shaderNodesWithColor = ('BSDF_ANISOTROPIC', 'BSDF_DIFFUSE',          'BSDF
                               'BSDF_REFRACTION' , 'SUBSURFACE_SCATTERING', 'BSDF_TOON',         'BSDF_TRANSLUCENT',
                               'BSDF_TRANSPARENT', 'BSDF_VELVET',           'VOLUME_ABSORPTION', 'VOLUME_SCATTER',
                               'BSDF_PRINCIPLED',  'EEVEE_SPECULAR',        'EMISSION')
+def GetSocketIndex(sk): #Нашёл этот способ где-то на просторах blender.stackexchange.com
+    return int(sk.path_from_id().split(".")[-1].split("[")[-1][:-1])
 def DoPreview(context, goalSk):
     if not goalSk: #Для |3|, и просто общая проверка.
         return None
@@ -709,8 +711,6 @@ def DoPreview(context, goalSk):
                         li[1] = nd
                         break #Починка этой глубины произошла успешно.
         return list_wayTreeNd
-    def GetSocketIndex(sk): #Нашёл этот способ где-то на просторах blender.stackexchange.com
-        return int(sk.path_from_id().split(".")[-1].split("[")[-1][:-1])
     #Удалить все свои следы предыдущего использования для всех нод-групп, чей тип текущего редактора
     for ng in bpy.data.node_groups:
         if ng.bl_idname==context.space_data.tree_type:
@@ -1360,9 +1360,6 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                         self.foundGoalTg.tg.hide = True
                     else: #Иначе обработка нода.
                         def HideFromNode(nd, lastResult, isCanToggleHide=False):
-                            def ToggleHideForAllSockets(where, f):
-                                for sk in where:
-                                    sk.hide = f(sk)
                             def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True.
                                 match sk.type:
                                     case 'VALUE'|'INT':
@@ -1384,13 +1381,22 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                                             if isCanToggleHide:
                                                 sk.hide = True
                                     return success
-                                success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk) )
+                                #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
+                                #Но потом я передумал. Оставлю на низком старте, вдруг снова передумаю.
+                                LCheckOver = lambda sk: (True)or(not( (sk.bl_idname=='NodeSocketVirtual')and
+                                                                      (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
+                                                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
+                                success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
                                 if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
-                                    success = (CheckAndDoForIo(nd.outputs, lambda sk: True ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
+                                    success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
                                 return success
                             elif isCanToggleHide: #Иначе раскрыть всё.
+                                def ToggleHideForAllSockets(where, f):
+                                    for sk in where:
+                                        sk.hide = f(sk)
                                 for att in ('inputs','outputs'):
-                                    ToggleHideForAllSockets( getattr(self.foundGoalTg.tg, att), lambda sk: False )
+                                    for sk in getattr(self.foundGoalTg.tg, att):
+                                        sk.hide = False
                         #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
                         HideFromNode(self.foundGoalTg.tg, HideFromNode(self.foundGoalTg.tg, True), True)
                     return {'FINISHED'}
