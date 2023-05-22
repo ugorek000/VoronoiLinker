@@ -1391,9 +1391,6 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                                     success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
                                 return success
                             elif isCanToggleHide: #Иначе раскрыть всё.
-                                def ToggleHideForAllSockets(where, f):
-                                    for sk in where:
-                                        sk.hide = f(sk)
                                 for att in ('inputs','outputs'):
                                     for sk in getattr(self.foundGoalTg.tg, att):
                                         sk.hide = False
