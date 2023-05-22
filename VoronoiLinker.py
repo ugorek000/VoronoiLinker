@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,8), 'blender':(3,5,1), #2023.05.22
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,9), 'blender':(3,5,1), #2023.05.22
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1385,7 +1385,7 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                                 #Но потом я передумал. Оставлю на низком старте, вдруг снова передумаю.
                                 LCheckOver = lambda sk: (True)or(not( (sk.bl_idname=='NodeSocketVirtual')and
                                                                       (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
-                                                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
+                                                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) ))
                                 success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
                                 if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
                                     success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
