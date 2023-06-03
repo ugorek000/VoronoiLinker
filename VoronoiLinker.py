@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,0), 'blender':(3,5,1), #2023.06.03
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,1), 'blender':(3,5,1), #2023.06.03
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -34,6 +34,7 @@ class GlobalVariableParody: #Мои знания Python'а слишком мал
     whereActivated = None #CallBack'и рисуются во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
     lastCrutchCollapseNdOut = None
     lastCrutchCollapseNdIn = None
+    keyMapNodeEditor = None
 class MixerGlobalVariable: #То же самое, как и выше, только оформленный под инструмент. Мои знания питона всё ещё слишком малы.
     sk0 = None
     sk1 = None
@@ -1613,7 +1614,10 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
     bl_label = "Voronoi Addon Tabs"
     toTab: bpy.props.StringProperty()
     def execute(self, context):
-        Prefs().vaUiTabs = self.toTab
+        if self.toTab=='!Restore': #Оператор preferences.keymap_restore требует context.keymap, поэтому вручную.
+            globalVars.keyMapNodeEditor.restore_to_default()
+        else:
+            Prefs().vaUiTabs = self.toTab
         return {'FINISHED'}
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = voronoiAddonName if __name__=="__main__" else __name__
@@ -1772,29 +1776,30 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             col1.prop(self,'dsShadowBlur')
         col1.prop(self,'dsIsDrawDebug')
 
-    def draw_tabKeymaps(self, context, where):
-        col1 = where.column(align=True)
-        col1.separator()
-        km = None
-        wm = bpy.context.window_manager
-        kc = wm.keyconfigs.user
-        oldKmName = ""
+    def draw_tabKeymaps(self, context, where): 
+        col0 = where.column()
+        col0.separator()
+        row = col0.row(align=True)
+        row.label(text=bpy.app.translations.pgettext_iface(globalVars.keyMapNodeEditor.name), icon='DOT')
+        col1 = col0.column(align=True)
+        kmne = None
+        for kmCon in context.window_manager.keyconfigs.user.keymaps:
+            if globalVars.keyMapNodeEditor.name==kmCon.name:
+                kmne = kmCon
+                break
+        if not kmne:
+            return
         list_getKmi = []
-        for kmAdd, kmiAdd in list_addonKeymaps:
-            for kmCon in kc.keymaps:
-                if kmAdd.name==kmCon.name:
-                    km = kmCon
-                    break
-            for kmiCon in km.keymap_items:
-                if (kmiAdd.idname==kmiCon.idname)and(kmiAdd.name==kmiCon.name):
-                    list_getKmi.append((km, kmiCon))
-        list_getKmi = sorted(set(list_getKmi), key=list_getKmi.index)
-        for km, kmi in list_getKmi:
-            if km.name!=oldKmName:
-                col1.label(text=str(km.name), icon='DOT')
-            col1.context_pointer_set('keymap', km)
-            rna_keymap_ui.draw_kmi([], kc, km, kmi, col1, 0)
-            oldKmName = km.name
+        for li in list_addonKeymaps:
+            for kmiCon in kmne.keymap_items:
+                if (li.idname==kmiCon.idname)and(li.name==kmiCon.name):
+                    list_getKmi.append(kmiCon)
+        if kmne.is_user_modified:
+            row.label()
+            row.operator(VoronoiAddonTabs.bl_idname, text=bpy.app.translations.pgettext_iface("Restore")).toTab = '!Restore'
+        for si in sorted(set(list_getKmi), key=list_getKmi.index):
+            col1.context_pointer_set('keymap', kmne)
+            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmne, si, col1, 0)
     #Спасибо пользователю с ником "atticus-lv" за потрясную идею по компактной упаковке настроек.
     def draw(self, context):
         col0 = self.layout.column()
@@ -1906,13 +1911,13 @@ tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,
 def register():
     for ti in tuple_classes:
         bpy.utils.register_class(ti)
-    km = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name="Node Editor", space_type='NODE_EDITOR')
+    globalVars.keyMapNodeEditor = bpy.context.window_manager.keyconfigs.addon.keymaps.new(name="Node Editor", space_type='NODE_EDITOR')
     for blId, key, shift, ctrl, alt, dict_props in tuple_kmiDefs:
-        kmi = km.keymap_items.new(idname=blId, type=key, value='PRESS', shift=shift, ctrl=ctrl, alt=alt)
+        kmi = globalVars.keyMapNodeEditor.keymap_items.new(idname=blId, type=key, value='PRESS', shift=shift, ctrl=ctrl, alt=alt)
         if dict_props:
             for ti in dict_props:
                 setattr(kmi.properties, ti, dict_props[ti])
-        list_addonKeymaps.append( (km,kmi) )
+        list_addonKeymaps.append(kmi)
     #Переводы:
     list_helpClasses.append(TranslationHelper( dict_translateRU, 'ru_RU' ))
     for li in list_helpClasses:
@@ -1920,8 +1925,8 @@ def register():
 def unregister():
     for ti in reversed(tuple_classes):
         bpy.utils.unregister_class(ti)
-    for km, kmi in list_addonKeymaps:
-        km.keymap_items.remove(kmi)
+    for li in list_addonKeymaps:
+        globalVars.keyMapNodeEditor.keymap_items.remove(kmi)
     list_addonKeymaps.clear()
     for li in list_helpClasses:
         li.unregister()
