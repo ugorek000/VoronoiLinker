@@ -549,7 +549,7 @@ class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
                                 nd = lk.to_node
                                 tree.outputs.new('NodeSocketVirtual', lk.from_socket.name)
                             tree.links.remove(lk)
-                            if tgl:
+                            if tgl: #Я не помню, для чего добавил tgl. Забыл написать комментарий об этом.
                                 tree.links.new(nd.outputs[-2], self.foundGoalSkIn.tg)
                             else:
                                 tree.links.new(self.foundGoalSkOut.tg, nd.inputs[-2])
@@ -1885,8 +1885,9 @@ tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
                  VoronoiMixer, VoronoiMixerMixer,VoronoiMixerPie, FastMathMain,FastMathPie,
                  VoronoiSwaper,
                  VoronoiHider,
-                 VoronoiDummy,
-                 VoronoiMassLinker)
+                 VoronoiMassLinker,
+                 #VoronoiDummy,
+                 )
 list_helpClasses = []
 list_addonKeymaps = []
 tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,  {} ),
