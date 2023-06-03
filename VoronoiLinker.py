@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,2,9), 'blender':(3,5,1), #2023.05.22
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,0), 'blender':(3,5,1), #2023.06.03
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -480,7 +480,11 @@ class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
                                 break #Используемый в проверке выше "self.foundGoalSkIn" обнуляется, поэтому нужно выходить, иначе будет попытка чтения из несуществующего элемента.
             break #Обработать нужно только первый ближайший, удовлетворяющий условиям.
     def modal(self, context, event):
-        context.area.tag_redraw() #Ближайший нод в Debug'е находится(found) на "кадр" раньше, чем здесь. И я не знаю почему. Надеюсь, не мой косяк.
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
+        context.area.tag_redraw() #Ближайший нод в Debug'е находится(found) на "кадр" раньше, чем здесь. И я не знаю почему. Надеюсь не мой косяк.
         match event.type:
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
@@ -490,83 +494,84 @@ class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
                         VoronoiLinker.NextAssessment(self, context, True)
             case 'LEFT_SHIFT'|'SPACE': #Спасибо пользователю с ником "bzikarius" за банальную идею функционала "клавиши пробела".
                 self.isMoveOut = event.value=='PRESS' #Пока что реализовано только для линкера, а там посмотрим.
-            case 'RIGHTMOUSE'|'ESC':
-                bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
-                if event.value=='RELEASE':
-                    CrutchWithCollapseNode(None, 'In', True)
-                    CrutchWithCollapseNode(None, 'Out', True)
-                if (event.value=='RELEASE')and(self.foundGoalSkOut)and(self.foundGoalSkIn):
-                    tree = context.space_data.edit_tree
-                    #|2| Если дерево нодов от к.-н. аддона исчезло, то остатки имеют NodeUndefined и NodeSocketUndefined.
-                    #Достаточно проверить только один из них, потому что они там все такие
-                    if self.foundGoalSkOut.tg.bl_idname=='NodeSocketUndefined':
-                        return {'CANCELLED'} #Через api линки на SocketUndefined строчкой ниже не создаваемы (но их можно создать вручную, очень странно), поэтому выходим.
-                    #Чтобы можно было брать тип с рероута, который сам меняется под тип при соединении, типы сокетов перед соединением нужно запомнить
-                    blIdSkOut, blIdSkIn = self.foundGoalSkOut.tg.bl_idname, self.foundGoalSkIn.tg.bl_idname
-                    #См. |9| ...а его там неоткуда взять, ибо информация уже утеряна. Поэтому сохранить её здесь
-                    headache = self.foundGoalSkOut.tg.node.inputs[0].bl_idname if self.foundGoalSkOut.tg.node.type=='REROUTE' else ''
-                    #Самая важная строчка
-                    lk = tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
-                    #"Фантомный" инпут может принимать в себя прям как мультиинпут, офигеть. Они даже могут между собой одним и тем же линком по нескольку раз связываться.
-                    #Теперь под всё это нужно подстраиваться.
-                    #Проверяем, если линк соединился на виртуальные, но "ничего не произошло"
-                    #Но так же важно проверить, что этот виртуальный сокет не является рероутом
-                    num = (blIdSkOut=='NodeSocketVirtual')*(lk.from_node.type!='REROUTE')+(blIdSkIn=='NodeSocketVirtual')*(lk.to_node.type!='REROUTE')*2
-                    #Рероуты тоже могут быть виртуальными, поэтому нужно отличить их. "0" если io групп не найдено.
-                    num *= (lk.from_node.bl_idname=='NodeGroupInput')or(lk.to_node.bl_idname=='NodeGroupOutput')
-                    #Ситуация "виртуальный в виртуальный из группы в группу" исключена в |1| с помощью xor, от чего её не нужно обрабатывать.
-                    def FullCopySkToSi(where, txt1, sk): #Вручную переносим значения из сокета в интерфейсный сокет.
-                        si = getattr(tree, where).new(txt1, sk.name)
-                        if getattr(si,'default_value',False):
-                            si.default_value = sk.default_value # ! Не совершенно. Жаль я не знаю, как имитировать тру-соединение виртуального через api.
-                        si.hide_value = sk.hide_value
-                        if sk.bl_idname.find('Factor')!=-1:
-                            si.min_value = 0.0
-                            si.max_value = 1.0
-                    match num:
-                        case 1:
-                            FullCopySkToSi('inputs', blIdSkIn, lk.to_socket) #Ручками добавляем новый io группы.
-                            tree.links.remove(lk) #Удалить некорректный линк.
-                            tree.links.new(self.foundGoalSkOut.tg.node.outputs[-2], self.foundGoalSkIn.tg) #Ручками создаём корректный линк.
-                        case 2:
-                            #|9| Головная боль. У ново созданных рероутов вывод всегда цвет, пока он не был подсоединён куда-н. Поэтому брать тип нужно с инпута рероута...
-                            FullCopySkToSi('outputs', headache if headache else blIdSkOut, lk.from_socket)
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            CrutchWithCollapseNode(None, 'In', True)
+            CrutchWithCollapseNode(None, 'Out', True)
+            if (self.foundGoalSkOut)and(self.foundGoalSkIn):
+                tree = context.space_data.edit_tree
+                #|2| Если дерево нодов от к.-н. аддона исчезло, то остатки имеют NodeUndefined и NodeSocketUndefined.
+                #Достаточно проверить только один из них, потому что они там все такие
+                if self.foundGoalSkOut.tg.bl_idname=='NodeSocketUndefined':
+                    return {'CANCELLED'} #Через api линки на SocketUndefined строчкой ниже не создаваемы (но их можно создать вручную, очень странно), поэтому выходим.
+                #Чтобы можно было брать тип с рероута, который сам меняется под тип при соединении, типы сокетов перед соединением нужно запомнить
+                blIdSkOut, blIdSkIn = self.foundGoalSkOut.tg.bl_idname, self.foundGoalSkIn.tg.bl_idname
+                #См. |9| ...а его там неоткуда взять, ибо информация уже утеряна. Поэтому сохранить её здесь
+                headache = self.foundGoalSkOut.tg.node.inputs[0].bl_idname if self.foundGoalSkOut.tg.node.type=='REROUTE' else ''
+                #Самая важная строчка
+                lk = tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
+                #"Фантомный" инпут может принимать в себя прям как мультиинпут, офигеть. Они даже могут между собой одним и тем же линком по нескольку раз связываться.
+                #Теперь под всё это нужно подстраиваться.
+                #Проверяем, если линк соединился на виртуальные, но "ничего не произошло".
+                #Но так же важно проверить, что этот виртуальный сокет не является рероутом
+                num = (blIdSkOut=='NodeSocketVirtual')*(lk.from_node.type!='REROUTE')+(blIdSkIn=='NodeSocketVirtual')*(lk.to_node.type!='REROUTE')*2
+                #Рероуты тоже могут быть виртуальными, поэтому нужно отличить их. "0" если io групп не найдено.
+                num *= (lk.from_node.bl_idname=='NodeGroupInput')or(lk.to_node.bl_idname=='NodeGroupOutput')
+                #Ситуация "виртуальный в виртуальный из группы в группу" исключена в |1| с помощью xor, от чего её не нужно обрабатывать.
+                def FullCopySkToSi(where, txt1, sk): #Вручную переносим значения из сокета в интерфейсный сокет.
+                    si = getattr(tree, where).new(txt1, sk.name)
+                    if getattr(si,'default_value',False):
+                        si.default_value = sk.default_value # ! Не совершенно. Жаль я не знаю, как имитировать тру-соединение виртуального через api.
+                    si.hide_value = sk.hide_value
+                    if sk.bl_idname.find('Factor')!=-1:
+                        si.min_value = 0.0
+                        si.max_value = 1.0
+                match num:
+                    case 1:
+                        FullCopySkToSi('inputs', blIdSkIn, lk.to_socket) #Ручками добавляем новый io группы.
+                        tree.links.remove(lk) #Удалить некорректный линк.
+                        tree.links.new(self.foundGoalSkOut.tg.node.outputs[-2], self.foundGoalSkIn.tg) #Ручками создаём корректный линк.
+                    case 2:
+                        #|9| Головная боль. У ново созданных рероутов вывод всегда цвет, пока он не был подсоединён куда-н. Поэтому брать тип нужно с инпута рероута...
+                        FullCopySkToSi('outputs', headache if headache else blIdSkOut, lk.from_socket)
+                        tree.links.remove(lk)
+                        tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg.node.inputs[-2])
+                    case 3: #Бесполезная редкая ситуация, которая обрабатывается лишь для полноты картины.
+                        #Создавать новый io группы нужно только если соединение было в самый-последний-тру-виртуальный, определить это
+                        if (lk.from_socket==lk.from_node.outputs[-1])and(lk.to_socket==lk.to_node.inputs[-1]): #Рероут всегда "-1"
+                            tgl = lk.to_node.type=='REROUTE'
+                            if tgl:
+                                nd = lk.from_node
+                                tree.inputs.new('NodeSocketVirtual', lk.to_socket.name)
+                            else:
+                                nd = lk.to_node
+                                tree.outputs.new('NodeSocketVirtual', lk.from_socket.name)
                             tree.links.remove(lk)
-                            tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg.node.inputs[-2])
-                        case 3: #Бесполезная редкая ситуация, которая обрабатывается лишь для полноты картины.
-                            #Создавать новый io группы нужно только если соединение было в самый-последний-тру-виртуальный, определить это
-                            if (lk.from_socket==lk.from_node.outputs[-1])and(lk.to_socket==lk.to_node.inputs[-1]): #Рероут всегда "-1"
-                                tgl = lk.to_node.type=='REROUTE'
-                                if tgl:
-                                    nd = lk.from_node
-                                    tree.inputs.new('NodeSocketVirtual', lk.to_socket.name)
-                                else:
-                                    nd = lk.to_node
-                                    tree.outputs.new('NodeSocketVirtual', lk.from_socket.name)
-                                tree.links.remove(lk)
-                                if tgl:
-                                    tree.links.new(nd.outputs[-2], self.foundGoalSkIn.tg)
-                                else:
-                                    tree.links.new(self.foundGoalSkOut.tg, nd.inputs[-2])
-                    #Моя личная хотелка, которая чинит странное поведение, и делает его логически корректно ожидаемым. Накой смысол последние соединённые api'м лепятся в начало?.
-                    if self.foundGoalSkIn.tg.is_multi_input: #Если мультиинпут, то реализовать адекватный порядок подключения.
-                        list_skLinks = []
-                        for lk in self.foundGoalSkIn.tg.links: #Запомнить все имеющиеся линки по сокетам, и удалить их.
-                            list_skLinks.append((lk.from_socket, lk.to_socket))
-                            tree.links.remove(lk)
-                        #До версии 3.5 обработка ниже нужна была, чтобы новый io группы дважды не создавался.
-                        #Теперь без этой обработки Блендер или крашнется, или линк из виртуального в мультиинпут будет подсвечен красным как "некорректный"
-                        if self.foundGoalSkOut.tg.bl_idname=='NodeSocketVirtual':
-                            self.foundGoalSkOut.tg = self.foundGoalSkOut.tg.node.outputs[-2]
-                        tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Соединить очередной первым.
-                        for cyc in range(length(list_skLinks)-1): #Восстановить запомненные. "-1", потому что последний в списке является желанным что уже соединён строчкой выше.
-                            tree.links.new(list_skLinks[cyc][0], list_skLinks[cyc][1])
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+                            if tgl:
+                                tree.links.new(nd.outputs[-2], self.foundGoalSkIn.tg)
+                            else:
+                                tree.links.new(self.foundGoalSkOut.tg, nd.inputs[-2])
+                #Моя личная хотелка, которая чинит странное поведение, и делает его логически-корректно-ожидаемым. Накой смысол последние соединённые api'м лепятся в начало?.
+                if self.foundGoalSkIn.tg.is_multi_input: #Если мультиинпут, то реализовать адекватный порядок подключения.
+                    list_skLinks = []
+                    for lk in self.foundGoalSkIn.tg.links: #Запомнить все имеющиеся линки по сокетам, и удалить их.
+                        list_skLinks.append((lk.from_socket, lk.to_socket))
+                        tree.links.remove(lk)
+                    #До версии 3.5 обработка ниже нужна была, чтобы новый io группы дважды не создавался.
+                    #Теперь без этой обработки Блендер или крашнется, или линк из виртуального в мультиинпут будет подсвечен красным как "некорректный"
+                    if self.foundGoalSkOut.tg.bl_idname=='NodeSocketVirtual':
+                        self.foundGoalSkOut.tg = self.foundGoalSkOut.tg.node.outputs[-2]
+                    tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Соединить очередной первым.
+                    for cyc in range(length(list_skLinks)-1): #Восстановить запомненные. "-1", потому что последний в списке является желанным что уже соединён строчкой выше.
+                        tree.links.new(list_skLinks[cyc][0], list_skLinks[cyc][1])
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        #Поскольку изначально завершение оператора было насильно запаяно проверкой "case 'RIGHTMOUSE'|'ESC':", иные хоткеи не отключали оператор.
+        self.dict_isAllToRelease = {event.type: True} #Я не знаю, как решить это правильным образом, поэтому придумал это.
         if not context.space_data.edit_tree:
             self.isTwo = True
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
@@ -631,21 +636,26 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
         if (Prefs().vpIsLivePreview)and(self.foundGoalSkOut):
             self.foundGoalSkOut.tg = DoPreview(context, self.foundGoalSkOut.tg) #Повторное присваивание нужно если в процессе сокет потеряется. См. |3|
     def modal(self, context, event):
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
                     VoronoiPreviewer.NextAssessment(self, context)
-            case 'LEFTMOUSE'|'RIGHTMOUSE'|'ESC':
-                bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
-                if (event.value=='RELEASE')and(self.foundGoalSkOut):
-                    DoPreview(context, self.foundGoalSkOut.tg)
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            if self.foundGoalSkOut:
+                DoPreview(context, self.foundGoalSkOut.tg)
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True} #Описание этой штуки см. в VoronoiLinker'е.
         if not context.space_data.edit_tree:
             if self.isPlaceAnAnchor:
                 return {'FINISHED'}
@@ -832,7 +842,7 @@ def DoPreview(context, goalSk):
         ndRr = list_wayTreeNd[cyc][0].nodes.get(voronoiAnchorName)
         if ndRr:
             list_wayTreeNd[cyc][0].links.new(skOut, ndRr.inputs[0])
-            break #Завершение после напарывания повышает возможности использования якоря, делая его ещё круче. У вас течка от Voronoi_Anchor? Я вас понимаю, у меня тоже.
+            break #Завершение после напарывания повышает возможности использования якоря, делая его ещё круче. Если у вас течка от Voronoi_Anchor, то я вас понимаю. У меня тоже.
             #Завершение позволяет иметь пользовательское соединение от глубины с якорем и до корня, не разрушая их (но сокеты предпросмотра всё равно создаются).
         elif (skOut)and(skIn): #Иначе обычное соединение маршрута.
             list_wayTreeNd[cyc][0].links.new(skOut, skIn)
@@ -901,51 +911,54 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                         self.foundGoalSkOut1 = None
             break
     def modal(self, context, event): #Можно я оставлю здесь свой ник с пробелами? u go rek. Потому что я так захотел.
-        context.area.tag_redraw() #А пробелы нахрена? Чтобы через Ctrl F случайно не найти. Говорю же, я так захотел. Не обращайте внимания.
+        if event.value=='PRESS': #А пробелы нахрена? Чтобы через Ctrl+F случайно не найти. Говорю же, я так захотел. Не обращайте внимания.
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
+        context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
                     VoronoiMixer.NextAssessment(self, context, False)
-            case 'LEFTMOUSE'|'RIGHTMOUSE'|'ESC':
-                bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
-                if event.value=='RELEASE':
-                    LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
-                    if (self.foundGoalSkOut0)and(self.foundGoalSkOut1):
-                        mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
-                        mixerGlbVars.sk1 = self.foundGoalSkOut1.tg
-                        #Поддержка виртуальных выключена, читается только из первого
-                        mixerGlbVars.skType = mixerGlbVars.sk0.type# if mixerGlbVars.sk0.bl_idname!='NodeSocketVirtual' else mixerGlbVars.sk1.type
-                        if Prefs().vmIsFastMathIncluded:
-                            tgl0 = Prefs().vmFastMathActivationTrigger=='ALL'
-                            tgl1 = LSkCheck(mixerGlbVars.sk0)
-                            tgl2 = LSkCheck(mixerGlbVars.sk1)
-                            #Для двух сокетов -- выбрать "вектор" если первый "вектор", или считать выбор со второго если первый не математический сокет
-                            mixerGlbVars.isDisplayVec = (mixerGlbVars.sk0.bl_idname=='NodeSocketVector')or(not tgl1)and(mixerGlbVars.sk1.bl_idname=='NodeSocketVector')
-                            #tgl0 -- "исключающая" маска. Если оба сокета для "ALL" или один из них для "ANY"
-                            if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and( (tgl1)or(tgl2) ):
-                                bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
-                                return {'FINISHED'}
-                        di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
-                        if not di: #Если не в классических редакторах, то просто выйти. Ибо классические у всех одинаковые, а аддонских есть бесчисленное множество.
-                            return {'CANCELLED'}
-                        di = di.get(mixerGlbVars.skType, False)
-                        if di:
-                            if length(di)==1: #Если выбор всего один, то пропустить его и сразу переходить к смешиванию.
-                                DoMix(context, di[0])
-                            else: #Иначе предоставить выбор
-                                bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_mixer_pie")
-                    elif (self.foundGoalSkOut0)and(not self.foundGoalSkOut1)and(Prefs().vmIsFastMathIncluded): #См. |7|
-                        mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
-                        mixerGlbVars.sk1 = None #Самая важная часть для вытягивания из одного сокета.
-                        mixerGlbVars.isDisplayVec = mixerGlbVars.sk0.bl_idname=='NodeSocketVector' #Для одного сокета -- выбор тривиален.
-                        if LSkCheck(mixerGlbVars.sk0):
-                            bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
+            if (self.foundGoalSkOut0)and(self.foundGoalSkOut1):
+                mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
+                mixerGlbVars.sk1 = self.foundGoalSkOut1.tg
+                #Поддержка виртуальных выключена, читается только из первого
+                mixerGlbVars.skType = mixerGlbVars.sk0.type# if mixerGlbVars.sk0.bl_idname!='NodeSocketVirtual' else mixerGlbVars.sk1.type
+                if Prefs().vmIsFastMathIncluded:
+                    tgl0 = Prefs().vmFastMathActivationTrigger=='ALL'
+                    tgl1 = LSkCheck(mixerGlbVars.sk0)
+                    tgl2 = LSkCheck(mixerGlbVars.sk1)
+                    #Для двух сокетов -- выбрать "вектор" если первый "вектор", или считать выбор со второго если первый не математический сокет
+                    mixerGlbVars.isDisplayVec = (mixerGlbVars.sk0.bl_idname=='NodeSocketVector')or(not tgl1)and(mixerGlbVars.sk1.bl_idname=='NodeSocketVector')
+                    #tgl0 -- "исключающая" маска. Если оба сокета для "ALL" или один из них для "ANY"
+                    if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and( (tgl1)or(tgl2) ):
+                        bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
+                        return {'FINISHED'}
+                di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
+                if not di: #Если не в классических редакторах, то просто выйти. Ибо классические у всех одинаковые, а аддонских есть бесчисленное множество.
+                    return {'CANCELLED'}
+                di = di.get(mixerGlbVars.skType, False)
+                if di:
+                    if length(di)==1: #Если выбор всего один, то пропустить его и сразу переходить к смешиванию.
+                        DoMix(context, di[0])
+                    else: #Иначе предоставить выбор
+                        bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_mixer_pie")
+            elif (self.foundGoalSkOut0)and(not self.foundGoalSkOut1)and(Prefs().vmIsFastMathIncluded): #См. |7|
+                mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
+                mixerGlbVars.sk1 = None #Самая важная часть для вытягивания из одного сокета.
+                mixerGlbVars.isDisplayVec = mixerGlbVars.sk0.bl_idname=='NodeSocketVector' #Для одного сокета -- выбор тривиален.
+                if LSkCheck(mixerGlbVars.sk0):
+                    bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True}
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
@@ -1183,6 +1196,7 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
     bl_idname = 'node.voronoi_swaper'
     bl_label = "Voronoi Swaper"
     bl_options = {'UNDO'}
+    isAddMode: bpy.props.BoolProperty()
     def NextAssessment(self, context, isBoth):
         self.foundGoalSkIo1 = None #Важно обнулять; так же как и в линкере.
         callPos = context.space_data.cursor_location
@@ -1202,10 +1216,11 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
                     if li.tg.bl_idname!='NodeSocketVirtual':
                         fgSkOut = li
                         break
-                for li in list_fgSksIn:
-                    if li.tg.bl_idname!='NodeSocketVirtual':
-                        fgSkIn = li
-                        break
+                if not self.isAddMode:
+                    for li in list_fgSksIn:
+                        if li.tg.bl_idname!='NodeSocketVirtual':
+                            fgSkIn = li
+                            break
                 self.foundGoalSkIo0 = MinFromFgs(fgSkOut, fgSkIn)
                 #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих "типа высокоуровневых" функций, что я тут понаизобретал.
                 #Расчихлять всё и спаивать вместе, теряя немного читабельности и повышая "типа производительность" (камон, это же питон) пока не хочется.
@@ -1222,6 +1237,10 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
                         self.foundGoalSkIo1 = None
             break
     def modal(self, context, event):
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
@@ -1230,45 +1249,53 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
             case 'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
-            case 'S':
-                if event.value=='RELEASE':
-                    bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                    if not context.space_data.edit_tree:
-                        return {'FINISHED'}
-                    LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
-                    if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
-                        #Поменять местами все соединения у первого и у второго сокета:
-                        skIo0 = self.foundGoalSkIo0.tg
-                        skIo1 = self.foundGoalSkIo1.tg
-                        tgl = skIo0.is_output #Проверка одинаковости is_output -- забота для NextAssessment
-                        list_memSks = []
-                        tree = context.space_data.edit_tree
-                        if tgl:
-                            for lk in skIo0.links:
-                                if lk.to_node!=skIo1.node: #Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
-                                    list_memSks.append(lk.to_socket)
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
+            if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
+                skIo0 = self.foundGoalSkIo0.tg
+                skIo1 = self.foundGoalSkIo1.tg
+                tree = context.space_data.edit_tree
+                if not self.isAddMode:
+                    #Поменять местами все соединения у первого и у второго сокета:
+                    tgl = skIo0.is_output #Проверка одинаковости is_output -- забота для NextAssessment
+                    list_memSks = []
+                    if tgl:
+                        for lk in skIo0.links:
+                            if lk.to_node!=skIo1.node: #Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
+                                list_memSks.append(lk.to_socket)
+                                tree.links.remove(lk)
+                        for lk in skIo1.links:
+                            if lk.to_node!=skIo0.node: #
+                                tree.links.new(skIo0, lk.to_socket)
+                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
                                     tree.links.remove(lk)
-                            for lk in skIo1.links:
-                                if lk.to_node!=skIo0.node: #
-                                    tree.links.new(skIo0, lk.to_socket)
-                                    if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
-                                        tree.links.remove(lk)
-                            for li in list_memSks:
-                                tree.links.new(skIo1, li)
-                        else:
-                            for lk in skIo0.links:
-                                if lk.from_node!=skIo1.node: #
-                                    list_memSks.append(lk.from_socket)
-                                    tree.links.remove(lk)
-                            for lk in skIo1.links:
-                                if lk.from_node!=skIo0.node: #
-                                    tree.links.new(lk.from_socket, skIo0)
-                                    tree.links.remove(lk)
-                            for li in list_memSks:
-                                tree.links.new(li, skIo1)
-                    return {'FINISHED'}
+                        for li in list_memSks:
+                            tree.links.new(skIo1, li)
+                    else:
+                        for lk in skIo0.links:
+                            if lk.from_node!=skIo1.node: #
+                                list_memSks.append(lk.from_socket)
+                                tree.links.remove(lk)
+                        for lk in skIo1.links:
+                            if lk.from_node!=skIo0.node: #
+                                tree.links.new(lk.from_socket, skIo0)
+                                tree.links.remove(lk)
+                        for li in list_memSks:
+                            tree.links.new(li, skIo1)
+                else:
+                    #Просто добавить линки с первого сокета на второй. Aka объединение, односторонний перенос.
+                    for lk in skIo0.links:
+                        tree.links.new(skIo1, lk.to_socket)
+                        if lk.to_socket.is_multi_input: #Без этого lk всё равно указывает на "добавленный" линк, от чего удаляется. Поэтому явная проверка для мультиинпутов.
+                            tree.links.remove(lk)
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True}
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
@@ -1341,6 +1368,10 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
                 self.foundGoalTg = MinFromFgs(fgSkOut, fgSkIn)
             break
     def modal(self, context, event):
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
@@ -1349,59 +1380,59 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
             case 'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
-            case 'E':
-                if event.value=='RELEASE':
-                    bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                    if not context.space_data.edit_tree:
-                        return {'FINISHED'}
-                    if not self.foundGoalTg:
-                        return {'CANCELLED'}
-                    if self.isHideSocket: #Если сокрытие сокета
-                        self.foundGoalTg.tg.hide = True
-                    else: #Иначе обработка нода.
-                        def HideFromNode(nd, lastResult, isCanToggleHide=False):
-                            def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True.
-                                match sk.type:
-                                    case 'VALUE'|'INT':
-                                        return sk.default_value==0
-                                    case 'VECTOR'|'RGBA':
-                                        return(sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
-                                    case 'STRING':
-                                        return sk.default_value==''
-                                    case 'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE':
-                                        return not sk.default_value
-                                    case _:
-                                        return True
-                            if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для isCanToggleHide
-                                def CheckAndDoForIo(where, f):
-                                    success = False
-                                    for sk in where:
-                                        if (sk.enabled)and(not sk.links)and(f(sk)):
-                                            success = (success)or(not sk.hide)
-                                            if isCanToggleHide:
-                                                sk.hide = True
-                                    return success
-                                tgl = False
-                                if nd.type=='GROUP_INPUT': #Проверка -- "хороший тон" оптимизации; строчка ниже нужна для LCheckOver.
-                                    tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
-                                #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
-                                LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
-                                                             (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
-                                                             (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
-                                                             (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
-                                success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
-                                if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
-                                    success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
-                                return success
-                            elif isCanToggleHide: #Иначе раскрыть всё.
-                                for att in ('inputs','outputs'):
-                                    for sk in getattr(self.foundGoalTg.tg, att):
-                                        sk.hide = False
-                        #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
-                        HideFromNode(self.foundGoalTg.tg, HideFromNode(self.foundGoalTg.tg, True), True)
-                    return {'FINISHED'}
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            if not self.foundGoalTg:
+                return {'CANCELLED'}
+            if self.isHideSocket: #Если сокрытие сокета
+                self.foundGoalTg.tg.hide = True
+            else: #Иначе обработка нода.
+                def HideFromNode(nd, lastResult, isCanToggleHide=False):
+                    def CheckSkZeroDefaultValue(sk): #Shader, Geometry, Boolean и Virtual всегда True.
+                        match sk.type:
+                            case 'VALUE'|'INT':
+                                return sk.default_value==0
+                            case 'VECTOR'|'RGBA':
+                                return(sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
+                            case 'STRING':
+                                return sk.default_value==''
+                            case 'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE':
+                                return not sk.default_value
+                            case _:
+                                return True
+                    if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для isCanToggleHide
+                        def CheckAndDoForIo(where, f):
+                            success = False
+                            for sk in where:
+                                if (sk.enabled)and(not sk.links)and(f(sk)):
+                                    success = (success)or(not sk.hide)
+                                    if isCanToggleHide:
+                                        sk.hide = True
+                            return success
+                        tgl = False
+                        if nd.type=='GROUP_INPUT': #Проверка -- "хороший тон" оптимизации; строчка ниже нужна для LCheckOver.
+                            tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
+                        #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
+                        LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
+                                                     (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
+                                                     (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
+                                                     (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
+                        success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
+                        if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
+                            success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
+                        return success
+                    elif isCanToggleHide: #Иначе раскрыть всё.
+                        for att in ('inputs','outputs'):
+                            for sk in getattr(self.foundGoalTg.tg, att):
+                                sk.hide = False
+                #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
+                HideFromNode(self.foundGoalTg.tg, HideFromNode(self.foundGoalTg.tg, True), True)
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True}
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
@@ -1474,27 +1505,32 @@ class VoronoiMassLinker(bpy.types.Operator, VoronoiOpBase):
         if self.ndGoalOut==self.ndGoalIn: #Точно так же, как и в линкере, чтобы сам в себя не совался.
             self.ndGoalIn = None #Здесь нод-вход обнуляется каждый раз в случае неудачи.
     def modal(self, context, event):
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
                 if context.space_data.edit_tree:
                     VoronoiMassLinker.NextAssessment(self, context, False)
-            case 'RIGHTMOUSE'|'ESC':
-                bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
-                if (event.value=='RELEASE')and(self.ndGoalOut)and(self.ndGoalIn):
-                    tree = context.space_data.edit_tree
-                    #Проверка на потерянный редактор
-                    if (self.list_equalFgSks)and(self.list_equalFgSks[0][0].tg.bl_idname=='NodeSocketUndefined'):
-                        return {'CANCELLED'}
-                    #Соединить всех!
-                    for li in self.list_equalFgSks:
-                        tree.links.new(li[0].tg, li[1].tg)
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            if (self.ndGoalOut)and(self.ndGoalIn):
+                tree = context.space_data.edit_tree
+                #Проверка на потерянный редактор
+                if (self.list_equalFgSks)and(self.list_equalFgSks[0][0].tg.bl_idname=='NodeSocketUndefined'):
+                    return {'CANCELLED'}
+                #Соединить всех!
+                for li in self.list_equalFgSks:
+                    tree.links.new(li[0].tg, li[1].tg)
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True}
         if not context.space_data.edit_tree:
             self.isTwo = True
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
@@ -1506,7 +1542,7 @@ class VoronoiMassLinker(bpy.types.Operator, VoronoiOpBase):
             ToolInvokeStencilPrepare(self, context, VoronoiMassLinkerDrawCallback)
         return {'RUNNING_MODAL'}
 
-#Шаблон для более быстрого добавления нового инструмента:
+#Шаблон для быстрого и удобного добавления нового инструмента:
 def VoronoiDummyDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
@@ -1534,6 +1570,10 @@ class VoronoiDummy(bpy.types.Operator, VoronoiOpBase):
             self.foundGoalSkIo = MinFromFgs(fgSkOut, fgSkIn)
             break
     def modal(self, context, event):
+        if event.value=='PRESS':
+            self.dict_isAllToRelease[event.type] = True
+        if (event.value=='RELEASE')and( self.dict_isAllToRelease.get(event.type, False) ):
+            del self.dict_isAllToRelease[event.type]
         context.area.tag_redraw()
         match event.type:
             case 'MOUSEMOVE':
@@ -1542,17 +1582,18 @@ class VoronoiDummy(bpy.types.Operator, VoronoiOpBase):
             case 'ESC':
                 bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
                 return {'CANCELLED'}
-            case 'S':
-                if not context.space_data.edit_tree:
-                    return {'FINISHED'}
-                if (event.value=='RELEASE'):
-                    bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
-                    if self.foundGoalSkIo:
-                        self.foundGoalSkIo.tg.name = 'Hello world!'
-                        self.foundGoalSkIo.tg.node.label = 'Hello world!'
-                    return {'FINISHED'}
+        if (not self.dict_isAllToRelease)or(event.type=='ESC'):
+            if not context.space_data.edit_tree:
+                return {'FINISHED'}
+            if True: #Здесь проверка на существование целей.
+                bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
+                if self.foundGoalSkIo:
+                    self.foundGoalSkIo.tg.name = 'Hello world!'
+                    self.foundGoalSkIo.tg.node.label = 'Hello world!'
+                return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        self.dict_isAllToRelease = {event.type: True}
         if not context.space_data.edit_tree:
             ToolInvokeStencilPrepare(self, context, EditTreeIsNoneDrawCallback)
         else:
@@ -1795,7 +1836,7 @@ class TranslationHelper():
 
 dict_translateRU = {"Various utilities for nodes connecting, based on the distance field": "Разнообразные помогалочки для соединения нодов, основанные на поле расстояний",
                     "Virtual":                               "Виртуальный",
-                    #Draw
+                    #Draw:
                     "Voronoi Linker settings":               "Настройки Voronoi Linker",
                     "Voronoi Preview settings":              "Настройки Voronoi Preview",
                     "Voronoi Mixer settings":                "Настройки Voronoi Mixer",
@@ -1819,7 +1860,7 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                     "Shadow Blur":                           "Размытие тени",
                     "Always draw line for VoronoiLinker":    "Всегда рисовать линию для VoronoiLinker",
                     "Display debugging":                     "Отображать отладку",
-                    #Settings
+                    #Settings:
                     "Allow crutch with collapsed node":      "Включить костыль со свёрнутыми нодами",
                     "Allow using classic Compositor Viewer": "Разрешить классический Viewer Композитора",
                     "Allow using classic GeoNodes Viewer":   "Разрешить классический Viewer Геометрических нодов",
@@ -1844,6 +1885,7 @@ tuple_classes = (VoronoiAddonPrefs,VoronoiAddonTabs,
                  VoronoiMixer, VoronoiMixerMixer,VoronoiMixerPie, FastMathMain,FastMathPie,
                  VoronoiSwaper,
                  VoronoiHider,
+                 VoronoiDummy,
                  VoronoiMassLinker)
 list_helpClasses = []
 list_addonKeymaps = []
@@ -1851,10 +1893,13 @@ tuple_kmiDefs = ( (VoronoiLinker.bl_idname,    'RIGHTMOUSE', False, False, True,
                   (VoronoiPreviewer.bl_idname, 'RIGHTMOUSE', True,  True,  False, {'isPlaceAnAnchor': True } ), #Якорь раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
                   (VoronoiPreviewer.bl_idname, 'LEFTMOUSE',  True,  True,  False, {'isPlaceAnAnchor': False} ),
                   (VoronoiMixer.bl_idname,     'RIGHTMOUSE', True,  False, True,  {} ),
-                  (VoronoiSwaper.bl_idname,    'S',          True,  False, False, {} ),
-                  (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ), #Не-сокет раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
+                  (VoronoiSwaper.bl_idname,    'S',          False, False, True,  {'isAddMode': True} ), #Режим добавления раньше, чтобы на вкладке "keymap" отображалось в правильном порядке.
+                  (VoronoiSwaper.bl_idname,    'S',          True,  False, False, {'isAddMode': False} ),
+                  (VoronoiHider.bl_idname,     'E',          False, True,  False, {'isHideSocket': False} ), #Не-сокет раньше, чтобы см. выше.
                   (VoronoiHider.bl_idname,     'E',          True,  False, False, {'isHideSocket': True} ),
-                  (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True,  {} ))
+                  (VoronoiMassLinker.bl_idname,'RIGHTMOUSE', True,  True,  True,  {} ),
+                  #(VoronoiDummy.bl_idname,    'D',          False, False, False, {} ),
+                  )
 
 
 def register():
