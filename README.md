@@ -31,4 +31,4 @@ Version 2.3.1 created 2023.06.03
 ----------------------
 Reach to autor (Russia):  
 coaltangle@gmail.com  
-Discord: ugorek#6434
+Discord: [ugorek#6434](https://discordapp.com/users/275627322424688651)
