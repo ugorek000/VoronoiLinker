@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,1), 'blender':(3,5,1), #2023.06.03
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,2), 'blender':(3,5,1), #2023.06.06
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -616,7 +616,7 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
                 continue
             #Если в геометрических нодах, то игнорировать ноды без выходов геометрии
             if (context.space_data.tree_type=='GeometryNodeTree')and(not isAncohorExist):
-                if not [sk for sk in nd.outputs if sk.type=='GEOMETRY']:
+                if not [sk for sk in nd.outputs if (sk.type=='GEOMETRY')and(not sk.hide)]: #Искать сокеты геометрии, которые видимы.
                     continue
             #Пропускать ноды если визуально нет сокетов; или есть, но только виртуальные
             if not [sk for sk in nd.outputs if (not sk.hide)and(sk.enabled)and(sk.bl_idname!='NodeSocketVirtual')]:
@@ -1614,7 +1614,7 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
     bl_label = "Voronoi Addon Tabs"
     toTab: bpy.props.StringProperty()
     def execute(self, context):
-        if self.toTab=='!Restore': #Оператор preferences.keymap_restore требует context.keymap, поэтому вручную.
+        if self.toTab=='!Restore': #Оператор 'preferences.keymap_restore' требует context.keymap, поэтому вручную.
             globalVars.keyMapNodeEditor.restore_to_default()
         else:
             Prefs().vaUiTabs = self.toTab
@@ -1776,7 +1776,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             col1.prop(self,'dsShadowBlur')
         col1.prop(self,'dsIsDrawDebug')
 
-    def draw_tabKeymaps(self, context, where): 
+    def draw_tabKeymaps(self, context, where):
         col0 = where.column()
         col0.separator()
         row = col0.row(align=True)
