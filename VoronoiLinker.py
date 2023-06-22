@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,2), 'blender':(3,5,1), #2023.06.06
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,3), 'blender':(3,5,1), #2023.06.22
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -53,7 +53,7 @@ def UiScale():
     return bpy.context.preferences.system.dpi/72
 def PowerArr4ToVec(arr, pw):
     return Vector( (arr[0]**pw, arr[1]**pw, arr[2]**pw, arr[3]**pw))
-def GetSkCol(sk): #Про NodeSocketUndefined см. |2|. Сокеты от потерянных деревьев не имеют "draw_color()".
+def GetSkCol(sk):  #Про NodeSocketUndefined см. |2|. Сокеты от потерянных деревьев не имеют "draw_color()".
     return sk.draw_color(bpy.context, sk.node) if sk.bl_idname!='NodeSocketUndefined' else (1.0, 0.2, 0.2, 1.0)
 def GetSkColPowVec(sk, pw):
     return PowerArr4ToVec(GetSkCol(sk), pw)
@@ -428,7 +428,7 @@ def VoronoiLinkerDrawCallback(self, context):
             DrawWidePoint(cusorPos)
     else:
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut, self.foundGoalSkIn] )
-class VoronoiLinker(bpy.types.Operator, VoronoiOpBase):
+class VoronoiLinker(bpy.types.Operator, VoronoiOpBase): # =VL=
     bl_idname = 'node.voronoi_linker'
     bl_label = "Voronoi Linker"
     bl_options = {'UNDO'}
@@ -592,7 +592,7 @@ def VoronoiPreviewerDrawCallback(self, context):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkOut], True, True, True, True )
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
+class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase): # =VP=
     bl_idname = 'node.voronoi_previewer'
     bl_label = "Voronoi Previewer"
     bl_options = {'UNDO'}
@@ -616,7 +616,7 @@ class VoronoiPreviewer(bpy.types.Operator, VoronoiOpBase):
                 continue
             #Если в геометрических нодах, то игнорировать ноды без выходов геометрии
             if (context.space_data.tree_type=='GeometryNodeTree')and(not isAncohorExist):
-                if not [sk for sk in nd.outputs if (sk.type=='GEOMETRY')and(not sk.hide)]: #Искать сокеты геометрии, которые видимы.
+                if not [sk for sk in nd.outputs if (sk.type=='GEOMETRY')and(not sk.hide)and(sk.enabled)]: #Искать сокеты геометрии, которые видимы.
                     continue
             #Пропускать ноды если визуально нет сокетов; или есть, но только виртуальные
             if not [sk for sk in nd.outputs if (not sk.hide)and(sk.enabled)and(sk.bl_idname!='NodeSocketVirtual')]:
@@ -872,7 +872,7 @@ def VoronoiMixerDrawCallback(self, context):
             DrawMixerSkText(cusorPos, self.foundGoalSkOut1, -1.25, -1)
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
+class VoronoiMixer(bpy.types.Operator, VoronoiOpBase): # =VM=
     bl_idname = 'node.voronoi_mixer'
     bl_label = "Voronoi Mixer"
     bl_options = {'UNDO'}
@@ -925,7 +925,8 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
             bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
             if not context.space_data.edit_tree:
                 return {'FINISHED'}
-            LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
+            LSkCheckAll = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt','NodeSocketFloatFactor','NodeSocketVectorDirection')
+            LSkCheckVec = lambda sk: sk.bl_idname in ('NodeSocketVector','NodeSocketVectorDirection')
             if (self.foundGoalSkOut0)and(self.foundGoalSkOut1):
                 mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
                 mixerGlbVars.sk1 = self.foundGoalSkOut1.tg
@@ -933,10 +934,10 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
                 mixerGlbVars.skType = mixerGlbVars.sk0.type# if mixerGlbVars.sk0.bl_idname!='NodeSocketVirtual' else mixerGlbVars.sk1.type
                 if Prefs().vmIsFastMathIncluded:
                     tgl0 = Prefs().vmFastMathActivationTrigger=='ALL'
-                    tgl1 = LSkCheck(mixerGlbVars.sk0)
-                    tgl2 = LSkCheck(mixerGlbVars.sk1)
+                    tgl1 = LSkCheckAll(mixerGlbVars.sk0)
+                    tgl2 = LSkCheckAll(mixerGlbVars.sk1)
                     #Для двух сокетов -- выбрать "вектор" если первый "вектор", или считать выбор со второго если первый не математический сокет
-                    mixerGlbVars.isDisplayVec = (mixerGlbVars.sk0.bl_idname=='NodeSocketVector')or(not tgl1)and(mixerGlbVars.sk1.bl_idname=='NodeSocketVector')
+                    mixerGlbVars.isDisplayVec = LSkCheckVec(mixerGlbVars.sk0)or(not tgl1)and(LSkCheckVec(mixerGlbVars.sk1))
                     #tgl0 -- "исключающая" маска. Если оба сокета для "ALL" или один из них для "ANY"
                     if (tgl0)and(tgl1)and(tgl2)or(not tgl0)and( (tgl1)or(tgl2) ):
                         bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
@@ -953,8 +954,8 @@ class VoronoiMixer(bpy.types.Operator, VoronoiOpBase):
             elif (self.foundGoalSkOut0)and(not self.foundGoalSkOut1)and(Prefs().vmIsFastMathIncluded): #См. |7|
                 mixerGlbVars.sk0 = self.foundGoalSkOut0.tg
                 mixerGlbVars.sk1 = None #Самая важная часть для вытягивания из одного сокета.
-                mixerGlbVars.isDisplayVec = mixerGlbVars.sk0.bl_idname=='NodeSocketVector' #Для одного сокета -- выбор тривиален.
-                if LSkCheck(mixerGlbVars.sk0):
+                mixerGlbVars.isDisplayVec = LSkCheckVec(mixerGlbVars.sk0) #Для одного сокета -- выбор тривиален.
+                if LSkCheckAll(mixerGlbVars.sk0):
                     bpy.ops.node.voronoi_fastmath('INVOKE_DEFAULT')
             return {'FINISHED'}
         return {'RUNNING_MODAL'}
@@ -1121,7 +1122,7 @@ tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'TextureNodeTree':    'TextureNodeMath'},
                               {'ShaderNodeTree':   'ShaderNodeVectorMath',
                                'GeometryNodeTree': 'ShaderNodeVectorMath'} )
-class FastMathMain(bpy.types.Operator, VoronoiOpBase):
+class FastMathMain(bpy.types.Operator, VoronoiOpBase): # =FM=
     bl_idname = 'node.voronoi_fastmath'
     bl_label = "Fast Maths"
     bl_options = {'UNDO'}
@@ -1193,7 +1194,7 @@ def VoronoiSwaperDrawCallback(self, context):
             DrawMixerSkText(cusorPos, self.foundGoalSkIo1, -1.25, -1)
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
+class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
     bl_idname = 'node.voronoi_swaper'
     bl_label = "Voronoi Swaper"
     bl_options = {'UNDO'}
@@ -1254,7 +1255,6 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase):
             bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
             if not context.space_data.edit_tree:
                 return {'FINISHED'}
-            LSkCheck = lambda sk: sk.bl_idname in ('NodeSocketFloat','NodeSocketVector','NodeSocketInt')
             if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
                 skIo0 = self.foundGoalSkIo0.tg
                 skIo1 = self.foundGoalSkIo1.tg
@@ -1344,7 +1344,7 @@ def VoronoiHiderDrawCallback(self, context):
                         DrawText( cusorPos, (Prefs().dsDistFromCursor, tuple_ofsY[1]), txt, col)
         elif Prefs().dsIsDrawPoint:
             DrawWidePoint(cusorPos)
-class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
+class VoronoiHider(bpy.types.Operator, VoronoiOpBase): # =VH=
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
     bl_options = {'UNDO'}
@@ -1446,8 +1446,8 @@ class VoronoiHider(bpy.types.Operator, VoronoiOpBase):
 #Этот инструмент был создан только ради одной редкой и специфической нужды. В Блендере нет циклов, выход -- много одинаковых нод-групп подряд. И когда дело доходит до их соединения,
 # нужно соединить мильон одинаковых сокетов у такого же количества нодов. Оптимизация -- соединить всё у двух, а потом копирование с бинарным ростом, но "пограничные случаи"
 # всё равно нужно соединять ручками. Этот инструмент -- "из пушки по редким птичкам", крупица удобного наслаждения один раз в сто лет.
-#Дайте мне знать, если обнаружите новое необычное применение массовому линкеру.
-def VoronoiMassLinkerDrawCallback(self, context):
+#См. вики на гитхабе, что бы посмотреть 4 примера использования массового линкера. Дайте мне знать, если обнаружите ещё одно необычное применение этому инструменту.
+def VoronoiMassLinkerDrawCallback(self, context): # =VML=
     if StartDrawCallbackStencil(self, context):
         return
     cusorPos = context.space_data.cursor_location
@@ -1552,7 +1552,7 @@ def VoronoiDummyDrawCallback(self, context):
         DrawToolOftenStencil( cusorPos, [self.foundGoalSkIo], True, True )
     elif Prefs().dsIsDrawPoint:
         DrawWidePoint(cusorPos)
-class VoronoiDummy(bpy.types.Operator, VoronoiOpBase):
+class VoronoiDummy(bpy.types.Operator, VoronoiOpBase): # =VD=
     bl_idname = 'node.voronoi_dummy'
     bl_label = "Voronoi Dummy"
     bl_options = {'UNDO'}
