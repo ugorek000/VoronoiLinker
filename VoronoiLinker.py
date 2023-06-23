@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,3), 'blender':(3,5,1), #2023.06.22
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,4), 'blender':(3,5,1), #2023.06.23
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1094,6 +1094,9 @@ class VoronoiMixerPie(bpy.types.Menu):
 # у вас глаза разбегались от такой паники -- такое себе удовольствие. К тому же вы вынуждены делать кнопки не прозрачными, в то время как кнопка-сектор-пирога догадайтесь сами.
 #Спасибо за ваши геройские рвения по улучшению, но я буду пользоваться двойным пирогом.
 #Хотите вишенку на торте? Пирог -- встроенная возможность Блендера. От чего нет нужды выстраивать свой огород велосипедов, с блек-джеком и костылями.
+#ОБНОВЛЕНО:
+#Неожиданно для меня оказалось, что пирог может рисовать обычный layout. От чего добавил дополнительный тип пирога "для контроля", что минует двойной пирог.
+#P.s. двойной пирог всё равно круче.
 tuple_tupleMathMap = (
         #Было бы не круто разбросать их бездумно, поэтому я пытался соблюсти некоторую логическую последовательность. Например, расставляя пары по смыслу диаметрально противоположными.
         #Пирог располагает в себе элементы следующим образом: лево, право, низ, верх, после чего классическое построчное заполнение.
@@ -1135,7 +1138,7 @@ class FastMathMain(bpy.types.Operator, VoronoiOpBase): # =FM=
         if not tree:
             return {'CANCELLED'}
         def DispMenu(num):
-            mixerGlbVars.displayDeep = num #Указывает пирогу, какую глубину вложенности он отображает. Ему это нужно только для ".capitalize()"
+            mixerGlbVars.displayDeep = num #Указывает пирогу, какую глубину вложенности он отображает. Нужно только для '.capitalize()'
             bpy.ops.wm.call_menu_pie(name="VL_MT_voronoi_fastmath_pie")
         tuple_who = tuple_tupleVecMathMap if mixerGlbVars.isDisplayVec else tuple_tupleMathMap
         mixerGlbVars.list_displayItems = [ti[0] for ti in tuple_who] #Установка списка здесь, нужна для elif ниже.
@@ -1170,13 +1173,66 @@ class FastMathPie(bpy.types.Menu):
     bl_label = "" #Текст здесь будет отображаться в центре пирога.
     def draw(self, context):
         pie = self.layout.menu_pie()
-        for li in mixerGlbVars.list_displayItems:
-            if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
-                continue
-            #Автоматический перевод выключен, ибо оригинальные операции у нода математики так же не переводятся.
-            pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
+        if Prefs().vmFastMathPieType=='SPEED':
+            for li in mixerGlbVars.list_displayItems:
+                if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
+                    continue
+                #Автоматический перевод выключен, ибо оригинальные операции у нода математики так же не переводятся.
+                pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
+        else:
+            def AddFm(where, opt, ico='NONE'):
+                where.operator(FastMathMain.bl_idname, text=opt.capitalize(), icon=ico, translate=False).operation = opt
+            def GetCol(where):
+                col = where.column()
+                col.scale_x = (Prefs().vmFastMathPieScale-1)/2+1
+                col.scale_y = Prefs().vmFastMathPieScale
+                return col
+            colLeft = GetCol(pie)
+            colRight = GetCol(pie)
+            colCenter = GetCol(pie)
+            AddFm(colRight, 'ADD',      'ADD')
+            AddFm(colRight, 'SUBTRACT', 'REMOVE')
+            AddFm(colRight, 'MULTIPLY', 'SORTBYEXT')
+            AddFm(colRight, 'DIVIDE',   'ITALIC') #ITALIC  FIXED_SIZE  DECORATE_LINKED
+            colRight.separator()
+            AddFm(colRight, 'MULTIPLY_ADD')
+            AddFm(colRight, 'ABSOLUTE')
+            colRight.separator()
+            for li in ['SINE', 'COSINE', 'TANGENT']:
+                AddFm(colCenter, li, 'FORCE_HARMONIC')
+            if not mixerGlbVars.isDisplayVec:
+                for li in ['POWER', 'SQRT', 'EXPONENT', 'LOGARITHM', 'INVERSE_SQRT', 'PINGPONG']:
+                    AddFm(colRight, li)
+                colRight.separator()
+                AddFm(colRight, 'RADIANS')
+                AddFm(colRight, 'DEGREES')
+                AddFm(colLeft, 'FRACT', 'IPO_LINEAR')
+                for li in ['ARCTANGENT', 'ARCSINE', 'ARCCOSINE', 'ARCTAN2', 'SINH', 'COSH', 'TANH']:
+                    AddFm(colCenter, li)
+            else:
+                for li in ['SCALE', 'NORMALIZE', 'LENGTH', 'DISTANCE']:
+                    AddFm(colRight, li)
+                colRight.separator()
+                AddFm(colLeft, 'FRACTION', 'IPO_LINEAR')
+            AddFm(colLeft, 'FLOOR', 'IPO_CONSTANT')
+            AddFm(colLeft, 'CEIL')
+            AddFm(colLeft, 'MAXIMUM', 'NONE') #SORT_DESC  TRIA_UP_BAR
+            AddFm(colLeft, 'MINIMUM', 'NONE') #SORT_ASC  TRIA_DOWN_BAR
+            for li in ['MODULO', 'SNAP', 'WRAP']:
+                AddFm(colLeft, li)
+            colLeft.separator()
+            if not mixerGlbVars.isDisplayVec:
+                for li in ['GREATER_THAN', 'LESS_THAN', 'TRUNC', 'SIGN', 'SMOOTH_MAX', 'SMOOTH_MIN', 'ROUND', 'COMPARE']:
+                    AddFm(colLeft, li)
+            else:
+                AddFm(colLeft, 'DOT_PRODUCT', 'LAYER_ACTIVE')
+                AddFm(colLeft, 'CROSS_PRODUCT', 'ORIENTATION_LOCAL') #OUTLINER_DATA_EMPTY  ORIENTATION_LOCAL  EMPTY_ARROWS
+                AddFm(colLeft, 'PROJECT', 'CURVE_PATH') #SNAP_OFF  SNAP_ON  MOD_SIMPLIFY  CURVE_PATH
+                AddFm(colLeft, 'FACEFORWARD', 'ORIENTATION_NORMAL')
+                AddFm(colLeft, 'REFRACT', 'NODE_MATERIAL') #MOD_OFFSET  NODE_MATERIAL
+                AddFm(colLeft, 'REFLECT', 'INDIRECT_ONLY_OFF') #INDIRECT_ONLY_OFF  INDIRECT_ONLY_ON
 
-#P.s. Инструменты здесь отсортированы по убыванию их "крутости".
+#P.s. Инструменты здесь отсортированы в порядке убывания их "крутости".
 def VoronoiSwaperDrawCallback(self, context):
     if StartDrawCallbackStencil(self, context):
         return
@@ -1218,11 +1274,15 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
                     if li.tg.bl_idname!='NodeSocketVirtual':
                         fgSkOut = li
                         break
-                if not self.isAddMode:
-                    for li in list_fgSksIn:
-                        if li.tg.bl_idname!='NodeSocketVirtual':
-                            fgSkIn = li
-                            break
+                for li in list_fgSksIn:
+                    if li.tg.bl_idname!='NodeSocketVirtual':
+                        fgSkIn = li
+                        break
+                #Разрешить возможность "добавлять" и для входов тоже, но только для мультиинпутов, ибо очевидное.
+                if self.isAddMode:
+                    #Проверка по типу, но не по `is_multi_input`, чтобы из обычного в мультиинпут можно было добавлять.
+                    if (fgSkIn.tg.bl_idname not in ('NodeSocketGeometry','NodeSocketString')):#or(not fgSkIn.tg.is_multi_input): #Без второго условия больше возможностей.
+                        fgSkIn = None
                 self.foundGoalSkIo0 = MinFromFgs(fgSkOut, fgSkIn)
                 #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих "типа высокоуровневых" функций, что я тут понаизобретал.
                 #Расчихлять всё и спаивать вместе, теряя немного читабельности и повышая "типа производительность" (камон, это же питон) пока не хочется.
@@ -1259,9 +1319,9 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
                 skIo0 = self.foundGoalSkIo0.tg
                 skIo1 = self.foundGoalSkIo1.tg
                 tree = context.space_data.edit_tree
+                tgl = skIo0.is_output #Проверка одинаковости is_output -- забота для NextAssessment
                 if not self.isAddMode:
                     #Поменять местами все соединения у первого и у второго сокета:
-                    tgl = skIo0.is_output #Проверка одинаковости is_output -- забота для NextAssessment
                     list_memSks = []
                     if tgl:
                         for lk in skIo0.links:
@@ -1269,7 +1329,7 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
                                 list_memSks.append(lk.to_socket)
                                 tree.links.remove(lk)
                         for lk in skIo1.links:
-                            if lk.to_node!=skIo0.node: #
+                            if lk.to_node!=skIo0.node: #^
                                 tree.links.new(skIo0, lk.to_socket)
                                 if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
                                     tree.links.remove(lk)
@@ -1277,21 +1337,28 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
                             tree.links.new(skIo1, li)
                     else:
                         for lk in skIo0.links:
-                            if lk.from_node!=skIo1.node: #
+                            if lk.from_node!=skIo1.node: #^
                                 list_memSks.append(lk.from_socket)
                                 tree.links.remove(lk)
                         for lk in skIo1.links:
-                            if lk.from_node!=skIo0.node: #
+                            if lk.from_node!=skIo0.node: #^
                                 tree.links.new(lk.from_socket, skIo0)
                                 tree.links.remove(lk)
                         for li in list_memSks:
                             tree.links.new(li, skIo1)
                 else:
-                    #Просто добавить линки с первого сокета на второй. Aka объединение, односторонний перенос.
-                    for lk in skIo0.links:
-                        tree.links.new(skIo1, lk.to_socket)
-                        if lk.to_socket.is_multi_input: #Без этого lk всё равно указывает на "добавленный" линк, от чего удаляется. Поэтому явная проверка для мультиинпутов.
-                            tree.links.remove(lk)
+                    #Просто добавить линки с первого сокета на второй. Aka объединение, добавление.
+                    if tgl:
+                        for lk in skIo0.links:
+                            if lk.to_node!=skIo1.node: #^
+                                tree.links.new(skIo1, lk.to_socket)
+                                if lk.to_socket.is_multi_input: #Без этого lk всё равно указывает на "добавленный" линк, от чего удаляется. Поэтому явная проверка для мультиинпутов.
+                                    tree.links.remove(lk)
+                    else: #Добавлено ради мультиинпутов.
+                        for lk in skIo0.links:
+                            if lk.from_node!=skIo1.node: #^
+                                tree.links.new(lk.from_socket, skIo1)
+                                tree.links.remove(lk)
                 return {'FINISHED'}
             return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -1647,7 +1714,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     #
     dsDisplayStyle: bpy.props.EnumProperty(name="Display Frame Style", default='CLASSIC', items=( ('CLASSIC',   "Classic",   "1"), #Если существует способ указать порядок
-                                                                                                  ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте мне знать.
+                                                                                                  ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте знать.
                                                                                                   ('ONLYTEXT',  "Only text", "3") ))
     dsLineWidth:      bpy.props.IntProperty(name=  "Line Width",                default=1,  min=1, max=16, subtype="FACTOR")
     dsPointRadius:    bpy.props.FloatProperty(name="Point size",                default=1,  min=0, max=3)
@@ -1663,19 +1730,22 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     # =====================================================================================================================================================
     #Linker
     vlAllowCrutchWithCollapsedNode: bpy.props.BoolProperty(name="Allow crutch with collapsed node", default=False)
-    #Preview
+    #Preview:
     vpAllowClassicCompositorViewer: bpy.props.BoolProperty(name="Allow using classic Compositor Viewer", default=False)
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow using classic GeoNodes Viewer",   default=True)
     #
     vpIsAutoShader:          bpy.props.BoolProperty(name="Socket color directly into a shader", default=True)
     vpIsLivePreview:         bpy.props.BoolProperty(name="Live Preview",                        default=True)
     vpIsSelectPreviewedNode: bpy.props.BoolProperty(name="Select Previewed Node",               default=True)
-    #Mixer
+    #Fast math:
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
     vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
+    vmFastMathPieScale:    bpy.props.FloatProperty(name="Pie scale",            default=1.5, min=1, max=2, subtype="FACTOR")
     #
     vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY',"At least one is a math socket",""),
                                                                                                           ('ALL',"Everyone is a math socket",    "") ))
+    vmFastMathPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
+                                                                                          ('CONTROL',"Control","") ))
     #Hider
     vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                       ('NAME',     "Only name",     ""),
@@ -1705,9 +1775,14 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col2.label(text="Voronoi Mixer settings")
         col2.prop(self,'vmIsFastMathIncluded')
         if self.vmIsFastMathIncluded:
-            col2.prop(self,'vmIsFastMathEmptyHold')
-            col2.use_property_split = True
-            col2.prop(self,'vmFastMathActivationTrigger')
+            col3 = col2.column()
+            col3.prop(self,'vmIsFastMathEmptyHold')
+            col3.use_property_split = True
+            col3.prop(self,'vmFastMathActivationTrigger')
+            col3.prop(self,'vmFastMathPieType')
+            col3 = col3.column()
+            col3.prop(self,'vmFastMathPieScale')
+            col3.active = self.vmFastMathPieType=='CONTROL'
         box = where.box()
         col2 = box.column(align=True)
         col2.label(text="Voronoi Hider settings")
@@ -1875,8 +1950,11 @@ dict_translateRU = {"Various utilities for nodes connecting, based on the distan
                     "Include Fast Math Pie":                 "Подключить пирог быстрой математики",
                     "Empty placeholders":                    "Пустые заполнители",
                     "Activation trigger":                    "Триггер активации",
-                        "At least one is a math socket":     "Хотя бы один из них математический сокет",
-                        "Everyone is a math socket":         "Все из них математические сокеты",
+                        "At least one is a math socket":         "Хотя бы один из них математический сокет",
+                        "Everyone is a math socket":             "Все из них математические сокеты",
+                    "Pie Type":                              "Тип пирога",
+                        "Speed":                                 "Скорость",
+                        "Control":                               "Контроль",
                     "Display text for node":                 "Показывать текст для нода",
                         "Only name":                            "Только имя",
                         "Only label":                           "Только заголовок",
