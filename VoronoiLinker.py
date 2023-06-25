@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,4), 'blender':(3,5,1), #2023.06.23
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,3,4), 'blender':(3,5,1), #2023.06.25
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -20,8 +20,8 @@ import bpy, blf, gpu, gpu_extras.batch
 from math import pi, inf, sin, cos, copysign
 from mathutils import Vector
 #Я не использую "from bpy.props import BoolProperty, и т.д." по своим личным эстетическим причинам. Не забывайте, что это CC0, который изначально создавался лично для меня, и под меня.
-import rna_keymap_ui #Только для вкладки настроек "Keymap".
-import os            #Только для проверки корректного файла шрифта.
+#import rna_keymap_ui #Только для вкладки настроек "Keymap".
+#import os            #Только для проверки корректного файла шрифта.
 
 voronoiAnchorName = "Voronoi_Anchor"
 voronoiSkPreviewName = "voronoi_preview"
@@ -1681,7 +1681,9 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
     bl_label = "Voronoi Addon Tabs"
     toTab: bpy.props.StringProperty()
     def execute(self, context):
-        if self.toTab=='!Restore': #Оператор 'preferences.keymap_restore' требует context.keymap, поэтому вручную.
+        if self.toTab=='!Restore':
+            #Оператор 'preferences.keymap_restore' требует context.keymap, поэтому вручную.
+            # `col.context_pointer_set("keymap", km)` благополучно не работает или у меня нет идей, поэтому через оператор.
             globalVars.keyMapNodeEditor.restore_to_default()
         else:
             Prefs().vaUiTabs = self.toTab
@@ -1826,6 +1828,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col1 = where.column(align=True)
         col1.use_property_split = True
         col1.prop(self,'dsFontFile')
+        import os
         if not os.path.splitext(self.dsFontFile)[1] in (".ttf",".otf"):
             spl = col1.split(factor=.4, align=True)
             spl.label(text="")
@@ -1857,24 +1860,25 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         row = col0.row(align=True)
         row.label(text=bpy.app.translations.pgettext_iface(globalVars.keyMapNodeEditor.name), icon='DOT')
         col1 = col0.column(align=True)
-        kmne = None
+        import rna_keymap_ui
+        kmNe = None
         for kmCon in context.window_manager.keyconfigs.user.keymaps:
             if globalVars.keyMapNodeEditor.name==kmCon.name:
-                kmne = kmCon
+                kmNe = kmCon
                 break
-        if not kmne:
+        if not kmNe:
             return
         list_getKmi = []
         for li in list_addonKeymaps:
-            for kmiCon in kmne.keymap_items:
+            for kmiCon in kmNe.keymap_items:
                 if (li.idname==kmiCon.idname)and(li.name==kmiCon.name):
                     list_getKmi.append(kmiCon)
-        if kmne.is_user_modified:
+        if kmNe.is_user_modified:
             row.label()
             row.operator(VoronoiAddonTabs.bl_idname, text=bpy.app.translations.pgettext_iface("Restore")).toTab = '!Restore'
         for si in sorted(set(list_getKmi), key=list_getKmi.index):
-            col1.context_pointer_set('keymap', kmne)
-            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmne, si, col1, 0)
+            col1.context_pointer_set('keymap', kmNe)
+            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmNe, si, col1, 0)
     #Спасибо пользователю с ником "atticus-lv" за потрясную идею по компактной упаковке настроек.
     def draw(self, context):
         col0 = self.layout.column()
