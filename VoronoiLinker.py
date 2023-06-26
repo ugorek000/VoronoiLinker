@@ -1279,7 +1279,7 @@ class VoronoiSwaper(bpy.types.Operator, VoronoiOpBase): # =VS=
                         fgSkIn = li
                         break
                 #Разрешить возможность "добавлять" и для входов тоже, но только для мультиинпутов, ибо очевидное.
-                if self.isAddMode:
+                if (self.isAddMode)and(fgSkIn):
                     #Проверка по типу, но не по `is_multi_input`, чтобы из обычного в мультиинпут можно было добавлять.
                     if (fgSkIn.tg.bl_idname not in ('NodeSocketGeometry','NodeSocketString')):#or(not fgSkIn.tg.is_multi_input): #Без второго условия больше возможностей.
                         fgSkIn = None
