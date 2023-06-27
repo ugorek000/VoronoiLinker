@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,0), 'blender':(3,5,1), #2023.06.27
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,1), 'blender':(3,5,1), #2023.06.27
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -279,7 +279,9 @@ def GetFromIoPuts(nd, side, callPos):
                                             (goalPos.y-11-muv*20, goalPos.y+11+max(length(sk.links)-2,0)*5*(side==-1)),
                                             bpy.app.translations.pgettext_iface(sk.name) ))
             #Сдвинуть до следующего на своё направление
-            skLocCarriage.y -= 22*side
+            fix = bpy.context.preferences.view.ui_scale
+            fix = -sin(pi*fix)**2 #Что-то тут не число. Замаскировал кривым костылём. У меня нет идей.
+            skLocCarriage.y -= 22*side-fix*1.35
     return list_result
 def GetNearestSockets(nd, callPos): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного. Да, да, аддон назван именно из-за этого.
     list_fgSksIn = []
