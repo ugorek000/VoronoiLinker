@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,2), 'blender':(3,5,1), #2023.07.01
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,3), 'blender':(3,5,1), #2023.07.01
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1196,7 +1196,10 @@ tuple_tupleVecMathMap = (
         ("Compatible Primitives", ('SUBTRACT',   'ADD',          'DIVIDE',     'MULTIPLY',    'ABSOLUTE',    'MULTIPLY_ADD')),
         ("Rays",                  ('DOT_PRODUCT','CROSS_PRODUCT','PROJECT',    'FACEFORWARD', 'REFRACT',     'REFLECT')),
         ("Compatible Vector",     ('MINIMUM',    'MAXIMUM',      'FLOOR',      'FRACTION',    'CEIL',        'MODULO',      'SNAP',   'WRAP')),
-        (" ", ()), (" ", ()), (" ", ()), (" ", ())) #Из-за пробелов кнопки выглядит чуть шире для векторов. Мне так красивее.
+        ("", ()),
+        ("", ()),
+        ("", ()),
+        ("", ()))
 #Ассоциация типа нода математики для типа редактора дерева
 tuple_dictEditorMathNodes = ( {'ShaderNodeTree':     'ShaderNodeMath',
                                'GeometryNodeTree':   'ShaderNodeMath',
@@ -1254,7 +1257,8 @@ class FastMathPie(bpy.types.Menu):
         pie = self.layout.menu_pie()
         if Prefs().vmFastMathPieType=='SPEED':
             for li in mixerGlbVars.list_displayItems:
-                if (not Prefs().vmIsFastMathEmptyHold)and(li in (""," ")):
+                if not li:
+                    row = pie.row()
                     continue
                 #Автоматический перевод выключен, ибо оригинальные операции у нода математики так же не переводятся.
                 pie.operator(FastMathMain.bl_idname, text=li.capitalize() if mixerGlbVars.displayDeep else li, translate=False).operation = li
@@ -1826,7 +1830,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vpRvEeIsSavePreviewResults: bpy.props.BoolProperty(name="Save preview results",            default=False) #Слишком лениво, пока забил. А там посмотрим.
     #Fast math:
     vmIsFastMathIncluded:  bpy.props.BoolProperty(name="Include Fast Math Pie", default=True)
-    vmIsFastMathEmptyHold: bpy.props.BoolProperty(name="Empty placeholders",    default=True)
     vmFastMathPieScale:    bpy.props.FloatProperty(name="Pie scale",            default=1.5, min=1, max=2, subtype="FACTOR")
     #
     vmFastMathActivationTrigger: bpy.props.EnumProperty(name="Activation trigger", default='ANY', items=( ('ANY',"At least one is a math socket",""),
@@ -1882,9 +1885,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         col4.prop(self,'vmFastMathActivationTrigger')
         col4.prop(self,'vmFastMathPieType')
         col4 = col4.column(align=True)
-        match self.vmFastMathPieType:
-            case 'SPEED':   col4.prop(self,'vmIsFastMathEmptyHold')
-            case 'CONTROL': col4.prop(self,'vmFastMathPieScale')
+        col4.prop(self,'vmFastMathPieScale')
+        col4.active = self.vmFastMathPieType=='CONTROL'
         box = where.box()
         col2 = box.column(align=True)
         ##
