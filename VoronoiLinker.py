@@ -8,7 +8,7 @@
 
 #Так же надеюсь, что вы простите мне использование только одного файла. 1) Это удобно, всего один файл. 2) До версии 3.5 NodeWrangler так же поставлялся одним файлом.
 
-bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,1), 'blender':(3,5,1), #2023.06.27
+bl_info = {'name':"Voronoi Linker", 'author':"ugorek", 'version':(2,4,2), 'blender':(3,5,1), #2023.07.01
            'description':"Various utilities for nodes connecting, based on the distance field", 'location':"Node Editor > Alt + RMB", 'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -1269,6 +1269,12 @@ class FastMathPie(bpy.types.Menu):
             colLeft = GetCol(pie)
             colRight = GetCol(pie)
             colCenter = GetCol(pie)
+            colLabel = GetCol(pie)
+            box = colLabel.box()
+            row = box.row()
+            row.alignment = 'CENTER' #Не работает.
+            #row.label(text=("Vector" if mixerGlbVars.isDisplayVec else "Float")+" Fast Math")
+            row.label(text="Fast Math ("+("Vector" if mixerGlbVars.isDisplayVec else "Float")+")")
             AddFm(colRight, 'ADD',      'ADD')
             AddFm(colRight, 'SUBTRACT', 'REMOVE')
             AddFm(colRight, 'MULTIPLY', 'SORTBYEXT')
