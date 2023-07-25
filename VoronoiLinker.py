@@ -2123,7 +2123,7 @@ def unregister():
     for ti in reversed(tuple_classes):
         bpy.utils.unregister_class(ti)
     for li in list_addonKeymaps:
-        globalVars.newKeyMapNodeEditor.keymap_items.remove(kmi)
+        globalVars.newKeyMapNodeEditor.keymap_items.remove(li)
     list_addonKeymaps.clear()
     for li in list_helpClasses:
         li.unregister()
