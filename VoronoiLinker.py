@@ -82,7 +82,7 @@ def DrawAreaFan(vpos, col):
     gpu_extras.batch.batch_for_shader(globalVars.gpuArea, 'TRI_FAN', {'pos':vpos}).draw(globalVars.gpuArea)
 def PrepareShaders():
     globalVars.gpuLine = gpu.shader.from_builtin('POLYLINE_SMOOTH_COLOR')
-    globalVars.gpuArea = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+    globalVars.gpuArea = gpu.shader.from_builtin('UNIFORM_COLOR')
     #Параметры, которые не нужно устанавливать каждый раз:
     globalVars.gpuLine.uniform_float('viewportSize', gpu.state.viewport_get()[2:4])
     #TODO: выяснить как или сделать сглаживание для полигонов тоже.
