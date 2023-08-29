@@ -9,7 +9,7 @@ Blender Addon for Node Editor which adds three new awesome features:
 * Voronoi Swaper  
 * Voronoi Hider  
 * Voronoi MassLinker  
-* Voronoi PropSelector
+* Voronoi EnumSelector
 
 See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 
