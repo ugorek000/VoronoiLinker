@@ -6,7 +6,7 @@ Blender Addon for Node Editor which adds three new awesome features:
 * Voronoi Preview  
 * Voronoi Mixer  
 * Voronoi QuickMath  
-* Voronoi Swaper  
+* Voronoi Swapper  
 * Voronoi Hider  
 * Voronoi MassLinker  
 * Voronoi EnumSelector
