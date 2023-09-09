@@ -11,6 +11,8 @@ Blender Addon for Node Editor which adds three new awesome features:
 * Voronoi MassLinker  
 * Voronoi EnumSelector
 
+⚠ Disclaimer: Скрипт аддона предоставляется как есть. Воспринимайте это, как археологическую находку, ни с чем не связанную. Поэтому перед использованием обязательно ознакомьтесь с содержимым того, что будете себе устанавливать. Ибо вы используете этот файл на свой страх и риск.
+
 See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
 
 ----------------------
