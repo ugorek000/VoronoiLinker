@@ -1,4 +1,4 @@
-https://user-images.githubusercontent.com/120259754/229438870-96f44cb2-bedd-40cb-9ed0-5ceb8f60fb36.mp4
+https://github.com/ugorek000/VoronoiLinker/assets/120259754/732385f6-a637-40a8-9770-69114dc0bfaf
 
 # VoronoiLinker
 Blender Addon for Node Editor which adds three new awesome features:
