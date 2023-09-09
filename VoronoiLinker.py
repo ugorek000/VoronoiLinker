@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,0,0), 'blender':(3,6,2), #2023.09.09
+           'version':(3,0,0), 'blender':(3,6,2), #2023.09.10
            'description':"Various utilities for nodes connecting, based on a distance field.", 'location':"Node Editor > Alt + RMB",
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -2130,8 +2130,7 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos, skipPoorNodes=False):
             nd = li.tg
-            #Для этого инструмента рероуты пропускаются, по очевидным причинам.
-            if nd.type=='REROUTE':
+            if nd.type=='REROUTE': #Для этого инструмента рероуты пропускаются, по очевидным причинам.
                 continue
             self.foundGoalNd = li
             break
@@ -2169,7 +2168,7 @@ class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
         colMaster = self.layout.column()
         nd = esData.nd
         #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
-        #Игнорировать их не стал, пусть обрабатывается как есть.
+        #Игнорировать их не стал, пусть обрабатываются как есть. И вообще с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
         isNotFirst = False
         for li in nd.bl_rna.properties:
             if not(li.is_readonly or li.is_registered):
@@ -2268,7 +2267,9 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
             prefs = Prefs()
             for li in prefs.rna_type.properties:
                 if not li.is_readonly:
-                    if li.identifier not in {'bl_idname', 'vaUiTabs', 'vaShowOtherOptions', 'vaShowRvEeOptions'}: #'vaUiTabs' нужны для `event.shift`
+                    #'vaUiTabs' нужны для `event.shift`
+                    #'_BoxDiscl'ы не стал игнорировать, пусть будут; для эстетики.
+                    if li.identifier not in {'bl_idname', 'vaUiTabs', 'vaShowOtherOptions', 'vaShowRvEeOptions'}:
                         isArray = getattr(li,'is_array', False)
                         if isArray:
                             isDiff = not not [li for li in zip(li.default_array, getattr(prefs, li.identifier)) if li[0]!=li[1]]
