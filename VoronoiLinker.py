@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,0,1), 'blender':(3,6,2), #2023.09.10
+           'version':(3,0,2), 'blender':(3,6,2), #2023.09.11
            'description':"Various utilities for nodes connecting, based on a distance field.", 'location':"Node Editor > Alt + RMB",
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -389,18 +389,20 @@ def StencilStartDrawCallback(self, context):
 def StencilRepick(cls, self, context, tgl=None): #tgl -- костыль, и лишение простора для NextAssessment().
     bpy.ops.wm.redraw_timer(type='DRAW_WIN', iterations=0) #Из-за этого курсор на винде на один кадр меняется.
     if tgl is None:
-        cls.NextAssessment(self, context) #Через self.NextAssessment нахрен не работает, по неведомым мне причинам. Видимо я чего-то не знаю.
-    else: #Осторожно в вызывающем уровне, чтобы не уйти в вечный цикл! ^ v
+        cls.NextAssessment(self, context) #Через self.NextAssessment не работает чёрт возьми, по неведомым мне причинам. Видимо я чего-то не знаю.
+    else: #^v Осторожно в вызывающем уровне, чтобы не уйти в вечный цикл!
         cls.NextAssessment(self, context, tgl)
 
 def StencilModalEsc(self, context, event):
+    if event.type=='ESC': #Собственно то, что и должна делать клавиша побега.
+        return {'RUNNING_MODAL'}
     if event.value!='RELEASE':
         return {'RUNNING_MODAL'}
     bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
     if not context.space_data.edit_tree:
         return {'FINISHED'}
     RestoreCollapsedNodes(context.space_data.edit_tree.nodes)
-    return None
+    return False
 
 def StencilProcPassThrought(txt_prop):
     if getattr(Prefs(), txt_prop): #todo сбежавший от пайки Prefs().
@@ -431,6 +433,8 @@ def StencilToolInvokePrepare(self, context, event, Func):
     self.handle = bpy.types.SpaceNodeEditor.draw_handler_add(Func, (self,context), 'WINDOW', 'POST_PIXEL')
     context.window_manager.modal_handler_add(self)
     return tgl
+
+#todo проверить все инструменты на никакие деревья и поломанные деревья.
 
 #Обеспечивает поддержку свёрнутых нодов:
 #Дождались таки. Конечно же не "честную поддержку", ибо см. вики. Мне противны свёрнутые ноды, и я не мазохист, чтобы шататься с округлостью, и соответствующе изменённым рисованием.
@@ -682,6 +686,7 @@ class VoronoiLinkerTool(bpy.types.Operator, VoronoiOpPoll): #То ради че�
                     if sk.bl_idname.find('Factor')!=-1:
                         si.min_value = 0.0
                         si.max_value = 1.0
+                num = 0 #Выключено. Нужно всё это нахрен переосмыслить. Ибо костыль; ибо соединение виртуального из вывода симуляции в вывод группы. Todo.
                 match num:
                     case 1:
                         FullCopySkToSi('inputs', blIdSkIn, lk.to_socket) #Ручками добавляем новый io группы.
@@ -1869,7 +1874,7 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
                     self.foundGoalTg = fgSkIn
                 tgl |= StencilUnCollapseNode(self, True, nd, self.foundGoalTg)
                 if (tgl)and(self.vhRedrawAfterChange):
-                    StencilRepick(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать. todo: я забыл нахрена.
+                    StencilRepick(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать. todo: я забыл почему.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
                 if self.vtAlwaysUnhideCursorNode: #Благодаря этому можно выбрать, разворачивать нод при обработке, или нет.
@@ -1880,8 +1885,8 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
                     nd.hide = False
                 if self.vhIsToggleNodesOnDrag:
                     if self.firstResult is None:
-                        self.firstResult = HideFromNode(self.foundGoalTg.tg, True)
-                    if HideFromNode(li.tg, self.firstResult, True)and(self.vhRedrawAfterChange):
+                        self.firstResult = HideFromNode(self.foundGoalTg.tg, True) #todo: вспомнить, почему `self.foundGoalTg.tg`.
+                    if HideFromNode(nd, self.firstResult, True)and(self.vhRedrawAfterChange):
                         #Ну наконец-то смог починить. С одной стороны нет проскальзывающего кадра, с другой стороны нет "визуального" контакта с только что изменённым нодом,
                         # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации редки.
                         #Есть ещё вариант сделать изменение нода после отрисовки одного кадра, но наверное окажется тоже не очень.
@@ -1911,16 +1916,17 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
         if StencilProcPassThrought('vhPassThrought'):
             return {'PASS_THROUGH'}
         self.foundGoalTg = []
-        self.firstResult = None #Получить действие свернуть или развернуть у первого нода, а потом транслировать его на все остальные попавшиеся.
+        self.firstResult = None #Получить действие "свернуть" или "развернуть" у первого нода, а потом транслировать его на все остальные попавшиеся.
         if StencilToolInvokePrepare(self, context, event, CallbackDrawVoronoiHider):
             VoronoiHiderTool.NextAssessment(self, context)
         return {'RUNNING_MODAL'}
 
 list_classes += [VoronoiHiderTool]
-AddToKmiDefs(VoronoiHiderTool, "E_scA", {'isHideSocket': 2 })
-AddToKmiDefs(VoronoiHiderTool, "E_Sca", {'isHideSocket': 1 })
-AddToKmiDefs(VoronoiHiderTool, "E_sCa", {'isHideSocket': 0 })
+AddToKmiDefs(VoronoiHiderTool, "E_scA", {'isHideSocket': 2})
+AddToKmiDefs(VoronoiHiderTool, "E_Sca", {'isHideSocket': 1})
+AddToKmiDefs(VoronoiHiderTool, "E_sCa", {'isHideSocket': 0})
 
+#todo: учитывая, что есть моя хотелка для виртуальных в VLT, нужно ли вообще рскрывать последние виртуальные?
 def HideFromNode(nd, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
     def CheckSkZeroDefaultValue(sk): #Shader, Geometry и Virtual всегда True.
         match sk.type:
@@ -1947,8 +1953,9 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
                         case 'IF_FALSE': return not sk.default_value
             case _:
                 return True
-    vhHideBoolSocket = Prefs().vhHideBoolSocket
-    vhHideHiddenBoolSocket = Prefs().vhHideHiddenBoolSocket
+    prefs = Prefs()
+    vhHideBoolSocket = prefs.vhHideBoolSocket
+    vhHideHiddenBoolSocket = prefs.vhHideHiddenBoolSocket
     if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для 'isCanDo'.
         def CheckAndDoForIo(where, L):
             success = False
@@ -1960,16 +1967,24 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
             return success
         tgl = False
         #todo: повторно осознать что здесь происходит (от сюда и до конца), и закоментить подробнее.
-        if nd.type=='GROUP_INPUT': #Проверка -- "хороший тон" оптимизации; строчка ниже нужна для LCheckOver.
+        if nd.type=='GROUP_INPUT': #Эта проверка эстетики оптимизации; строчка ниже нужна для LCheckOver.
             tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
         #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
         LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
                                      (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
-                                     (sk.node.type in ('GROUP_INPUT','GROUP_OUTPUT'))and
+                                     (nd.type in {'GROUP_INPUT','GROUP_OUTPUT'})and
                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
         success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
-        if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
-            success = (CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ))or(success) #Здесь наоборот, чтобы функция гарантированно выполнилась.
+        if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне.
+            success |= CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ) #Здесь наоборот, чтобы функция гарантированно выполнилась. #todo: о чём наоборот?
+        else:
+            if nd.type in {'GROUP_INPUT','GROUP_OUTPUT','SIMULATION_INPUT','SIMULATION_OUTPUT'}:
+                if nd.outputs:
+                    sk = nd.outputs[-1]
+                    if sk.bl_idname=='NodeSocketVirtual':
+                        success |= not sk.hide
+                        if isCanDo:
+                            sk.hide = True
         return success
     elif isCanDo: #Иначе раскрыть всё.
         success = False
@@ -1977,7 +1992,7 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
             for sk in ndio:
                 success = success or sk.hide
                 sk.hide = False
-        return success
+        return success #todo: вспомнить, зачем нужен успех при раскрытии. Наверное для Repick'а.
 
 #"Массовый линкер" -- как линкер, только много за раз (ваш кэп). Наверное, самое редко-бесполезное что только можно было придумать здесь.
 #Этот инструмент -- "из пушки по редким птичкам", крупица удобного наслаждения один раз в сто лет.
@@ -2092,7 +2107,7 @@ AddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA", {'vmlIsIgnoreExistingLinks'
 class EnumSelectorData:
     list_enumProps = [] #Для пайки, и проверка перед вызовом, есть ли вообще что.
     nd = None
-    boxScale = 0
+    boxScale = 1.0
     isDarkStyle = False
     isDisplayLabels = False
 esData = EnumSelectorData()
@@ -2107,7 +2122,7 @@ def CallbackDrawVoronoiEnumSelector(self, context):
     if self.foundGoalNd:
         #Так же, как и для VHT.
         colNode = DrawNodeStencil(self, cusorPos, self.foundGoalNd.pos)
-        if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода разделён на два шаблона.
+        if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода был разделён на два шаблона.
             sco = -0.5
             col = colNode if self.dsIsColoredSkText else GetUniformColVec(self)
             for li in self.foundGoalNd.tg.bl_rna.properties:
@@ -2121,8 +2136,9 @@ def CallbackDrawVoronoiEnumSelector(self, context):
         DrawWidePoint(self, cusorPos)
 class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
     bl_idname = 'node.voronoi_enum_selector'
-    bl_label = "Voronoi EnumSelector"
+    bl_label = "Voronoi Enum Selector"
     bl_options = {'UNDO'}
+    isToggleOptions: bpy.props.BoolProperty()
     def NextAssessment(self, context):
         self.foundGoalNd = None
         callPos = context.space_data.cursor_location
@@ -2130,10 +2146,31 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
             nd = li.tg
             if nd.type=='REROUTE': #Для этого инструмента рероуты пропускаются, по очевидным причинам.
                 continue
-            #Почему бы не игнорировать ноды без енум свойств?.
-            if GetListOfNdEnums(nd):
+            if self.isToggleOptions:
                 self.foundGoalNd = li
+                #Так же, как и в VHT:
+                if self.vesIsToggleNodesOnDrag:
+                    if self.firstResult is None:
+                        self.firstResult = ToggleOptionsFromNode(nd, True)
+                    if ToggleOptionsFromNode(nd, self.firstResult, True)and(self.vesRedrawAfterChange):
+                        StencilRepick(VoronoiEnumSelectorTool, self, context)
                 break
+            else:
+                #Почему бы не игнорировать ноды без енум свойств?.
+                if GetListOfNdEnums(nd):
+                    self.foundGoalNd = li
+                    break
+    def DoActivation(self): #Для моментальной активации, сразу из invoke().
+        if self.foundGoalNd:
+            esData.list_enumProps = GetListOfNdEnums(self.foundGoalNd.tg)
+            #Если ничего нет, то вызов коробки всё равно обрабатывается, словно она есть, и от чего повторый вызов инструмента не работает без движения курсора.
+            if esData.list_enumProps: #Поэтому если пусто, то ничего не делаем.
+                esData.nd = self.foundGoalNd.tg
+                esData.boxScale = self.vesBoxScale
+                esData.isDarkStyle = self.vesDarkStyle
+                esData.isDisplayLabels = self.vesDisplayLabels
+                bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
+                return True #Для modal(), чтобы вернуть успех.
     def modal(self, context, event):
         context.area.tag_redraw()
         match event.type:
@@ -2142,25 +2179,34 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
             case self.keyType|'ESC':
                 if result:=StencilModalEsc(self, context, event):
                     return result
-                if self.foundGoalNd:
-                    esData.list_enumProps = GetListOfNdEnums(self.foundGoalNd.tg)
-                    #Если ничего нет, то вызов коробки всё равно обрабатывается, словно она есть, и от чего повторый вызов инструмента не работает без движения курсора.
-                    if esData.list_enumProps: #Поэтому если пусто, то ничего не делаем.
-                        esData.nd = self.foundGoalNd.tg
-                        esData.boxScale = self.vesBoxScale
-                        esData.isDarkStyle = self.vesDarkStyle
-                        esData.isDisplayLabels = self.vesDisplayLabels
-                        bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
+                if self.isToggleOptions:
+                    if not self.vesIsToggleNodesOnDrag: #И снова, так же как и в VHT.
+                        ToggleOptionsFromNode(self.foundGoalNd.tg, ToggleOptionsFromNode(self.foundGoalNd.tg, True), True)
+                    return {'FINISHED'}
+                else:
+                    if VoronoiEnumSelectorTool.DoActivation(self):
                         return {'FINISHED'}
                 return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
+        if (Prefs().vesIsInstantActivation)and(not self.isToggleOptions):
+            #Изначально хотел оставить нарисованную к ноду линию до момента __del__'a OpEnumSelectorBox'a, но оказалось некоторая головная боль;
+            # и коробка может полностью закрыть нод вместе с линией к нему. Так что пока пусть будет так.
+            VoronoiEnumSelectorTool.NextAssessment(self, context)
+            SolderingAllPrefsToSelf(self)
+            VoronoiEnumSelectorTool.DoActivation(self)
+            bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
+            return {'FINISHED'}
         self.foundGoalNd = None
+        self.firstResult = None
         if StencilToolInvokePrepare(self, context, event, CallbackDrawVoronoiEnumSelector):
             VoronoiEnumSelectorTool.NextAssessment(self, context)
         return {'RUNNING_MODAL'}
 
-AddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "C_Sca") #Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'.
+list_classes += [VoronoiEnumSelectorTool]
+AddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions': True })
+#Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'. И вообще учитывая этот инструмент, нужно минимизировать сложность вызова.
+AddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isToggleOptions': False})
 
 class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
     bl_idname = 'node.voronoi_enum_selector_box'
@@ -2171,17 +2217,17 @@ class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
         colMaster = self.layout.column()
         nd = esData.nd
         #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
-        #Игнорировать их не стал, пусть обрабатываются как есть. И вообще с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
-        isNotFirst = False
+        #Игнорировать их не стал, пусть обрабатываются как есть. И с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
+        sco = 0
         for li in esData.list_enumProps:
-            if isNotFirst:
+            if sco:
                 colProp.separator()
             colProp = colMaster.column(align=True)
             if esData.isDisplayLabels:
                 rowLabel = colProp.row(align=True)
                 rowLabel.alignment = 'CENTER'
                 rowLabel.label(text=li.name)
-            elif isNotFirst:
+            elif sco:
                 colProp.separator()
             colEnum = colProp.column(align=True)
             colEnum.scale_y = esData.boxScale
@@ -2189,11 +2235,27 @@ class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
                 colEnum.prop_tabs_enum(nd, li.identifier)
             else:
                 colEnum.prop(nd, li.identifier, expand=True)
-            isNotFirst = True
+            sco += 1
+        if not sco: #Для отладки.
+            colMaster.label(text="`list_enums` is empty") #Во всю ширину не влезает.
+        #В самой первой задумке я неправильно назвал этот инструмент -- "Prop Selector";
+        # нужно придумать как отличить общие свойства нода от тех, которые рисуются у него в опциях. Повезло, что у каждого нода енумов нет разных...
+        #for li in [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type!='ENUM')]: colMaster.prop(nd, li.identifier)
     def invoke(self, context, event):
         return context.window_manager.invoke_popup(self, width=int(128*esData.boxScale))
 
 list_classes += [OpEnumSelectorBox]
+
+def ToggleOptionsFromNode(nd, lastResult, isCanDo=False): #Копия логики с VHT HideFromNode'a().
+    if lastResult:
+        success = nd.show_options
+        if isCanDo:
+            nd.show_options = False
+        return success
+    elif isCanDo:
+        success = not nd.show_options
+        nd.show_options = True
+        return success
 
 #Шаблон для быстрого и удобного добавления нового инструмента:
 def CallbackDrawVoronoiDummy(self, context):
@@ -2399,14 +2461,14 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     #Swapper:
     vsCanTriggerToAnyType: bpy.props.BoolProperty(name="Can swap with any type", default=False)
     #Hider:
-    vhHideBoolSocket: bpy.props.EnumProperty(name="Hide boolean socket", default='IF_FALSE', items=( ('ALWAYS',  "Always",  ""),
-                                                                                                     ('IF_FALSE',"If false",""),
-                                                                                                     ('NEVER',   "Never",   ""),
-                                                                                                     ('IF_TRUE', "If true", "") ))
-    vhHideHiddenBoolSocket: bpy.props.EnumProperty(name="Hide hidden boolean socket", default='ALWAYS', items=( ('ALWAYS',  "Always",  ""),
-                                                                                                                ('IF_FALSE',"If false",""),
-                                                                                                                ('NEVER',   "Never",   ""),
-                                                                                                                ('IF_TRUE', "If true", "") ))
+    vhHideBoolSocket: bpy.props.EnumProperty(name="Hide boolean sockets", default='IF_FALSE', items=( ('ALWAYS',  "Always",  ""),
+                                                                                                      ('IF_FALSE',"If false",""),
+                                                                                                      ('NEVER',   "Never",   ""),
+                                                                                                      ('IF_TRUE', "If true", "") ))
+    vhHideHiddenBoolSocket: bpy.props.EnumProperty(name="Hide hidden boolean sockets", default='ALWAYS', items=( ('ALWAYS',  "Always",  ""),
+                                                                                                                 ('IF_FALSE',"If false",""),
+                                                                                                                 ('NEVER',   "Never",   ""),
+                                                                                                                 ('IF_TRUE', "If true", "") ))
     vhIsToggleNodesOnDrag:     bpy.props.BoolProperty(name="Toggle nodes on drag",       default=True)
     vhRedrawAfterChange:       bpy.props.BoolProperty(name="Redraw after change",        default=True)
     vhTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
@@ -2416,6 +2478,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                       ('LABELNAME',"Name and label","") ))
     vhLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side", default=3, min=1, max=4) #Настройка выше и так какая-то бесполезная, а эта прям ваще.
     #Enum selector:
+    vesIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
+    vesRedrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=True)
+    vesIsInstantActivation: bpy.props.BoolProperty(name="Instant activation",   default=True) #Эту, исключающую всё остальноё, опцию я добавил в самом конце. Накой черт я ниже всё это делал?.
     vesIsDrawEnumNames: bpy.props.BoolProperty(name="Draw enum names", default=False)
     vesDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                        ('NAME',     "Only name",     ""),
@@ -2517,6 +2582,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 AddHandSplitProp(colProp,'vhLabelDispalySide')
                 colProp.active = self.vhDrawNodeNameLabel=='LABELNAME'
             if colTool:=AddSelfBoxDiscl(colMaster,'vesBoxDiscl', VoronoiEnumSelectorTool):
+                colTool.prop(self,'vesIsToggleNodesOnDrag')
+                colProp = colTool.column(align=True)
+                colProp.prop(self,'vesRedrawAfterChange')
+                colProp.active = self.vesIsToggleNodesOnDrag
+                colTool.prop(self,'vesIsInstantActivation')
+                colTool = colTool.column(align=True)
+                colTool.active = not self.vesIsInstantActivation #todo: придумать как помечать выбранный нод при моментальной активации.
                 AddHandSplitProp(colTool,'vesIsDrawEnumNames')
                 colProp = colTool.column(align=True)
                 colProp.active = not self.vesIsDrawEnumNames
@@ -2648,6 +2720,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
 
 list_classes += [VoronoiAddonTabs, TogglerOfTool, VoronoiAddonPrefs]
 
+#todo теперь есть пара пар инструментов с одинаковыми по смыслу опциями. Нужно бы это как-то вылизать и/или зашаблонить.
+
 list_helpClasses = []
 
 class TranslationHelper():
@@ -2768,7 +2842,8 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vhDrawNodeNameLabel',2):              "Только заголовок",
                 Gapn('vhDrawNodeNameLabel',3):              "Имя и заголовок",
             Gapn('vhLabelDispalySide'):                 "Сторона отображения заголовка",
-            Gapn('vesIsDrawEnumNames'):                 "Рисовать имена свойств перечислений",
+            Gapn('vesIsInstantActivation'):             "Моментальная активация",
+            Gapn('vesIsDrawEnumNames'):                 "Рисовать имена свойств перечисления",
             Gapn('vesBoxScale'):                        "Масштаб панели",
             Gapn('vesDisplayLabels'):                   "Отображать имена свойств перечислений",
             Gapn('vesDarkStyle'):                       "Тёмный стиль",
