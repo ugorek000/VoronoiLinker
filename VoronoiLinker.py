@@ -1967,18 +1967,18 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
             return success
         tgl = False
         #todo: повторно осознать что здесь происходит (от сюда и до конца), и закоментить подробнее.
-        if nd.type=='GROUP_INPUT': #Эта проверка эстетики оптимизации; строчка ниже нужна для LCheckOver.
+        if nd.type=='GROUP_INPUT': #Эта проверка для эстетики оптимизации; строчка ниже нужна для LCheckOver.
             tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
         #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
         LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
                                      (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
-                                     (nd.type in {'GROUP_INPUT','GROUP_OUTPUT'})and
+                                     (nd.type in {'GROUP_INPUT','GROUP_OUTPUT'})and #Возможно стоило оставить `sk.node.type` эстетики ради.
                                      (GetSocketIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
         success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
         if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне.
             success |= CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ) #Здесь наоборот, чтобы функция гарантированно выполнилась. #todo: о чём наоборот?
         else:
-            if nd.type in {'GROUP_INPUT','GROUP_OUTPUT','SIMULATION_INPUT','SIMULATION_OUTPUT'}:
+            if nd.type in {'GROUP_INPUT','GROUP_OUTPUT','SIMULATION_INPUT','SIMULATION_OUTPUT'}: #Всё равно переключать последний виртуальный, даже если нет соединений во вне.
                 if nd.outputs:
                     sk = nd.outputs[-1]
                     if sk.bl_idname=='NodeSocketVirtual':
@@ -2107,7 +2107,7 @@ AddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA", {'vmlIsIgnoreExistingLinks'
 class EnumSelectorData:
     list_enumProps = [] #Для пайки, и проверка перед вызовом, есть ли вообще что.
     nd = None
-    boxScale = 1.0
+    boxScale = 1.0 #Если забыть установить, то хотя бы коробка не сколлапсируется в ноль.
     isDarkStyle = False
     isDisplayLabels = False
 esData = EnumSelectorData()
