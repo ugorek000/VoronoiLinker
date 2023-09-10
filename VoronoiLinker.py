@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,0,0), 'blender':(3,6,2), #2023.09.10
+           'version':(3,0,1), 'blender':(3,6,2), #2023.09.10
            'description':"Various utilities for nodes connecting, based on a distance field.", 'location':"Node Editor > Alt + RMB",
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -111,7 +111,7 @@ def DrawSocketArea(self, sk, list_boxHeiBou, colfac=Vector(1.0, 1.0, 1.0, 1.0)):
     pos1 = VecWorldToRegScale( Vector(loc.x, list_boxHeiBou[0]), self )
     pos2 = VecWorldToRegScale( Vector(loc.x+sk.node.width, list_boxHeiBou[1]), self )
     colfac = colfac if self.dsIsColoredSkArea else GetUniformColVec(self)
-    DrawRectangle(self, pos1, pos2, Vector(1.0, 1.0, 1.0, 0.075)*colfac)
+    DrawRectangle(self, pos1, pos2, Vector(1.0, 1.0, 1.0, self.dsSocketAreaAlpha)*colfac)
 def DrawIsLinkedMarker(self, loc, ofs, skCol):
     ofs[0] += ( (20*self.dsIsDrawSkText+self.dsDistFromCursor)*1.5+self.dsFrameOffset )*copysign(1,ofs[0])+4
     vec = VecWorldToRegScale(loc, self)
@@ -258,6 +258,39 @@ def DrawDebug(self, context):
     if list_fgSksOut:
         DrawWidePoint( self, list_fgSksOut[0].pos, Vector(0.5, 0.5, 1, 1), 4, True )
         DebugTextDraw( VecWorldToRegScale(list_fgSksOut[0].pos, self), "Nearest socketOut here", 0.75, 0.75, 1)
+
+def DrawNodeStencil(self, cusorPos, pos):
+    colNode = PowerArr4ToVec(self.dsNodeColor, 1/2.2)
+    col = colNode if self.dsIsColoredLine else GetUniformColVec(self)
+    if self.dsIsDrawLine:
+        DrawStick( self, pos, cusorPos, col, col )
+    if self.dsIsDrawPoint:
+        DrawWidePoint( self, pos, colNode if self.dsIsColoredPoint else GetUniformColVec(self) )
+    return colNode
+def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide, col=Vector(1, 1, 1, 1)):
+    if not self.dsIsDrawSkText:
+        return
+    def DrawNodeText(txt):
+        DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
+    col = col if self.dsIsColoredSkText else GetUniformColVec(self)
+    txt_label = nd.label
+    match drawNodeNameLabel:
+        case 'NAME':
+            DrawNodeText(nd.name)
+        case 'LABEL':
+            #Пустой текст, а не 'None', чтобы отсутствие заголовка отображалось рамкой с ничем, и смена между нодами не пульсировала наличием рамки.
+            DrawNodeText(txt_label if txt_label else "") #todo: сделать для этого опцию.
+        case 'LABELNAME':
+            if not txt_label:
+                DrawNodeText(nd.name)
+                return
+            match labelDispalySide:
+                case 1: tuple_side = (1, 1, 0.25)
+                case 2: tuple_side = (1, 1, -1.25)
+                case 3: tuple_side = (1, -1, -0.5)
+                case 4: tuple_side = (-1, 1, -0.5)
+            DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[0], tuple_side[2]), nd.name, col)
+            DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
 
 #Высокоуровневый шаблон рисования для сокетов; тут весь аддон про сокеты, поэтому в названии нет "Sk".
 #Пользоваться этим шаблоном невероятно кайфово, после того хардкора что был в ранних версиях (даже не заглядывайте туда, там около-ад).
@@ -1797,33 +1830,9 @@ def CallbackDrawVoronoiHider(self, context):
     else:
         if self.foundGoalTg:
             #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
-            #Поэтому, для нода всё одноцветное -- белое или пользовательское.
-            white = Vector(1, 1, 1, 1)
-            col = white if self.dsIsColoredLine else GetUniformColVec(self)
-            if self.dsIsDrawLine:
-                DrawStick( self, self.foundGoalTg.pos, cusorPos, col, col )
-            if self.dsIsDrawPoint:
-                DrawWidePoint( self, self.foundGoalTg.pos, white if self.dsIsColoredPoint else GetUniformColVec(self) )
-            def DrawHiderText(txt):
-                DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
-            txt_label = self.foundGoalTg.tg.label
-            match self.vhDrawNodeNameLabel:
-                case 'NAME':
-                    DrawHiderText(self.foundGoalTg.tg.name)
-                case 'LABEL':
-                    #Пустой текст, а не 'None', чтобы отсутствие заголовка отображалось рамкой с ничем, и смена между нодами не пульсировала наличием рамки.
-                    DrawHiderText(txt_label if txt_label else "")
-                case 'LABELNAME':
-                    if not txt_label:
-                        DrawHiderText(self.foundGoalTg.tg.name)
-                        return
-                    match self.vhLabelDispalySide:
-                        case 1: tuple_side = (1, 1, 0.25)
-                        case 2: tuple_side = (1, 1, -1.25)
-                        case 3: tuple_side = (1, -1, -0.5)
-                        case 4: tuple_side = (-1, 1, -0.5)
-                    DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[0], tuple_side[2]), self.foundGoalTg.tg.name, col)
-                    DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
+            #Поэтому, для нода всё одноцветное -- пользовательское для нода, или пользовательское постоянной перезаписи.
+            colNode = DrawNodeStencil(self, cusorPos, self.foundGoalTg.pos)
+            DrawTextNodeStencil(self, cusorPos, self.foundGoalTg.tg, self.vhDrawNodeNameLabel, self.vhLabelDispalySide, colNode)
         elif self.dsIsDrawPoint:
             DrawWidePoint(self, cusorPos)
 class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
@@ -1859,8 +1868,8 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
                 else:
                     self.foundGoalTg = fgSkIn
                 tgl |= StencilUnCollapseNode(self, True, nd, self.foundGoalTg)
-                if tgl:
-                    StencilRepick(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать.
+                if (tgl)and(self.vhRedrawAfterChange):
+                    StencilRepick(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать. todo: я забыл нахрена.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
                 if self.vtAlwaysUnhideCursorNode: #Благодаря этому можно выбрать, разворачивать нод при обработке, или нет.
@@ -1872,7 +1881,7 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpPoll):
                 if self.vhIsToggleNodesOnDrag:
                     if self.firstResult is None:
                         self.firstResult = HideFromNode(self.foundGoalTg.tg, True)
-                    if HideFromNode(li.tg, self.firstResult, True):
+                    if HideFromNode(li.tg, self.firstResult, True)and(self.vhRedrawAfterChange):
                         #Ну наконец-то смог починить. С одной стороны нет проскальзывающего кадра, с другой стороны нет "визуального" контакта с только что изменённым нодом,
                         # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации редки.
                         #Есть ещё вариант сделать изменение нода после отрисовки одного кадра, но наверное окажется тоже не очень.
@@ -1924,14 +1933,22 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
             case 'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE':
                 return not sk.default_value
             case 'BOOLEAN':
-                match vhHideBoolSocket:
-                    case 'ALWAYS': return True
-                    case 'NEVER': return False
-                    case 'IF_TRUE': return sk.default_value
-                    case 'IF_FALSE': return not sk.default_value
+                if not sk.hide_value: #Лень паять, всё обрабатывается в прямом виде.
+                    match vhHideBoolSocket:
+                        case 'ALWAYS': return True
+                        case 'NEVER': return False
+                        case 'IF_TRUE': return sk.default_value
+                        case 'IF_FALSE': return not sk.default_value
+                else:
+                    match vhHideHiddenBoolSocket:
+                        case 'ALWAYS': return True
+                        case 'NEVER': return False
+                        case 'IF_TRUE': return sk.default_value
+                        case 'IF_FALSE': return not sk.default_value
             case _:
                 return True
     vhHideBoolSocket = Prefs().vhHideBoolSocket
+    vhHideHiddenBoolSocket = Prefs().vhHideHiddenBoolSocket
     if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для 'isCanDo'.
         def CheckAndDoForIo(where, L):
             success = False
@@ -2073,11 +2090,15 @@ AddToKmiDefs(VoronoiMassLinkerTool, "RIGHTMOUSE_SCA", {'vmlIsIgnoreExistingLinks
 AddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA", {'vmlIsIgnoreExistingLinks': False })
 
 class EnumSelectorData:
+    list_enumProps = [] #Для пайки, и проверка перед вызовом, есть ли вообще что.
     nd = None
     boxScale = 0
     isDarkStyle = False
     isDisplayLabels = False
 esData = EnumSelectorData()
+
+def GetListOfNdEnums(nd):
+    return [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type=='ENUM')]
 
 def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2085,40 +2106,17 @@ def CallbackDrawVoronoiEnumSelector(self, context):
     cusorPos = context.space_data.cursor_location
     if self.foundGoalNd:
         #Так же, как и для VHT.
-        white = Vector(1, 1, 1, 1)
-        col = white if self.dsIsColoredLine else GetUniformColVec(self)
-        if self.dsIsDrawLine:
-            DrawStick( self, self.foundGoalNd.pos, cusorPos, col, col )
-        if self.dsIsDrawPoint:
-            DrawWidePoint( self, self.foundGoalNd.pos, white if self.dsIsColoredPoint else GetUniformColVec(self) )
-        if self.vesIsDrawEnumNames:
+        colNode = DrawNodeStencil(self, cusorPos, self.foundGoalNd.pos)
+        if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода разделён на два шаблона.
             sco = -0.5
+            col = colNode if self.dsIsColoredSkText else GetUniformColVec(self)
             for li in self.foundGoalNd.tg.bl_rna.properties:
                 if not(li.is_readonly or li.is_registered):
                     if li.type=='ENUM':
-                        DrawText( self, cusorPos, (self.dsDistFromCursor, sco), li.name, col)
+                        DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
                         sco -= 1.5
         else:
-            #Так же, как и в VHT:
-            def DrawEnumSelectorText(txt):
-                DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
-            txt_label = self.foundGoalNd.tg.label
-            match self.vesDrawNodeNameLabel:
-                case 'NAME':
-                    DrawEnumSelectorText(self.foundGoalNd.tg.name)
-                case 'LABEL':
-                    DrawEnumSelectorText(txt_label if txt_label else "")
-                case 'LABELNAME':
-                    if not txt_label:
-                        DrawEnumSelectorText(self.foundGoalNd.tg.name)
-                        return
-                    match self.vesLabelDispalySide:
-                        case 1: tuple_side = (1, 1, 0.25)
-                        case 2: tuple_side = (1, 1, -1.25)
-                        case 3: tuple_side = (1, -1, -0.5)
-                        case 4: tuple_side = (-1, 1, -0.5)
-                    DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[0], tuple_side[2]), self.foundGoalNd.tg.name, col)
-                    DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
+            DrawTextNodeStencil(self, cusorPos, self.foundGoalNd.tg, self.vesDrawNodeNameLabel, self.vesLabelDispalySide, colNode)
     elif self.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
@@ -2132,8 +2130,10 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
             nd = li.tg
             if nd.type=='REROUTE': #Для этого инструмента рероуты пропускаются, по очевидным причинам.
                 continue
-            self.foundGoalNd = li
-            break
+            #Почему бы не игнорировать ноды без енум свойств?.
+            if GetListOfNdEnums(nd):
+                self.foundGoalNd = li
+                break
     def modal(self, context, event):
         context.area.tag_redraw()
         match event.type:
@@ -2143,12 +2143,15 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
                 if result:=StencilModalEsc(self, context, event):
                     return result
                 if self.foundGoalNd:
-                    esData.nd = self.foundGoalNd.tg
-                    esData.boxScale = self.vesBoxScale
-                    esData.isDarkStyle = self.vesDarkStyle
-                    esData.isDisplayLabels = self.vesDisplayLabels
-                    bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
-                    return {'FINISHED'}
+                    esData.list_enumProps = GetListOfNdEnums(self.foundGoalNd.tg)
+                    #Если ничего нет, то вызов коробки всё равно обрабатывается, словно она есть, и от чего повторый вызов инструмента не работает без движения курсора.
+                    if esData.list_enumProps: #Поэтому если пусто, то ничего не делаем.
+                        esData.nd = self.foundGoalNd.tg
+                        esData.boxScale = self.vesBoxScale
+                        esData.isDarkStyle = self.vesDarkStyle
+                        esData.isDisplayLabels = self.vesDisplayLabels
+                        bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
+                        return {'FINISHED'}
                 return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
@@ -2170,25 +2173,23 @@ class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
         #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
         #Игнорировать их не стал, пусть обрабатываются как есть. И вообще с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
         isNotFirst = False
-        for li in nd.bl_rna.properties:
-            if not(li.is_readonly or li.is_registered):
-                if li.type=='ENUM':
-                    if isNotFirst:
-                        colProp.separator()
-                    colProp = colMaster.column(align=True)
-                    if esData.isDisplayLabels:
-                        rowLabel = colProp.row(align=True)
-                        rowLabel.alignment = 'CENTER'
-                        rowLabel.label(text=li.name)
-                    elif isNotFirst:
-                        colProp.separator()
-                    colEnum = colProp.column(align=True)
-                    colEnum.scale_y = esData.boxScale
-                    if esData.isDarkStyle:
-                        colEnum.prop_tabs_enum(nd, li.identifier)
-                    else:
-                        colEnum.prop(nd, li.identifier, expand=True)
-                    isNotFirst = True
+        for li in esData.list_enumProps:
+            if isNotFirst:
+                colProp.separator()
+            colProp = colMaster.column(align=True)
+            if esData.isDisplayLabels:
+                rowLabel = colProp.row(align=True)
+                rowLabel.alignment = 'CENTER'
+                rowLabel.label(text=li.name)
+            elif isNotFirst:
+                colProp.separator()
+            colEnum = colProp.column(align=True)
+            colEnum.scale_y = esData.boxScale
+            if esData.isDarkStyle:
+                colEnum.prop_tabs_enum(nd, li.identifier)
+            else:
+                colEnum.prop(nd, li.identifier, expand=True)
+            isNotFirst = True
     def invoke(self, context, event):
         return context.window_manager.invoke_popup(self, width=int(128*esData.boxScale))
 
@@ -2298,8 +2299,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=( ('SETTINGS',"Settings",""),
                                                                                           ('DRAW',    "Draw",    ""),
                                                                                           ('KEYMAP',  "Keymap",  "") ))
-    vaShowOtherOptions: bpy.props.BoolProperty(name="Other options:", default=False)
-    vaShowRvEeOptions: bpy.props.BoolProperty(name="Visual assistance in reverse engineering", default=False) #todo Добавить двоеточия к не-инструментным дисклосурам?
+    vaShowOtherOptions: bpy.props.BoolProperty(name="Other options:", default=False) #todo Добавить двоеточия к не-инструментным дисклосурам?
+    vaShowRvEeOptions: bpy.props.BoolProperty(name="Visual assistance in reverse engineering", default=False)
     vaShowPassThroughtNodeSelectingMap: bpy.props.BoolProperty(name="Map of pass throught from node selecting",default=False)
     #Box disclosures:
     vlBoxDiscl: bpy.props.BoolProperty(name="", default=True)
@@ -2311,15 +2312,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют значение. См.`SolderingAllPrefsToSelf()`
     #Draw
-    dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform color", default=(0.632502, 0.408091, 0.174378, 0.9), min=0, max=1, size=4, subtype='COLOR') #(0.65, 0.65, 0.65, 1.0)
-    ##
-    dsFontFile: bpy.props.StringProperty(name="Font file", default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
-    ##
-    dsPointOffsetX: bpy.props.FloatProperty(name="Point offset X axis", default=20, min=-50, max=50)
-    dsFrameOffset:  bpy.props.IntProperty(name=  "Frame size",          default=0,  min=0,   max=24, subtype='FACTOR')
-    dsFontSize:     bpy.props.IntProperty(name=  "Font size",           default=28, min=10,  max=48)
-    ##
-    dsIsDrawSkText: bpy.props.BoolProperty(name="Text",        default=True)
+    dsIsDrawSkText: bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов. #todo: переименовать все.
     dsIsDrawMarker: bpy.props.BoolProperty(name="Markers",     default=True)
     dsIsDrawPoint:  bpy.props.BoolProperty(name="Points",      default=True)
     dsIsDrawLine:   bpy.props.BoolProperty(name="Line",        default=True)
@@ -2331,11 +2324,21 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     ##
+    dsIsAlwaysLine: bpy.props.BoolProperty(name="Always draw line for VoronoiLinker Tool", default=False)
+    dsSocketAreaAlpha: bpy.props.FloatProperty(name="Socket area alpha", default=0.075, min=0, max=1, subtype="FACTOR")
+    dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform color", default=(0.632502, 0.408091, 0.174378, 0.9), min=0, max=1, size=4, subtype='COLOR') #(0.65, 0.65, 0.65, 1.0)
+    dsNodeColor: bpy.props.FloatVectorProperty(name="To-Node draw color", default=(1.0, 1.0, 1.0, 0.9), min=0, max=1, size=4, subtype='COLOR')
+    ##
     dsDisplayStyle: bpy.props.EnumProperty(name="Display frame style", default='CLASSIC', items=( ('CLASSIC',   "Classic",   "1"), #Если существует способ указать порядок
                                                                                                   ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте знать.
                                                                                                   ('ONLYTEXT',  "Only text", "3") ))
+    dsFontFile: bpy.props.StringProperty(name="Font file", default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
     dsLineWidth:      bpy.props.IntProperty(  name="Line Width",                default=1,  min=1, max=16, subtype="FACTOR")
     dsPointRadius:    bpy.props.FloatProperty(name="Point size",                default=1,  min=0, max=3)
+    dsFontSize:     bpy.props.IntProperty(name=  "Font size",           default=28, min=10,  max=48)
+    ##
+    dsPointOffsetX: bpy.props.FloatProperty(name="Point offset X axis", default=20, min=-50, max=50)
+    dsFrameOffset:  bpy.props.IntProperty(name=  "Frame size",          default=0,  min=0,   max=24, subtype='FACTOR')
     dsDistFromCursor: bpy.props.FloatProperty(name="Text distance from cursor", default=25, min=5, max=50)
     ##
     dsIsAllowTextShadow: bpy.props.BoolProperty(       name="Enable text shadow", default=True)
@@ -2343,8 +2346,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsShadowOffset:      bpy.props.IntVectorProperty(  name="Shadow offset",      default=[2,-2],               size=2, min=-20, max=20)
     dsShadowBlur:        bpy.props.IntProperty(        name="Shadow blur",        default=2,                            min=0,   max=2)
     ##
-    dsIsAlwaysLine: bpy.props.BoolProperty(name="Always draw line for VoronoiLinker Tool", default=False)
-    dsIsDrawDebug:  bpy.props.BoolProperty(name="Display debugging",                       default=False)
+    dsIsDrawDebug:  bpy.props.BoolProperty(name="Display debugging", default=False)
     # =====================================================================================================================================================
     #Pass through map:
     vlPassThrought: bpy.props.BoolProperty(name="", default=False)
@@ -2392,8 +2394,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                              ('FLOAT', "Float has priority",  "") ))
     vqmPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
                                                                                    ('CONTROL',"Control","") ))
-    vqmPieScale: bpy.props.FloatProperty(name="Pie scale", default=1.5, min=1, max=2, subtype="FACTOR")
-    vqmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1, min=0, max=1) #См. |15|.
+    vqmPieScale:             bpy.props.FloatProperty(name="Pie scale",              default=1.5, min=1, max=2, subtype="FACTOR")
+    vqmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1,   min=0, max=1) #См. |15|.
     #Swapper:
     vsCanTriggerToAnyType: bpy.props.BoolProperty(name="Can swap with any type", default=False)
     #Hider:
@@ -2401,7 +2403,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                      ('IF_FALSE',"If false",""),
                                                                                                      ('NEVER',   "Never",   ""),
                                                                                                      ('IF_TRUE', "If true", "") ))
+    vhHideHiddenBoolSocket: bpy.props.EnumProperty(name="Hide hidden boolean socket", default='ALWAYS', items=( ('ALWAYS',  "Always",  ""),
+                                                                                                                ('IF_FALSE',"If false",""),
+                                                                                                                ('NEVER',   "Never",   ""),
+                                                                                                                ('IF_TRUE', "If true", "") ))
     vhIsToggleNodesOnDrag:     bpy.props.BoolProperty(name="Toggle nodes on drag",       default=True)
+    vhRedrawAfterChange:       bpy.props.BoolProperty(name="Redraw after change",        default=True)
     vhTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
     vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                       ('NAME',     "Only name",     ""),
@@ -2414,10 +2421,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                        ('NAME',     "Only name",     ""),
                                                                                                        ('LABEL',    "Only label",    ""),
                                                                                                        ('LABELNAME',"Name and label","") ))
-    vesLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side", default=3, min=1, max=4) #Так же, как и для VHT.
-    vesBoxScale: bpy.props.FloatProperty(name="Box scale", default=1.5, min=1, max=2, subtype="FACTOR")
-    vesDisplayLabels: bpy.props.BoolProperty(name="Display enum names", default=True)
-    vesDarkStyle: bpy.props.BoolProperty(name="Dark style", default=False)
+    vesLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side",  default=3,   min=1, max=4) #Так же, как и для VHT.
+    vesBoxScale:         bpy.props.FloatProperty(name="Box scale",         default=1.5, min=1, max=2, subtype="FACTOR")
+    vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
+    vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
     def AddHandSplitProp(self, where, txt_prop, tgl=True):
         spl = where.row().split(factor=0.38, align=True)
@@ -2498,7 +2505,11 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colTool.prop(self,'vsCanTriggerToAnyType')
             if colTool:=AddSelfBoxDiscl(colMaster,'vhBoxDiscl', VoronoiHiderTool):
                 AddHandSplitProp(colTool,'vhHideBoolSocket')
+                AddHandSplitProp(colTool,'vhHideHiddenBoolSocket')
                 colTool.prop(self,'vhIsToggleNodesOnDrag')
+                colProp = colTool.column(align=True)
+                colProp.prop(self,'vhRedrawAfterChange')
+                colProp.active = self.vhIsToggleNodesOnDrag
                 colTool.prop(self,'vhTriggerOnCollapsedNodes')
                 colTool.separator()
                 AddHandSplitProp(colTool,'vhDrawNodeNameLabel')
@@ -2558,12 +2569,17 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             AddColoredProp(colCol,'dsIsColoredSkArea')
             colProps = colMaster.column()
             AddHandSplitProp(colProps, 'dsIsAlwaysLine')
+            AddHandSplitProp(colProps, 'dsSocketAreaAlpha')
             tgl = ( (self.dsIsDrawSkText and not self.dsIsColoredSkText)or
                     (self.dsIsDrawMarker and not self.dsIsColoredMarker)or
                     (self.dsIsDrawPoint  and not self.dsIsColoredPoint )or
                     (self.dsIsDrawLine   and not self.dsIsColoredLine  )or
                     (self.dsIsDrawSkArea and not self.dsIsColoredSkArea) )
             AddHandSplitProp(colProps, 'dsUniformColor', tgl)
+            tgl = ( (self.dsIsDrawSkText and self.dsIsColoredSkText)or
+                    (self.dsIsDrawPoint  and self.dsIsColoredPoint )or
+                    (self.dsIsDrawLine   and self.dsIsColoredLine  ) )
+            AddHandSplitProp(colProps, 'dsNodeColor', tgl)
             AddHandSplitProp(colProps, 'dsDisplayStyle')
             AddHandSplitProp(colProps, 'dsFontFile')
             import os
@@ -2694,13 +2710,15 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             #Draw:
             "Colored":                                  "Цветной",
             Gapn('dsUniformColor'):                     "Альтернативный постоянный цвет",
+            Gapn('dsNodeColor'):                        "Цвет рисования к ноду",
+            Gapn('dsSocketAreaAlpha'):                  "Прозрачность области сокета",
             Gapn('dsFontFile'):                         "Файл шрифта",
             txt_onlyFontFormat:                         "Только .ttf или .otf формат",
             Gapn('dsPointOffsetX'):                     "Смещение точки по оси X",
             Gapn('dsFrameOffset'):                      "Размер рамки",
             Gapn('dsFontSize'):                         "Размер шрифта",
             Gapn('dsIsDrawSkArea'):                     "Область сокета",
-            Gapn('dsDisplayStyle'):                     "Стиль отображаемой рамки",
+            Gapn('dsDisplayStyle'):                     "Стиль отображения рамки",
                 Gapn('dsDisplayStyle',0):                   "Классический",
                 Gapn('dsDisplayStyle',1):                   "Упрощённый",
                 Gapn('dsDisplayStyle',2):                   "Только текст",
@@ -2739,9 +2757,11 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vqmDimensionConflictPriority',3):     "Скаляр приоритетнее",
             Gapn('vsCanTriggerToAnyType'):              "Может меняться с любым типом",
             Gapn('vhHideBoolSocket'):                   "Скрывать Boolean сокеты",
+            Gapn('vhHideHiddenBoolSocket'):             "Скрывать скрытые Boolean сокеты",
                 Gapn('vhHideBoolSocket',1):                 "Если True",
                 Gapn('vhHideBoolSocket',3):                 "Если False",
             Gapn('vhIsToggleNodesOnDrag'):              "Переключать ноды при ведении курсора",
+            Gapn('vhRedrawAfterChange'):                "Перерисовывать после изменения",
             Gapn('vhTriggerOnCollapsedNodes'):          "Триггериться на свёрнутые ноды",
             Gapn('vhDrawNodeNameLabel'):                "Показывать текст для нода",
                 Gapn('vhDrawNodeNameLabel',1):              "Только имя",
