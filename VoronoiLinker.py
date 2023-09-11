@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,0,2), 'blender':(3,6,2), #2023.09.11
+           'version':(3,0,3), 'blender':(3,6,2), #2023.09.11
            'description':"Various utilities for nodes connecting, based on a distance field.", 'location':"Node Editor > Alt + RMB",
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -1607,7 +1607,7 @@ class QuickMathPie(bpy.types.Menu):
     bl_label = "" #Текст здесь будет отображаться в центре пирога.
     def draw(self, context):
         def AddOp(where, txt, ico='NONE'):
-            #if qmData.pieDisplaySocketTypeInfo==2:  #|15| todo после того как придумаю, как забинарить два цвета, добавить их сюда; а так же тодо ниже.
+            #if qmData.pieDisplaySocketTypeInfo==2:  #|15| todo после того как придумаю, как забинарить два цвета, добавить их сюда; а так же todо ниже.
                 #where = where.row(); where.template_node_socket(color=GetSkCol(qmData.sk0))
             #Автоматический перевод выключен, ибо оригинальные операции у нода математики тоже не переводятся.
             where.operator(QuickMathMain.bl_idname, text=txt.capitalize() if qmData.depth else txt, icon=ico, translate=False).operation = txt
@@ -2110,6 +2110,7 @@ class EnumSelectorData:
     boxScale = 1.0 #Если забыть установить, то хотя бы коробка не сколлапсируется в ноль.
     isDarkStyle = False
     isDisplayLabels = False
+    isOneChoise = False
 esData = EnumSelectorData()
 
 def GetListOfNdEnums(nd):
@@ -2139,6 +2140,7 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
     bl_label = "Voronoi Enum Selector"
     bl_options = {'UNDO'}
     isToggleOptions: bpy.props.BoolProperty()
+    isOneChoise:     bpy.props.BoolProperty()
     def NextAssessment(self, context):
         self.foundGoalNd = None
         callPos = context.space_data.cursor_location
@@ -2169,7 +2171,11 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
                 esData.boxScale = self.vesBoxScale
                 esData.isDarkStyle = self.vesDarkStyle
                 esData.isDisplayLabels = self.vesDisplayLabels
-                bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
+                esData.isOneChoise = self.isOneChoise
+                if self.isOneChoise:
+                    bpy.ops.wm.call_menu_pie(name=EnumSelectorBox.bl_idname)
+                else:
+                    bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
                 return True #Для modal(), чтобы вернуть успех.
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -2195,7 +2201,6 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
             VoronoiEnumSelectorTool.NextAssessment(self, context)
             SolderingAllPrefsToSelf(self)
             VoronoiEnumSelectorTool.DoActivation(self)
-            bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
             return {'FINISHED'}
         self.foundGoalNd = None
         self.firstResult = None
@@ -2204,47 +2209,60 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpPoll):
         return {'RUNNING_MODAL'}
 
 list_classes += [VoronoiEnumSelectorTool]
-AddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions': True })
-#Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'. И вообще учитывая этот инструмент, нужно минимизировать сложность вызова.
-AddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isToggleOptions': False})
+AddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions': True})
+#Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'. И вообще, учитывая этот инструмент, нужно минимизировать сложность вызова.
+AddToKmiDefs(VoronoiEnumSelectorTool, "F_Sca", {'isToggleOptions': False, 'isOneChoise': False})
+AddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isToggleOptions': False, 'isOneChoise': True})
 
+def DrawEnumSelectorBox(where):
+    colMaster = where.column()
+    nd = esData.nd
+    #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
+    #Игнорировать их не стал, пусть обрабатываются как есть. И с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
+    sco = 0
+    for li in esData.list_enumProps:
+        if sco:
+            colProp.separator()
+        colProp = colMaster.column(align=True)
+        if esData.isDisplayLabels:
+            rowLabel = colProp.row(align=True)
+            rowLabel.alignment = 'CENTER'
+            rowLabel.label(text=li.name)
+            #rowLabel.active = not esData.isOneChoise #Для пирога рамка прозрачная, от чего текст может сливаться. Так что выключено.
+        elif sco:
+            colProp.separator()
+        colEnum = colProp.column(align=True)
+        colEnum.scale_y = esData.boxScale
+        if esData.isDarkStyle:
+            colEnum.prop_tabs_enum(nd, li.identifier)
+        else:
+            colEnum.prop(nd, li.identifier, expand=True)
+        sco += 1
+    if not sco: #Для отладки.
+        colMaster.label(text="`list_enums` is empty") #Во всю ширину не влезает.
+    #В самой первой задумке я неправильно назвал этот инструмент -- "Prop Selector";
+    # нужно придумать как отличить общие свойства нода от тех, которые рисуются у него в опциях. Повезло, что у каждого нода енумов нет разных...
+    #for li in [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type!='ENUM')]: colMaster.prop(nd, li.identifier)
 class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
     bl_idname = 'node.voronoi_enum_selector_box'
     bl_label = "Enum Selector"
     def execute(self, context): #Для draw() ниже, иначе не отобразится.
         pass
     def draw(self, context):
-        colMaster = self.layout.column()
-        nd = esData.nd
-        #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
-        #Игнорировать их не стал, пусть обрабатываются как есть. И с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
-        sco = 0
-        for li in esData.list_enumProps:
-            if sco:
-                colProp.separator()
-            colProp = colMaster.column(align=True)
-            if esData.isDisplayLabels:
-                rowLabel = colProp.row(align=True)
-                rowLabel.alignment = 'CENTER'
-                rowLabel.label(text=li.name)
-            elif sco:
-                colProp.separator()
-            colEnum = colProp.column(align=True)
-            colEnum.scale_y = esData.boxScale
-            if esData.isDarkStyle:
-                colEnum.prop_tabs_enum(nd, li.identifier)
-            else:
-                colEnum.prop(nd, li.identifier, expand=True)
-            sco += 1
-        if not sco: #Для отладки.
-            colMaster.label(text="`list_enums` is empty") #Во всю ширину не влезает.
-        #В самой первой задумке я неправильно назвал этот инструмент -- "Prop Selector";
-        # нужно придумать как отличить общие свойства нода от тех, которые рисуются у него в опциях. Повезло, что у каждого нода енумов нет разных...
-        #for li in [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type!='ENUM')]: colMaster.prop(nd, li.identifier)
+        DrawEnumSelectorBox(self.layout)
     def invoke(self, context, event):
         return context.window_manager.invoke_popup(self, width=int(128*esData.boxScale))
+class EnumSelectorBox(bpy.types.Menu):
+    bl_idname = 'VL_MT_voronoi_enum_selector_box'
+    bl_label = "Enum Selector"
+    def draw(self, context):
+        pie = self.layout.menu_pie()
+        pie.column()
+        col = pie.box().column()
+        col.ui_units_x = 7*((esData.boxScale-1)/2+1)
+        DrawEnumSelectorBox(col)
 
-list_classes += [OpEnumSelectorBox]
+list_classes += [OpEnumSelectorBox, EnumSelectorBox]
 
 def ToggleOptionsFromNode(nd, lastResult, isCanDo=False): #Копия логики с VHT HideFromNode'a().
     if lastResult:
@@ -2586,19 +2604,19 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colProp = colTool.column(align=True)
                 colProp.prop(self,'vesRedrawAfterChange')
                 colProp.active = self.vesIsToggleNodesOnDrag
+                AddHandSplitProp(colTool,'vesBoxScale')
+                AddHandSplitProp(colTool,'vesDisplayLabels')
+                AddHandSplitProp(colTool,'vesDarkStyle')
                 colTool.prop(self,'vesIsInstantActivation')
-                colTool = colTool.column(align=True)
-                colTool.active = not self.vesIsInstantActivation #todo: придумать как помечать выбранный нод при моментальной активации.
-                AddHandSplitProp(colTool,'vesIsDrawEnumNames')
-                colProp = colTool.column(align=True)
+                colBox = colTool.column(align=True)
+                colBox.active = not self.vesIsInstantActivation #todo: придумать как помечать выбранный нод при моментальной активации.
+                AddHandSplitProp(colBox,'vesIsDrawEnumNames')
+                colProp = colBox.column(align=True)
                 colProp.active = not self.vesIsDrawEnumNames
                 AddHandSplitProp(colProp,'vesDrawNodeNameLabel')
                 colProp = colProp.column(align=True)
                 AddHandSplitProp(colProp,'vesLabelDispalySide')
                 colProp.active = self.vesDrawNodeNameLabel=='LABELNAME'
-                AddHandSplitProp(colTool,'vesBoxScale')
-                AddHandSplitProp(colTool,'vesDisplayLabels')
-                AddHandSplitProp(colTool,'vesDarkStyle')
             if colTool:=AddSelfBoxDiscl(colMaster,'vaShowOtherOptions'):
                 #colTool.prop(self,'vtSearchMethod')
                 colTool.prop(self,'vtAlwaysUnhideCursorNode')
