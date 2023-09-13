@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,0,3), 'blender':(3,6,2), #2023.09.11
+           'version':(3,0,4), 'blender':(3,6,2), #2023.09.13
            'description':"Various utilities for nodes connecting, based on a distance field.", 'location':"Node Editor > Alt + RMB",
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -412,7 +412,7 @@ def StencilProcPassThrought(txt_prop):
 def SolderingAllPrefsToSelf(self):
     #Меня напрягает постоянные вызовы Prefs() с его "многочленами" и одним взятием индекса; особенно в функциях рисования. Поэтому запаять их на каждый вызов инструмента.
     prefs = Prefs() #Можно было бы сделать так, но тогда пришлось бы делать на каждую функцию, поэтому нет. Уж гулять, так по-просторному.
-    for li in VoronoiAddonPrefs.bl_rna.properties:
+    for li in VoronoiAddonPrefs.bl_rna.properties: #Не имеет 'rna_type'.
         if (not li.is_readonly)and(li.identifier.startswith(('ds', 'v'))): #Важна только проверка is_readonly.
             setattr(self, li.identifier, getattr(prefs, li.identifier))
 def StencilToolInvokePrepare(self, context, event, Func):
@@ -652,8 +652,7 @@ class VoronoiLinkerTool(bpy.types.Operator, VoronoiOpPoll): #То ради че�
             case self.keyType|'ESC':
                 if result:=StencilModalEsc(self, context, event):
                     return result
-                tree = context.space_data.edit_tree
-                for nd in tree.nodes: #См. |13|.
+                for nd in context.space_data.edit_tree.nodes: #См. |13|.
                     if nd.type=='GROUP_INPUT':
                         nd.outputs[-1].hide = self.dict_hideVirtualGpInNodes[nd]
                     if nd.type=='GROUP_OUTPUT':
@@ -663,68 +662,8 @@ class VoronoiLinkerTool(bpy.types.Operator, VoronoiOpPoll): #То ради че�
                 #|2| Если дерево нодов от к.-н. аддона исчезло, то останки имеют NodeUndefined и NodeSocketUndefined.
                 #Достаточно проверить только один из них, потому что они там все такие
                 if self.foundGoalSkOut.tg.bl_idname=='NodeSocketUndefined':
-                    return {'CANCELLED'} #Через api линки на SocketUndefined строчкой ниже не создаются, поэтому выходим.
-                #Чтобы можно было брать тип с рероута, который сам меняется под тип при соединении, типы сокетов перед соединением нужно запомнить
-                blIdSkOut, blIdSkIn = self.foundGoalSkOut.tg.bl_idname, self.foundGoalSkIn.tg.bl_idname
-                #См. |9| ...а его там неоткуда взять, ибо информация уже утеряна. Поэтому сохранить её здесь
-                headache = self.foundGoalSkOut.tg.node.inputs[0].bl_idname if self.foundGoalSkOut.tg.node.type=='REROUTE' else ''
-                #Самая важная строчка.
-                lk = tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
-                #Виртуальный инпут может принимать в себя прям как мультиинпут. Они даже могут между собой одним и тем же линком по нескольку раз соединяться, ну офигеть.
-                #Теперь под всё это придётся подстраиваться.
-                #Проверяем, если линк соединился на виртуальные, но "ничего не произошло".
-                #Но так же важно проверить, что этот виртуальный сокет не является рероутом
-                num = (blIdSkOut=='NodeSocketVirtual')*(lk.from_node.type!='REROUTE')+(blIdSkIn=='NodeSocketVirtual')*(lk.to_node.type!='REROUTE')*2
-                #Рероуты тоже могут быть виртуальными, поэтому нужно отличить их. "0" если io групп не найдено.
-                num *= (lk.from_node.bl_idname=='NodeGroupInput')or(lk.to_node.bl_idname=='NodeGroupOutput')
-                #Ситуация "виртуальный в виртуальный из группы в группу" исключена в |1| с помощью xor, от чего её не нужно обрабатывать.
-                def FullCopySkToSi(where, txt1, sk): #Вручную переносим значения из сокета в интерфейсный сокет.
-                    si = getattr(tree, where).new(txt1, sk.name)
-                    if getattr(si,'default_value',False):
-                        si.default_value = sk.default_value #todo: Не совершенно. Жаль я не знаю, как имитировать тру-соединение виртуального через api.
-                    si.hide_value = sk.hide_value
-                    if sk.bl_idname.find('Factor')!=-1:
-                        si.min_value = 0.0
-                        si.max_value = 1.0
-                num = 0 #Выключено. Нужно всё это нахрен переосмыслить. Ибо костыль; ибо соединение виртуального из вывода симуляции в вывод группы. Todo.
-                match num:
-                    case 1:
-                        FullCopySkToSi('inputs', blIdSkIn, lk.to_socket) #Ручками добавляем новый io группы.
-                        tree.links.remove(lk) #Удалить некорректный линк.
-                        tree.links.new(self.foundGoalSkOut.tg.node.outputs[-2], self.foundGoalSkIn.tg) #Ручками создаём корректный линк.
-                    case 2:
-                        #|9| Головная боль. У новосозданных рероутов вывод всегда цвет, пока он не был подсоединён куда-н. Поэтому брать тип нужно с инпута рероута...
-                        FullCopySkToSi('outputs', headache if headache else blIdSkOut, lk.from_socket)
-                        tree.links.remove(lk)
-                        tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg.node.inputs[-2])
-                    case 3: #Бесполезная редкая ситуация, которая обрабатывается лишь для полноты картины.
-                        #Создавать новый io группы нужно только если соединение было в самый-последний-тру-виртуальный; определить это
-                        if (lk.from_socket==lk.from_node.outputs[-1])and(lk.to_socket==lk.to_node.inputs[-1]): #Рероут всегда "-1"
-                            tgl = lk.to_node.type=='REROUTE'
-                            if tgl:
-                                nd = lk.from_node
-                                tree.inputs.new('NodeSocketVirtual', lk.to_socket.name)
-                            else:
-                                nd = lk.to_node
-                                tree.outputs.new('NodeSocketVirtual', lk.from_socket.name)
-                            tree.links.remove(lk)
-                            if tgl: #Я не помню, для чего добавил tgl. Забыл написать комментарий об этом.
-                                tree.links.new(nd.outputs[-2], self.foundGoalSkIn.tg)
-                            else:
-                                tree.links.new(self.foundGoalSkOut.tg, nd.inputs[-2])
-                #Моя личная хотелка, которая чинит странное поведение, и делает его логически-корректно-ожидаемым. Накой смысол последние соединённые через api лепятся в начало?
-                if self.foundGoalSkIn.tg.is_multi_input: #Если мультиинпут, то реализовать адекватный порядок подключения.
-                    list_skLinks = []
-                    for lk in self.foundGoalSkIn.tg.links: #Запомнить все имеющиеся линки по сокетам, и удалить их.
-                        list_skLinks.append((lk.from_socket, lk.to_socket))
-                        tree.links.remove(lk)
-                    #До версии 3.5 обработка ниже нужна была, чтобы новый io группы дважды не создавался.
-                    #Теперь без этой обработки Блендер или крашнется, или линк из виртуального в мультиинпут будет подсвечен красным как "некорректный"
-                    if self.foundGoalSkOut.tg.bl_idname=='NodeSocketVirtual':
-                        self.foundGoalSkOut.tg = self.foundGoalSkOut.tg.node.outputs[-2]
-                    tree.links.new(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Соединить очередной первым.
-                    for cyc in range(length(list_skLinks)-1): #Восстановить запомненные. "-1", потому что последний в списке является желанным, что уже соединён строчкой выше.
-                        tree.links.new(list_skLinks[cyc][0], list_skLinks[cyc][1])
+                    return {'CANCELLED'} #Через api линки на SocketUndefined не создаются, поэтому выходим.
+                DoLink(context.space_data.edit_tree, self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Самая важная строчка переехала в эту функцию.
                 return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
@@ -753,6 +692,71 @@ class VoronoiLinkerTool(bpy.types.Operator, VoronoiOpPoll): #То ради че�
         return {'RUNNING_MODAL'}
 
 AddToRegAndAddToKmiDefs(VoronoiLinkerTool, "RIGHTMOUSE_scA") #LEFTMOUSE_sca
+
+def DoLink(tree, sk0, sk1):
+    #Пре-суета ради ручного создания интерфейсов:
+    blIdSkOut = sk0.bl_idname #Чтобы можно было брать тип с рероута, который сам меняется под тип при соединении, типы сокетов перед соединением нужно запомнить.
+    blIdSkIn =  sk1.bl_idname
+    headache = sk0.node.inputs[0].bl_idname if sk0.node.type=='REROUTE' else '' #См. |9| ...а его там неоткуда взять, ибо информация уже утеряна. Поэтому сохранить её здесь.
+    #Самая важная строчка
+    lk = tree.links.new(sk0, sk1)
+    #Моя личная хотелка, которая чинит странное поведение, и делает его логически-корректно-ожидаемым. Накой смысол последние соединённые через api лепятся в начало?
+    if sk1.is_multi_input: #Если мультиинпут, то реализовать адекватный порядок подключения.
+        list_skLinks = []
+        for lk in sk1.links: #Запомнить все имеющиеся линки по сокетам, и удалить их.
+            list_skLinks.append((lk.from_socket, lk.to_socket))
+            tree.links.remove(lk)
+        #До версии 3.5 обработка ниже нужна была, чтобы новый io группы дважды не создавался.
+        #Теперь без этой обработки Блендер или крашнется, или линк из виртуального в мультиинпут будет подсвечен красным как "некорректный"
+        if sk0.bl_idname=='NodeSocketVirtual':
+            sk0 = sk0.node.outputs[-2]
+        tree.links.new(sk0, sk1) #Соединить очередной первым.
+        for cyc in range(length(list_skLinks)-1): #Восстановить запомненные. "-1", потому что последний в списке является желанным, что уже соединён строчкой выше.
+            tree.links.new(list_skLinks[cyc][0], list_skLinks[cyc][1])
+    #Ручное создание интерфейсов:
+    return #Выключено до тех пор, пока не придумаю, что с этим делать.
+    #Виртуальный инпут может принимать в себя прям как мультиинпут. Они даже могут между собой одним и тем же линком по нескольку раз соединяться, ну офигеть.
+    #Теперь под всё это придётся подстраиваться.
+    #Проверяем, если линк соединился на виртуальные, но "ничего не произошло".
+    #Но так же важно проверить, что этот виртуальный сокет не является рероутом
+    num = (blIdSkOut=='NodeSocketVirtual')*(lk.from_node.type!='REROUTE')+(blIdSkIn=='NodeSocketVirtual')*(lk.to_node.type!='REROUTE')*2
+    #Рероуты тоже могут быть виртуальными, поэтому нужно отличить их. "0" если io групп не найдено.
+    num *= (lk.from_node.bl_idname=='NodeGroupInput')or(lk.to_node.bl_idname=='NodeGroupOutput')
+    #Ситуация "виртуальный в виртуальный из группы в группу" исключена в |1| с помощью xor, от чего её не нужно обрабатывать.
+    def FullCopySkToSi(where, txt1, sk): #Вручную переносим значения из сокета в интерфейсный сокет.
+        si = getattr(tree, where).new(txt1, sk.name)
+        if getattr(si,'default_value',False):
+            si.default_value = sk.default_value #todo: Не совершенно. Жаль я не знаю, как имитировать тру-соединение виртуального через api.
+        si.hide_value = sk.hide_value
+        if sk.bl_idname.find('Factor')!=-1:
+            si.min_value = 0.0
+            si.max_value = 1.0
+    num = 0 #Выключено. Нужно всё это нахрен переосмыслить. Ибо костыль; ибо соединение виртуального из вывода симуляции в вывод группы. Todo.
+    match num:
+        case 1:
+            FullCopySkToSi('inputs', blIdSkIn, lk.to_socket) #Ручками добавляем новый io группы.
+            tree.links.remove(lk) #Удалить некорректный линк.
+            tree.links.new(sk0.node.outputs[-2], sk1) #Ручками создаём корректный линк.
+        case 2:
+            #|9| Головная боль. У новосозданных рероутов вывод всегда цвет, пока он не был подсоединён куда-н. Поэтому брать тип нужно с инпута рероута...
+            FullCopySkToSi('outputs', headache if headache else blIdSkOut, lk.from_socket)
+            tree.links.remove(lk)
+            tree.links.new(sk0, sk1.node.inputs[-2])
+        case 3: #Бесполезная редкая ситуация, которая обрабатывается лишь для полноты картины.
+            #Создавать новый io группы нужно только если соединение было в самый-последний-тру-виртуальный; определить это
+            if (lk.from_socket==lk.from_node.outputs[-1])and(lk.to_socket==lk.to_node.inputs[-1]): #Рероут всегда "-1"
+                tgl = lk.to_node.type=='REROUTE'
+                if tgl:
+                    nd = lk.from_node
+                    tree.inputs.new('NodeSocketVirtual', lk.to_socket.name)
+                else:
+                    nd = lk.to_node
+                    tree.outputs.new('NodeSocketVirtual', lk.from_socket.name)
+                tree.links.remove(lk)
+                if tgl: #Я не помню, для чего добавил tgl. Забыл написать комментарий об этом.
+                    tree.links.new(nd.outputs[-2], sk1)
+                else:
+                    tree.links.new(sk0, nd.inputs[-2])
 
 def CallbackDrawVoronoiPreview(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2114,7 +2118,7 @@ class EnumSelectorData:
 esData = EnumSelectorData()
 
 def GetListOfNdEnums(nd):
-    return [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type=='ENUM')]
+    return [li for li in nd.rna_type.properties if not(li.is_readonly or li.is_registered)and(li.type=='ENUM')]
 
 def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2126,11 +2130,9 @@ def CallbackDrawVoronoiEnumSelector(self, context):
         if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода был разделён на два шаблона.
             sco = -0.5
             col = colNode if self.dsIsColoredSkText else GetUniformColVec(self)
-            for li in self.foundGoalNd.tg.bl_rna.properties:
-                if not(li.is_readonly or li.is_registered):
-                    if li.type=='ENUM':
-                        DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
-                        sco -= 1.5
+            for li in GetListOfNdEnums(self.foundGoalNd.tg):
+                DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
+                sco -= 1.5
         else:
             DrawTextNodeStencil(self, cusorPos, self.foundGoalNd.tg, self.vesDrawNodeNameLabel, self.vesLabelDispalySide, colNode)
     elif self.dsIsDrawPoint:
@@ -2242,7 +2244,7 @@ def DrawEnumSelectorBox(where):
         colMaster.label(text="`list_enums` is empty") #Во всю ширину не влезает.
     #В самой первой задумке я неправильно назвал этот инструмент -- "Prop Selector";
     # нужно придумать как отличить общие свойства нода от тех, которые рисуются у него в опциях. Повезло, что у каждого нода енумов нет разных...
-    #for li in [li for li in nd.bl_rna.properties if not(li.is_readonly or li.is_registered)and(li.type!='ENUM')]: colMaster.prop(nd, li.identifier)
+    #for li in [li for li in nd.rna_type.properties if not(li.is_readonly or li.is_registered)and(li.type!='ENUM')]: colMaster.prop(nd, li.identifier)
 class OpEnumSelectorBox(bpy.types.Operator, VoronoiOpPoll):
     bl_idname = 'node.voronoi_enum_selector_box'
     bl_label = "Enum Selector"
@@ -2367,7 +2369,38 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
                                     case 'STRING': txt += f"prefs.{li.identifier} = \"{getattr(prefs, li.identifier)}\""+"\n"
                                     case 'ENUM':   txt += f"prefs.{li.identifier} = '{getattr(prefs, li.identifier)}'"+"\n"
                                     case _:        txt += f"prefs.{li.identifier} = {getattr(prefs, li.identifier)}"+"\n"
+            #todo придумать как сохранять хоткеи.
+            #Сохранение изменённых хоткеев -- накустарил по-быстрому, так что поаккуратнее, ибо колхоз. А ещё я не знаю, как обрабатывать удалённые записи.
+            if event.ctrl:
+                txt += "\n"
+                #Этот способ определения изменений лажа -- кривит:
+                #    kmU = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
+                #    kmA = bpy.context.window_manager.keyconfigs.addon.keymaps['Node Editor']
+                #    for liU in kmU.keymap_items:
+                #        if liU.idname in set_toolBlids:
+                #            tuple_u = tuple(liU.properties.items())
+                #            for liA in kmA.keymap_items:
+                #                tuple_a = tuple(liA.properties.items())
+                #                if tuple_u==tuple_a: #У меня нет идей, как ещё распознать идентичность, когда ключи в `keymap_items` могут быть одинаковыми.
+                #                    isDiff = PropsCheckDiffBool(liU, liA, ('active','type','ctrl_ui','shift_ui','alt_ui','oskey_ui','key_modifier','repeat'))
+                #                    if (isDiff)or(event.shift):
+                #                        txt += liU.idname+"\n"
+                #                    break
+                def GetTxtProps(who, tuple_txtProps):
+                    txt = ""
+                    for ti in tuple_txtProps:
+                        txt += ti+"="+str(getattr(who, ti))+"; "
+                    return txt
+                #Но потом внезапно осознанл, что не знаю, как потом это устанавливать в коде 'txt += ...'.
+                set_toolBlids = {li.bl_idname for li in list_classes if getattr(li,'bl_idname', False)}
+                for li in bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items:
+                    if li.idname in set_toolBlids:
+                        opName = eval("bpy.types."+eval("bpy.ops."+li.idname).idname()).bl_label #Я в ахрене. Наверное кому-то стоит лучше разбираться в api.
+                        txt += "#"+opName+" "+str(dict(li.properties.items()))+"\n"
+                        txt += "# "+GetTxtProps(li, ('active','type','ctrl_ui','shift_ui','alt_ui','oskey_ui','key_modifier','repeat'))+"\n"
+            #Так что сохранение хоткеев с восстановлением не поддреживается.
             context.window_manager.clipboard = txt
+            #Для консоли: bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items['node.voronoi_linker'].type
         else:
             Prefs().vaUiTabs = self.opt
         return {'FINISHED'}
@@ -2514,7 +2547,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         spl.active = tgl
         row = spl.row(align=True)
         row.alignment = 'RIGHT'
-        prop = self.bl_rna.properties[txt_prop]
+        prop = self.rna_type.properties[txt_prop]
         isNotBool = prop.type!='BOOLEAN'
         row.label(text=prop.name*isNotBool)
         if (not tgl)and(prop.type=='FLOAT')and(prop.subtype=='COLOR'):
@@ -2727,7 +2760,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         rowTabs = colMain.row(align=True)
         #|11| Переключение вкладок через оператор создано, чтобы случайно не сменить вкладку при ведении зажатой мышки, кой есть особый соблазн с таким большим количеством "isColored".
         if True:
-            for li in [e for e in self.bl_rna.properties['vaUiTabs'].enum_items]:
+            for li in [e for e in self.rna_type.properties['vaUiTabs'].enum_items]:
                 rowTabs.operator(VoronoiAddonTabs.bl_idname, text=TranslateIface(li.name), depress=self.vaUiTabs==li.identifier).opt = li.identifier
         else:
             rowTabs.prop(self,'vaUiTabs', expand=True)
