@@ -1690,7 +1690,7 @@ class QuickMathPie(bpy.types.Menu):
                 row = box.row(align=True)
                 #todo: Должно быть только двух цветов, для вектора и для флоата, но чувствую, будет много костылей. Сейчас лень грамотно реализовывать.
                 row.template_node_socket(color=GetSkCol(qmData.sk0))
-                row.label(text=("Vector" if qmData.isVec else "Float")+" Fast Math")
+                row.label(text=("Vector" if qmData.isVec else "Float")+" Quick Math")
                 row.alignment = 'CENTER'
             AddOp(colRight,'ADD',     'ADD')
             AddOp(colRight,'SUBTRACT','REMOVE')
