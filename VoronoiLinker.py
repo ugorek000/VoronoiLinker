@@ -74,7 +74,7 @@ def AddToRegAndAddToKmiDefs(cls, keys, dict_props={}):
     AddToKmiDefs(cls, keys, dict_props={})
 
 class RepeatingData: #См. VRT.
-    #Сокет с нодом может удалиться, включая само дерево. Поэтому всё что не сокет нужно для проверки этого.
+    #Сокет с нодом может удалиться, включая само дерево. Поэтому всё что не сокет -- нужно для проверки этого.
     tree = None #Если дерево удалиться, то tree будет `<bpy_struct, GeometryNodeTree invalid>`, спасибо что не краш.
     lastNd1name = ""
     lastNd1Id = None
@@ -84,7 +84,7 @@ class RepeatingData: #См. VRT.
     lastSk2 = None #Для авто-повторения, In.
 rpData = RepeatingData()
 
-def RememberLastSockets(sko, ski=None):
+def RememberLastSockets(sko, ski):
     #Это не высокоуровневая функция, так что тут нет проверки на существование обоих sko и ski.
     rpData.tree = (sko or ski).id_data
     if sko:
@@ -433,7 +433,7 @@ def StencilModalEsc(self, context, event):
     if not context.space_data.edit_tree:
         return {'FINISHED'}
     RestoreCollapsedNodes(context.space_data.edit_tree.nodes)
-    #В потерянном дереве любому инструменту нечего особо-то делать, поэтому принесено сюда в шаблон.
+    #В потерянном дереве любому инструменту нечего-то особо делать, поэтому принесено сюда в шаблон.
     tree = context.space_data.edit_tree #Для проверки на существование, чтобы наверняка.
     if (tree)and(tree.bl_idname=='NodeTreeUndefined'): #|2| Если дерево нодов от к.-н. аддона исчезло, то остатки имеют NodeUndefined и NodeSocketUndefined.
         return {'CANCELLED'} #Через api линки на SocketUndefined не создаются, поэтому выходим.
@@ -538,7 +538,7 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
         #Для нода позицию в центр нода. Для рероута позиция уже в его визуальном центре
         ndCenter = ndLoс.copy() if isReroute else ndLoс+ndSize/2*Vector(1,-1)
         if nd.hide: #Для VHT, "шустрый костыль" из имеющихся возможностей.
-            ndCenter.y += ndSize.y/2 #Нужно быть аккуратнее с этой записью(write), ибо может оно оказаться указателем напрямую, если выше нодом является рероут.
+            ndCenter.y += ndSize.y/2 #Нужно быть аккуратнее с этой записью(write), ибо оно может оказаться указателем напрямую, если выше нодом является рероут.
         #Сконструировать поле расстояний
         vec = DistanceField(callPos-ndCenter, ndSize)
         #Добавить в список отработанный нод
@@ -859,7 +859,7 @@ class VoronoiPreviewTool(bpy.types.Operator, VoronoiOpTool):
                 if not self.foundGoalSkOut:
                     return {'CANCELLED'}
                 DoPreview(self, context, self.foundGoalSkOut.tg)
-                RememberLastSockets(self.foundGoalSkOut.tg)
+                RememberLastSockets(self.foundGoalSkOut.tg, None)
                 if self.vpRvEeIsColorOnionNodes:
                     for nd in context.space_data.edit_tree.nodes:
                         dv = self.dict_saveRestoreNodeColors.get(nd, None) #Так же, как и в восстановлении свёрнутости.
@@ -2142,11 +2142,6 @@ class VoronoiMassLinkerTool(bpy.types.Operator, VoronoiOpTool):
                     return result
                 if (self.ndGoalOut)and(self.ndGoalIn):
                     tree = context.space_data.edit_tree
-                    def CheckExistLinkBetweenSks(sk1, sk2):
-                        for lk in sk1.links:
-                            if lk.to_socket==sk2:
-                                return True
-                        return False
                     #for li in self.list_equalFgSks: tree.links.new(li[0].tg, li[1].tg) #Соединить всех!
                     #Если выходы нода и входы другого нода имеют в сумме 4 одинаковых сокета по названию, то происходит неожидаемое от инструмента поведение.
                     #Поэтому соединяется только один линк на входной сокет (мультиинпуты не в счёт).
@@ -2340,7 +2335,7 @@ def DrawEnumSelectorBox(where, lyDomain=None):
     #Нод математики имеет высокоуровневое разбиение на категории для .prop(), но как показать их вручную простым перечислением я не знаю. И вообще, VQMT.
     #Игнорировать их не стал, пусть обрабатываются как есть. И с ними даже очень удобно выбирать операцию векторной математики (обычная не влезает).
     sco = 0
-    #Домен всегда первым. Например, StoreNamedAttribute и FieldAtIndex имеют одинаковые енумы, но в разном порядке; интересно почему.
+    #Домен всегда первым. Например, StoreNamedAttribute и FieldAtIndex имеют одинаковые енумы, но в разном порядке; интересно почему?.
     for li in sorted(esData.list_enumProps, key=lambda a:a.identifier!='domain'):
         if (sco)and(colWhere!=colDomain):
             colProp.separator()
@@ -2351,7 +2346,7 @@ def DrawEnumSelectorBox(where, lyDomain=None):
             rowLabel.alignment = 'CENTER'
             rowLabel.label(text=li.name)
             #rowLabel.active = not esData.isPieChoice #Для пирога рамка прозрачная, от чего текст может сливаться с яркими нодами на фоне. Так что выключено.
-            rowLabel.active = not(esData.isDarkStyle and esData.isPieChoice) #Но для тёмного пирога всё-таки отобразить их тёмнёми.
+            rowLabel.active = not(esData.isDarkStyle and esData.isPieChoice) #Но для тёмного пирога всё-таки отобразить их тёмными.
         elif sco:
             colProp.separator()
         colEnum = colProp.column(align=True)
@@ -2550,7 +2545,7 @@ class VoronoiDummyTool(bpy.types.Operator, VoronoiOpTool):
         return {'RUNNING_MODAL'}
 
 list_classes += []
-AddToRegAndAddToKmiDefs(VoronoiDummyTool, "D_sca", {})
+#AddToRegAndAddToKmiDefs(VoronoiDummyTool, "D_sca", {})
 #AddToKmiDefs(VoronoiDummyTool, "D_sca", {'':False})
 
 def Prefs():
