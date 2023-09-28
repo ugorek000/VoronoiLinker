@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,1,1), 'blender':(3,6,3), #2023.09.27
+           'version':(3,1,2), 'blender':(3,6,3), #2023.09.29
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -61,7 +61,7 @@ def RecrGetNodeFinalLoc(nd):
 set_skTypeFields = {'VALUE', 'RGBA', 'VECTOR', 'INT', 'BOOLEAN'} #Ещё и для VQMT.
 def SkBetweenFieldsCheck(self, sk1, sk2):
     #Заметка: учитывая предназначение и название этой функции, sk1 и sk2 в любом случае должны быть из полей, и только из них.
-    return (sk1.type in set_skTypeFields)and( (self.vtCanBetweenFiveFields)and(sk2.type in set_skTypeFields)or(sk1.type==sk2.type) ) #todo: протестить.
+    return (sk1.type in set_skTypeFields)and( (self.vtCanBetweenFiveFields)and(sk2.type in set_skTypeFields)or(sk1.type==sk2.type) )
 
 
 def AddToKmiDefs(cls, keys, dict_props={}): #На вкладке "keymap" порядок отображается в обратном порядке вызовов AddToKmiDefs() с одинаковыми `cls`.
@@ -143,7 +143,7 @@ def DrawSocketArea(self, sk, list_boxHeiBou, colfac=Vector(1.0, 1.0, 1.0, 1.0)):
     colfac = colfac if self.dsIsColoredSkArea else GetUniformColVec(self)
     DrawRectangle(self, pos1, pos2, Vector(1.0, 1.0, 1.0, self.dsSocketAreaAlpha)*colfac)
 def DrawIsLinkedMarker(self, loc, ofs, skCol):
-    ofs[0] += ( (20*self.dsIsDrawSkText+self.dsDistFromCursor)*1.5+self.dsFrameOffset )*math.copysign(1,ofs[0])+4
+    ofs[0] += ( (20*self.dsIsDrawText+self.dsDistFromCursor)*1.5+self.dsFrameOffset )*math.copysign(1,ofs[0])+4
     vec = VecWorldToRegScale(loc, self)
     skCol = skCol if self.dsIsColoredMarker else GetUniformColVec(self)
     grayCol = 0.65
@@ -239,7 +239,7 @@ def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
     blf.draw(    self.fontId, txt)
     return (txtDim[0]+frameOffset, txtDim[1]+frameOffset*2)
 def DrawSkText(self, pos, ofs, fgSk, fontSizeOverwrite=0):
-    if not self.dsIsDrawSkText:
+    if not self.dsIsDrawText:
         return [1, 0] #"1" нужен для сохранения информации для направления для позиции маркеров
     skCol = GetSkCol(fgSk.tg) if self.dsIsColoredSkText else GetUniformColVec(self)
     txt = fgSk.name if fgSk.tg.bl_idname!='NodeSocketVirtual' else TranslateIface('Virtual')
@@ -305,18 +305,18 @@ def DrawNodeStencil(self, cusorPos, pos):
         DrawWidePoint( self, pos, colNode if self.dsIsColoredPoint else GetUniformColVec(self) )
     return colNode
 def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide, col=Vector(1, 1, 1, 1)):
-    if not self.dsIsDrawSkText:
+    if not self.dsIsDrawText:
         return
     def DrawNodeText(txt):
-        DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
+        if txt:
+            DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
     col = col if self.dsIsColoredSkText else GetUniformColVec(self)
     txt_label = nd.label
     match drawNodeNameLabel:
         case 'NAME':
             DrawNodeText(nd.name)
         case 'LABEL':
-            #Пустой текст, а не 'None', чтобы отсутствие заголовка отображалось рамкой с ничем, и смена между нодами не пульсировала наличием рамки.
-            DrawNodeText(txt_label if txt_label else "") #todo: сделать для этого опцию.
+            DrawNodeText(txt_label if txt_label else None)
         case 'LABELNAME':
             if not txt_label:
                 DrawNodeText(nd.name)
@@ -384,8 +384,8 @@ def GetOpKmi(self, tuple_tar): #todo есть ли концепция или с�
                 return li
 
 class VoronoiOpTool:
-    bl_options = {'UNDO'}
-    isPassThrought: bpy.props.BoolProperty() #Теперь это свойство каждого инструмента. #todo: проверить работоспособность.
+    bl_options = {'UNDO'} #Вручную созданные линки undo'тся, так что и в VL ожидаемо тоже.
+    isPassThrought: bpy.props.BoolProperty() #Теперь это свойство каждого инструмента.
     #А ещё благодаря этому позволяет выбирать между разными хоткеями, а не одна галка на все вызовы инструмента.
     @classmethod
     def poll(cls, context):
@@ -542,7 +542,7 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
         #Для нода позицию в центр нода. Для рероута позиция уже в его визуальном центре
         ndCenter = ndLoс.copy() if isReroute else ndLoс+ndSize/2*Vector(1,-1)
         if nd.hide: #Для VHT, "шустрый костыль" из имеющихся возможностей.
-            ndCenter.y += ndSize.y/2 #Нужно быть аккуратнее с этой записью(write), ибо оно может оказаться указателем напрямую, если выше нодом является рероут.
+            ndCenter.y += ndSize.y/2-10 #Нужно быть аккуратнее с этой записью(write), ибо оно может оказаться указателем напрямую, если выше нодом является рероут.
         #Сконструировать поле расстояний
         vec = DistanceField(callPos-ndCenter, ndSize)
         #Добавить в список отработанный нод
@@ -716,10 +716,8 @@ class VoronoiLinkerTool(bpy.types.Operator, VoronoiOpTool): #То ради че�
     def invoke(self, context, event):
         if result:=StencilBeginToolInvoke(self, context):
             return result
-        if (self.isPassThrought)and(self.vlDeselectAllNodes=='WHEN_PT'):
-            bpy.ops.node.select_all(action='DESELECT')
-        elif (self.vlDeselectAllNodes=='ALWAYS'):
-            bpy.ops.node.select_all(action='DESELECT')
+        if self.vlDeselectAllNodes:
+            bpy.ops.node.select_all(action='DESELECT') #Возможно так же стоит делать активный нод никаким.
         ##
         self.foundGoalSkOut = None
         self.foundGoalSkIn = None
@@ -1373,7 +1371,7 @@ def DoMix(context, event, txt_node):
                 LinksNew(mxData.sk1, list_foundSk[(not tgl)^event.shift])
         case _:
             if dict_tupleMixerNodesDefs[aNd.bl_idname][1]==-2: #Метка для нода, что имеет всего один сокет ввода.
-                LinksNew( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] )
+                LinksNew( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] ) #Но не хард 'inputs[0]', а всё равно чтение.
             else:
                 #Такая плотная суета ради мультиинпута -- для него нужно изменить порядок подключения.
                 if (mxData.sk1)and(aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input): #todo: вяснить картину с 0 и xor.
@@ -1798,7 +1796,7 @@ class VoronoiSwapperTool(bpy.types.Operator, VoronoiOpTool):
                     if (fgSkIn.tg.bl_idname not in ('NodeSocketGeometry','NodeSocketString')):#or(not fgSkIn.tg.is_multi_input): #Без второго условия больше возможностей.
                         fgSkIn = None
                 self.foundGoalSkIo0 = MinFromFgs(fgSkOut, fgSkIn)
-                if (self.foundGoalSkIo0)and(self.isIgnoreLinked)and(not self.foundGoalSkIo0.tg.is_linked):
+                if (self.isIgnoreLinked)and(self.foundGoalSkIo0)and(not self.foundGoalSkIo0.tg.is_linked):
                     self.foundGoalSkIo0 = None
                     #Заметка: важно продолжать искать сокет с линком, ибо ради повышения удобства было создано isIgnoreLinked.
             #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих типа высокоуровневых функций, что я понаизобретал.
@@ -2220,7 +2218,7 @@ esData = EnumSelectorData()
 def GetListOfNdEnums(nd):
     return [li for li in nd.rna_type.properties if not(li.is_readonly or li.is_registered)and(li.type=='ENUM')]
 
-set_equestrianPortalBlids = {'NodeGroupInput', 'NodeGroupOutput', 'GeometryNodeSimulationInput', 'GeometryNodeSimulationOutput', '', ''} #todo: Repeat Zone
+set_equestrianPortalBlids = {'NodeGroupInput', 'NodeGroupOutput', 'GeometryNodeSimulationInput', 'GeometryNodeSimulationOutput', 'GeometryNodeRepeatInput', 'GeometryNodeRepeatOutput'}
 
 def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2243,16 +2241,17 @@ def CallbackDrawVoronoiEnumSelectorNode(self, context): #Тут вся тусо�
     if StencilStartDrawCallback(self, context):
         return
     nd = self.foundGoalNd.tg
-    colNd = PowerArr4ToVec(self.dsNodeColor, 1/2.2) #ToNodeCol и NodeCol -- это разное; второй опции нет, поэтому с первой.
+    colNd = PowerArr4ToVec(self.dsNodeColor, 1/2.2) #ToNodeCol и NodeCol -- это разное; второй опции нет, поэтому читать с первой.
     col = Vector(colNd.x, colNd.y, colNd.z, self.dsSocketAreaAlpha) #Vector не обязателен.
     loc = RecrGetNodeFinalLoc(nd)
+    hh = nd.dimensions[1]/2-10 if nd.hide else 0 #Всё равно криво рисуется. Ну и хрен с ними.
     #Вычленёнка-алерт, DrawWidePoint().
     loc0 = VecWorldToRegScale(loc, self)
     loc1 = Vector(loc.x+6*1000, loc.y)
     sz = (VecWorldToRegScale(loc1, self)[0]-loc0[0])/1000
     #Вычленёнка-алерт, DrawSocketArea().
-    pos1 = VecWorldToRegScale( Vector(loc.x, loc.y+1), self ) #'+1' потому что не стыкуется ровно и наславивается тонкой полоской. Ниже тоже.
-    pos2 = VecWorldToRegScale( Vector(loc.x+nd.width+1, loc.y-nd.dimensions[1]), self )
+    pos1 = VecWorldToRegScale( Vector(loc.x, loc.y+1+hh), self ) #'+1' потому что не стыкуется ровно и наславивается тонкой полоской. Ниже тоже.
+    pos2 = VecWorldToRegScale( Vector(loc.x+nd.dimensions[0]+1, loc.y-nd.dimensions[1]+hh), self ) #Офигеть, 'nd.width' и 'nd.dimensions[0]' для свёрнутого нода -- оказывается разное.
     pos3 = Vector(pos1.x, pos2.y)
     pos4 = Vector(pos2.x, pos1.y)
     DrawRectangle(self, pos1+Vector(-sz, sz), pos3+Vector(0, -sz), col)
@@ -2456,7 +2455,7 @@ class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено
                     for sk in nd.inputs:
                         if CompareSkLabelName(sk, lSkO if self.isFromOut else lSkI):
                             if (sk.enabled)and(not sk.hide):
-                                context.space_data.edit_tree.links.new(lSkO, sk) #todo скорее всего через высокоуровневое соединение.
+                                context.space_data.edit_tree.links.new(lSkO, sk) #todo скорее всего тоже через высокоуровневое соединение.
             else:
                 list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
                 if rpData.lastSk1:
@@ -2501,12 +2500,20 @@ class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено
             except:
                 rpData.lastSk1 = None
                 rpData.lastSk2 = None
-            nd = tree.nodes.get(rpData.lastNd1name)
-            if (not nd)or(nd.as_pointer()!=rpData.lastNd1Id):
-                rpData.lastSk1 = None
-            nd = tree.nodes.get(rpData.lastNd2name)
-            if (not nd)or(nd.as_pointer()!=rpData.lastNd2Id):
-                rpData.lastSk2 = None
+            try:
+                #Оказывается, Ctrl Z делает ссылку на tree `ReferenceError: StructRNA of type ShaderNodeTree has been removed`.
+                #Пока у меня нет идей, как сохранить гарантированную "долгоиграющую" ссылку. Лепить rpData.lastNd1name в свойства каждого дерева не очень хочется.
+                #Поэтому обработка через try, если неудача -- забыть всё текущее.
+                nd = tree.nodes.get(rpData.lastNd1name)
+                if (not nd)or(nd.as_pointer()!=rpData.lastNd1Id):
+                    rpData.lastSk1 = None
+                nd = tree.nodes.get(rpData.lastNd2name)
+                if (not nd)or(nd.as_pointer()!=rpData.lastNd2Id):
+                    rpData.lastSk2 = None
+                #Можно было бы хранить все по именам, но тогда в разных деревьях могут оказаться одинаковые ноды и сокеты, благодаря чему будет не ожидаемое поведение от инструмента.
+            except:
+                rpData.tree = None
+                #Остальные у rpData не удаляются, потому что топология rpData.tree перекрывает.
         ##
         if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiRepeating):
             VoronoiRepeatingTool.NextAssessment(self, context)
@@ -2667,7 +2674,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в StencilBeginToolInvoke().
     #Draw
-    dsIsDrawSkText: bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов. #todo: переименовать все.
+    dsIsDrawText: bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов.
     dsIsDrawMarker: bpy.props.BoolProperty(name="Markers",     default=True)
     dsIsDrawPoint:  bpy.props.BoolProperty(name="Points",      default=True)
     dsIsDrawLine:   bpy.props.BoolProperty(name="Line",        default=True)
@@ -2714,11 +2721,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vtAlwaysUnhideCursorNode: bpy.props.BoolProperty(name="Always unhide node under cursor", default=False)
     vtCanBetweenFiveFields:   bpy.props.BoolProperty(name="Tools can between five fields",   default=True) #todo возможно стоит перенести это в каждый инструмент. Всё-таки стоит.
     #Linker:
-    vlReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be connected to any type", default=True)
-    vlAutoUnhideVirtual: bpy.props.BoolProperty(name="Auto unhide virtual sockets for groups", default=True)
-    vlDeselectAllNodes: bpy.props.EnumProperty(name="Deselect all nodes on activate", default='NEVER', items=( ('NEVER',  "Never",            ""),
-                                                                                                               ('WHEN_PT',"When pass through",""),
-                                                                                                               ('ALWAYS', "Always",           "") ))
+    vlReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be connected to any type",  default=True)
+    vlAutoUnhideVirtual:    bpy.props.BoolProperty(name="Auto unhide virtual sockets for groups", default=True)
+    vlDeselectAllNodes:     bpy.props.BoolProperty(name="Deselect all nodes on activate",         default=False)
     #Preview:
     vpAllowClassicCompositorViewer: bpy.props.BoolProperty(name="Allow classic Compositor Viewer", default=False)
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow classic GeoNodes Viewer",   default=True)
@@ -2782,6 +2787,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
     vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
+    vaShowPassThroughtNodeSelectingMap:        bpy.props.BoolProperty(name="aaa",         default=False) #todo у
+    vlPassThrought:        bpy.props.BoolProperty(name="bbb",         default=False) #todo у
     def AddHandSplitProp(self, where, txt_prop, tgl=True):
         spl = where.row().split(factor=0.38, align=True)
         spl.active = tgl
@@ -2815,8 +2822,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 rowTool.separator()
                 colTool = rowTool.column(align=True)
                 return colTool
-            else:
-                return None
+            return None
         colMaster = where.column()
         try:
             if colTool:=AddSelfBoxDiscl(colMaster,'vaShowMainOptions'):
@@ -2825,16 +2831,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 AddHandSplitProp(colTool,'vtRepickTrigger')
                 colTool.separator()
                 colTool.prop(self,'vtAlwaysUnhideCursorNode')
-#                if colMap:=AddSelfBoxDiscl(colTool,'vaShowPassThroughtNodeSelectingMap'):
-                    #todo: забагрепортить дублирование выше и раскрытие второго. `colMap.prop(self,'vaShowPassThroughtNodeSelectingMap')`
-#                    colMap.prop(self,'vlPassThrought',  text=VoronoiLinkerTool.bl_label)
                 colTool.separator()
                 colTool.operator(VoronoiAddonTabs.bl_idname, text=txt_copySettAsPyScript).opt = 'GetPySett'
             if colTool:=AddSelfBoxDiscl(colMaster,'vlBoxDiscl', VoronoiLinkerTool):
                 colTool.prop(self,'vlReroutesCanInAnyType')
                 colTool.prop(self,'vlAutoUnhideVirtual')
-                colTool.separator()
-                AddHandSplitProp(colTool,'vlDeselectAllNodes')
+                colTool.prop(self,'vlDeselectAllNodes')
             if colTool:=AddSelfBoxDiscl(colMaster,'vpBoxDiscl', VoronoiPreviewTool):
                 colProps = FastBox(colTool)
                 colProps.prop(self,'vpAllowClassicCompositorViewer')
@@ -2912,7 +2914,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowDrawColor = colMaster.row(align=True)
             rowDrawColor.use_property_split = True
             colDraw = rowDrawColor.column(align=True, heading='Draw')
-            colDraw.prop(self,'dsIsDrawSkText')
+            colDraw.prop(self,'dsIsDrawText')
             colDraw.prop(self,'dsIsDrawMarker')
             colDraw.prop(self,'dsIsDrawPoint')
             colDraw.prop(self,'dsIsDrawLine')
@@ -2930,13 +2932,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             colProps = colMaster.column()
             AddHandSplitProp(colProps, 'dsIsAlwaysLine')
             AddHandSplitProp(colProps, 'dsSocketAreaAlpha')
-            tgl = ( (self.dsIsDrawSkText and not self.dsIsColoredSkText)or
+            tgl = ( (self.dsIsDrawText and not self.dsIsColoredSkText)or
                     (self.dsIsDrawMarker and not self.dsIsColoredMarker)or
                     (self.dsIsDrawPoint  and not self.dsIsColoredPoint )or
                     (self.dsIsDrawLine   and not self.dsIsColoredLine  )or
                     (self.dsIsDrawSkArea and not self.dsIsColoredSkArea) )
             AddHandSplitProp(colProps, 'dsUniformColor', tgl)
-            tgl = ( (self.dsIsDrawSkText and self.dsIsColoredSkText)or
+            tgl = ( (self.dsIsDrawText and self.dsIsColoredSkText)or
                     (self.dsIsDrawPoint  and self.dsIsColoredPoint )or
                     (self.dsIsDrawLine   and self.dsIsColoredLine  ) )
             AddHandSplitProp(colProps, 'dsNodeColor', tgl)
@@ -3115,7 +3117,6 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Gapn('vlReroutesCanInAnyType'):             "Рероуты могут подключаться в любой тип",
             Gapn('vlAutoUnhideVirtual'):                "Авто-раскрытие виртуальных сокетов для групп",
             Gapn('vlDeselectAllNodes'):                 "Снимать выделение со всех нодов при активации",
-                Gapn('vlDeselectAllNodes',1):               "Когда пропущен через выделение нода",
             Gapn('vpAllowClassicCompositorViewer'):     "Разрешить классический Viewer Композитора",
             Gapn('vpAllowClassicGeoViewer'):            "Разрешить классический Viewer Геометрических нодов",
             Gapn('vpIsLivePreview'):                    "Предпросмотр в реальном времени",
