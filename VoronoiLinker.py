@@ -1,7 +1,7 @@
 # !!! Disclaimer: Use the contents of this file at your own risk !!!
 # 100% of the content of this file contains malicious code!!1
 
-# !!! Отказ от ответственности: Содержимое этого файла полностью является случайно сгенерированными битами, включая этот дисклеймер тоже.
+# !!! Отказ от ответственности: Содержимое этого файла является полностью случайно сгенерированными битами, включая этот дисклеймер тоже.
 # Используйте этот файл на свой страх и риск.
 
 #Этот аддон создавался мной как самопис лично для меня и под меня; который я сделал публичным для всех желающих, ибо результат получился потрясающий. Наслаждайтесь.
@@ -9,8 +9,8 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,1,2), 'blender':(3,6,3), #2023.09.29
-           'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
+           'version':(3,1,3), 'blender':(3,6,3), #2023.09.29
+           'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
 
@@ -241,7 +241,7 @@ def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
 def DrawSkText(self, pos, ofs, fgSk, fontSizeOverwrite=0):
     if not self.dsIsDrawText:
         return [1, 0] #"1" нужен для сохранения информации для направления для позиции маркеров
-    skCol = GetSkCol(fgSk.tg) if self.dsIsColoredSkText else GetUniformColVec(self)
+    skCol = GetSkCol(fgSk.tg) if self.dsIsColoredText else GetUniformColVec(self)
     txt = fgSk.name if fgSk.tg.bl_idname!='NodeSocketVirtual' else TranslateIface('Virtual')
     return DrawText(self, pos, ofs, txt, skCol, fontSizeOverwrite)
 
@@ -310,7 +310,7 @@ def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide,
     def DrawNodeText(txt):
         if txt:
             DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
-    col = col if self.dsIsColoredSkText else GetUniformColVec(self)
+    col = col if self.dsIsColoredText else GetUniformColVec(self)
     txt_label = nd.label
     match drawNodeNameLabel:
         case 'NAME':
@@ -1161,6 +1161,7 @@ class MixerData:
     isSpeedPie = False
     pieScale = 0
     pieDisplaySocketTypeInfo = 0
+    pieAlignment = 0
 mxData = MixerData()
 
 txt_noMixingOptions = "No mixing options"
@@ -1189,6 +1190,8 @@ class VoronoiMixerTool(bpy.types.Operator, VoronoiOpTool):
             return
         self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
+        isBothSucessSwitch = True #Изначально был создан в VQMT. Нужен, чтобы повторно не перевыбирать уже успешный isBoth, если далее для второго сокета была лажа и цикл по нодам продолжился..
+        #Возможно стоит иметь два NextAssessment()'а вместо isBoth'а; но это не точно.
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             StencilUnCollapseNode(self, False, nd, isBoth)
@@ -1197,11 +1200,12 @@ class VoronoiMixerTool(bpy.types.Operator, VoronoiOpTool):
                 continue
             #В фильтре нод нет нужды.
             #Этот инструмент триггерится на любой выход (ныне кроме виртуальных) для первого.
-            if isBoth:
+            if (isBoth)and(isBothSucessSwitch):
                 for li in list_fgSksOut:
                     if li.tg.bl_idname!='NodeSocketVirtual':
                         self.foundGoalSkOut0 = li
                         break
+            isBothSucessSwitch = False
             #Для второго по условиям:
             skOut0 = self.foundGoalSkOut0.tg if self.foundGoalSkOut0 else None
             if skOut0:
@@ -1244,13 +1248,14 @@ class VoronoiMixerTool(bpy.types.Operator, VoronoiOpTool):
                     mxData.isSpeedPie = self.vmPieType=='SPEED'
                     mxData.pieScale = self.vmPieScale
                     mxData.pieDisplaySocketTypeInfo = self.vmPieSocketDisplayType
+                    mxData.pieAlignment = self.vmPieAlignment
                     di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
                     if not di: #Если место действия не в классических редакторах, то просто выйти. Ибо классические редакторы у всех одинаковые, а аддонских есть бесчисленное множество.
                         return {'CANCELLED'}
                     di = di.get(mxData.skType, None)
                     if di:
                         if length(di)==1: #Если выбор всего один, то пропустить его и сразу переходить к смешиванию.
-                            DoMix(context, event, di[0])
+                            DoMix(context, False, False, False, di[0]) #При моментальной активации пользователь мог и не отпускать модификаторы. Поэтому DoMix() получает не event, а вручную.
                         else: #Иначе предоставить выбор
                             bpy.ops.wm.call_menu_pie(name=MixerPie.bl_idname)
                     else: #Иначе для типа сокета не определено. Например шейдер в геонодах.
@@ -1331,7 +1336,7 @@ dict_tupleMixerNodesDefs = { #'-1' означает визуальную зде�
         'GeometryNodeCurveToMesh':        (0, 1, "Curve to Mesh"),
         'GeometryNodeMeshBoolean':        (0, 1, "Boolean"),
         'GeometryNodeGeometryToInstance': (0, 0, "To Instance")}
-def DoMix(context, event, txt_node):
+def DoMix(context, isS, isC, isA, txt_node):
     tree = context.space_data.edit_tree
     if not tree:
         return
@@ -1366,24 +1371,24 @@ def DoMix(context, event, txt_node):
                 case 'ShaderNodeMix':       L = lambda a: {'INT':'VALUE', 'BOOLEAN':'VALUE'}.get(a, a)
             #Для микса и переключателя искать с конца, потому что их сокеты для переключения имеют тип некоторых искомых. У нода сравнения всё наоборот.
             list_foundSk = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==L(mxData.skType)]
-            LinksNew(mxData.sk0, list_foundSk[tgl^event.shift]) #Из-за направления поиска, нужно выбирать их из списка так же с учётом направления.
+            LinksNew(mxData.sk0, list_foundSk[tgl^isS]) #Из-за направления поиска, нужно выбирать их из списка так же с учётом направления.
             if mxData.sk1:
-                LinksNew(mxData.sk1, list_foundSk[(not tgl)^event.shift])
+                LinksNew(mxData.sk1, list_foundSk[(not tgl)^isS])
         case _:
             if dict_tupleMixerNodesDefs[aNd.bl_idname][1]==-2: #Метка для нода, что имеет всего один сокет ввода.
                 LinksNew( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] ) #Но не хард 'inputs[0]', а всё равно чтение.
             else:
                 #Такая плотная суета ради мультиинпута -- для него нужно изменить порядок подключения.
                 if (mxData.sk1)and(aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input): #todo: вяснить картину с 0 и xor.
-                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^event.shift]] )
-                tree.links.new( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0^event.shift]] ) #Это не LinksNew(), чтобы визуальный второй мультиинпута был последним в rpData.
+                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
+                tree.links.new( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0^isS]] ) #Это не LinksNew(), чтобы визуальный второй мультиинпута был последним в rpData.
                 if (mxData.sk1)and(not aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input):
-                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^event.shift]] )
+                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
     #Далее так же, как и в vqmt. У него первично; здесь дублировано для интуитивного соответствия.
-    if event.alt:
+    if isA:
         for sk in aNd.inputs:
             LinksNew(mxData.sk0, sk)
-    if event.ctrl:
+    if isC:
         for sk in aNd.inputs:
             sk.hide = True
 
@@ -1393,7 +1398,7 @@ class MixerMixer(bpy.types.Operator, VoronoiOpTool):
     bl_options = {'UNDO'}
     txt: bpy.props.StringProperty()
     def invoke(self, context, event):
-        DoMix(context, event, self.txt)
+        DoMix(context, event.shift, event.ctrl, event.alt, self.txt)
         return {'FINISHED'}
 class MixerPie(bpy.types.Menu):
     bl_idname = 'VL_MT_voronoi_mixer_pie'
@@ -1401,6 +1406,8 @@ class MixerPie(bpy.types.Menu):
     def draw(self, context):
         pie = self.layout.menu_pie()
         def AddOp(where, txt):
+            if mxData.pieAlignment==1:
+                where = where.row()
             where.operator(MixerMixer.bl_idname, text=dict_tupleMixerNodesDefs[txt][2], translate=False).txt = txt
         dict_items = dict_dictTupleMixerMain[context.space_data.tree_type][mxData.skType]
         if mxData.isSpeedPie:
@@ -1410,7 +1417,7 @@ class MixerPie(bpy.types.Menu):
         else:
             def GetPieCol(where):
                 box = where.box()
-                col = box.column()
+                col = box.column(align=mxData.pieAlignment<2)
                 col.ui_units_x = 6*((mxData.pieScale-1)/2+1)
                 col.scale_y = mxData.pieScale
                 return col
@@ -1420,13 +1427,13 @@ class MixerPie(bpy.types.Menu):
                 GetPieCol(pie)
             match context.space_data.tree_type:
                 case 'ShaderNodeTree':
-                    row2 = colLeft.row()
+                    row2 = colLeft.row(align=mxData.pieAlignment==0)
                     row2.enabled = False
                     AddOp(row2, 'ShaderNodeMix')
                 case 'GeometryNodeTree':
-                    row1 = colLeft.row()
-                    row2 = colLeft.row()
-                    row3 = colLeft.row()
+                    row1 = colLeft.row(align=mxData.pieAlignment==0)
+                    row2 = colLeft.row(align=mxData.pieAlignment==0)
+                    row3 = colLeft.row(align=mxData.pieAlignment==0)
                     row1.enabled = False
                     row2.enabled = False
                     row3.enabled = False
@@ -1463,6 +1470,9 @@ class QuickMathData:
     isSpeedPie = False
     pieScale = 0
     pieDisplaySocketTypeInfo = 0
+    colVec = None
+    colVal = None
+    pieAlignment = 0
 qmData = QuickMathData()
 
 class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
@@ -1473,7 +1483,7 @@ class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
             return
         self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
-        isBothSucess = True
+        isBothSucessSwitch = True
         sco = 0
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             sco += 1
@@ -1483,7 +1493,7 @@ class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
             if not list_fgSksOut:
                 continue
             #Этот инструмент триггерится только на выходы поля.
-            if (isBoth)and(isBothSucess):
+            if (isBoth)and(isBothSucessSwitch):
                 tgl = True
                 for li in list_fgSksOut:
                     if li.tg.type in set_skTypeFields:
@@ -1493,7 +1503,7 @@ class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
                 if tgl:
                     continue #Искать нод, у которого попадёт на сокет поля.
                 nd.hide = False #После чего в любом случае развернуть его.
-            isBothSucess = False #Для следующего `continue`, ибо если далее будет неудача с активацией continue, то произойдёт перевыбор isBoth. todo: на другие инструменты тоже.
+            isBothSucessSwitch = False #Для следующего `continue`, ибо если далее будет неудача с последующей активацией continue, то произойдёт перевыбор isBoth.
             #Для второго по условиям:
             skOut0 = self.foundGoalSkOut0.tg if self.foundGoalSkOut0 else None
             if skOut0:
@@ -1529,6 +1539,7 @@ class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
                     qmData.isSpeedPie = self.vqmPieType=='SPEED'
                     qmData.pieScale = self.vqmPieScale
                     qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
+                    qmData.pieAlignment = self.vqmPieAlignment
                     #Наличие только сокетов поля -- забота на уровень выше.
                     set_skFieldArrTypes = {'VECTOR', 'RGBA'}
                     isVec1 = qmData.sk0.type in set_skFieldArrTypes
@@ -1674,22 +1685,39 @@ class QuickMathPie(bpy.types.Menu):
     bl_label = "" #Текст здесь будет отображаться в центре пирога.
     def draw(self, context):
         def AddOp(where, txt, ico='NONE'):
-            #if qmData.pieDisplaySocketTypeInfo==2:  #|15| todo после того как придумаю, как забинарить два цвета, добавить их сюда; а так же todо где-то ниже.
-                #where = where.row(); where.template_node_socket(color=GetSkCol(qmData.sk0))
+            if not qmData.isSpeedPie:
+                where = where.row(align=True)
+                if qmData.pieDisplaySocketTypeInfo==2:
+                    col = where.column()
+                    if qmData.pieScale>1.25:
+                        row = col.column()
+                        row.label()
+                        row.scale_y = (qmData.pieScale-1.2)/2
+                    row = col.column()
+                    row.template_node_socket(color=colCurSkQm)
+                rowOp = where.row(align=qmData.pieAlignment==0)
+                #Из-за 'pieDisplaySocketTypeInfo==2' масштаб устанавливается здесь для каждого оператора, а не в GetPieCol().
+                rowOp.ui_units_x = 5.5*((qmData.pieScale-1)/2+1)
+                rowOp.scale_y = qmData.pieScale
+                where = rowOp
             #Автоматический перевод выключен, ибо оригинальные операции у нода математики тоже не переводятся.
             where.operator(QuickMathMain.bl_idname, text=txt.capitalize() if qmData.depth else txt, icon=ico, translate=False).operation = txt
         pie = self.layout.menu_pie()
+        sk = qmData.sk0
+        if (not qmData.colVec)and(sk.type=='VECTOR'): #Если в дереве нет ни одного из двух целевых сокетов быстрой математики, то откуда брать их цвет?
+            qmData.colVec = GetSkCol(sk)
+        if (not qmData.colVal)and(sk.type=='VALUE'): #Добавить нод с ним и считать с него? Ну такое. Так что реализовал так. Зато в безопасном варианте.
+            qmData.colVal = GetSkCol(sk)
+        colCurSkQm = (qmData.colVec if qmData.isVec else qmData.colVal) or GetSkCol(sk)
         if qmData.isSpeedPie:
             for li in qmData.list_displayItems:
-                if not li:
+                if not li: #todo нахрена это нужно?
                     row = pie.row()
                     continue
                 AddOp(pie, li)
         else:
             def GetPieCol(where):
-                col = where.column()
-                col.ui_units_x = 5.5*((qmData.pieScale-1)/2+1)
-                col.scale_y = qmData.pieScale
+                col = where.column(align=qmData.pieAlignment<2)
                 return col
             colLeft = GetPieCol(pie)
             colRight = GetPieCol(pie)
@@ -1698,8 +1726,7 @@ class QuickMathPie(bpy.types.Menu):
                 colLabel = pie.column()
                 box = colLabel.box()
                 row = box.row(align=True)
-                #todo: Должно быть только двух цветов, для вектора и для флоата, но чувствую, будет много костылей. Сейчас лень грамотно реализовывать.
-                row.template_node_socket(color=GetSkCol(qmData.sk0))
+                row.template_node_socket(color=colCurSkQm)
                 row.label(text=("Vector" if qmData.isVec else "Float")+" Quick Math")
                 row.alignment = 'CENTER'
             AddOp(colRight,'ADD',     'ADD')
@@ -1771,14 +1798,15 @@ class VoronoiSwapperTool(bpy.types.Operator, VoronoiOpTool):
             return
         self.foundGoalSkIo1 = None
         callPos = context.space_data.cursor_location
+        isBothSucessSwitch = True 
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             if StencilUnCollapseNode(self, False, nd, isBoth):
-                #|16| Чтобы начать отсчёт снизу, туда нужно переместиться на высоту нода. А нод-то свёрнут! Поэтому его нужно развернуть перед вычислением сокетов с перерисовкой.
+                #|15| Чтобы начать отсчёт снизу, туда нужно переместиться на высоту нода. А нод-то свёрнут! Поэтому его нужно развернуть перед вычислением сокетов с перерисовкой.
                 bpy.ops.wm.redraw_timer(type='DRAW_WIN', iterations=0)
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
             #За основу взяты критерии от Миксера.
-            if isBoth:
+            if (isBoth)and(isBothSucessSwitch):
                 fgSkOut, fgSkIn = None, None
                 for li in list_fgSksOut:
                     if li.tg.bl_idname!='NodeSocketVirtual':
@@ -1799,6 +1827,7 @@ class VoronoiSwapperTool(bpy.types.Operator, VoronoiOpTool):
                 if (self.isIgnoreLinked)and(self.foundGoalSkIo0)and(not self.foundGoalSkIo0.tg.is_linked):
                     self.foundGoalSkIo0 = None
                     #Заметка: важно продолжать искать сокет с линком, ибо ради повышения удобства было создано isIgnoreLinked.
+            isBothSucessSwitch = False
             #Здесь вокруг аккумулировалось много странных проверок с None и т.п. -- результат соединения вместе многих типа высокоуровневых функций, что я понаизобретал.
             skOut0 = self.foundGoalSkIo0.tg if self.foundGoalSkIo0 else None
             if skOut0:
@@ -2229,7 +2258,7 @@ def CallbackDrawVoronoiEnumSelector(self, context):
         colNode = DrawNodeStencil(self, cusorPos, self.foundGoalNd.pos)
         if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода был разделён на два шаблона.
             sco = -0.5
-            col = colNode if self.dsIsColoredSkText else GetUniformColVec(self)
+            col = colNode if self.dsIsColoredText else GetUniformColVec(self)
             for li in GetListOfNdEnums(self.foundGoalNd.tg):
                 DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
                 sco -= 1.5
@@ -2680,7 +2709,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsDrawLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsDrawSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     ##
-    dsIsColoredSkText: bpy.props.BoolProperty(name="Text",        default=True)
+    dsIsColoredText: bpy.props.BoolProperty(name="Text",        default=True)
     dsIsColoredMarker: bpy.props.BoolProperty(name="Markers",     default=True)
     dsIsColoredPoint:  bpy.props.BoolProperty(name="Points",      default=True)
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
@@ -2713,7 +2742,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     #Main:
     #Уж было я хотел добавить это, но потом мне стало таак лень. Это же нужно всё менять под "только сокеты", и критерии для нод неведомо как получать.
     #И выгода неизвестно какая, кроме эстетики. Так что ну его нахрен. Работает -- не трогай.
-    #А ещё см. |16|, реализация "только сокеты" грозит потенциальной кроличьей норой.
+    #А ещё см. |15|, реализация "только сокеты" грозит потенциальной кроличьей норой.
     vtSearchMethod: bpy.props.EnumProperty(name="Search method", default='SOCKET', items=( ('NODE_SOCKET', "Nearest node > Nearest socket", ""), #Нигде не используется.
                                                                                            ('SOCKET',      "Only nearest socket",           "") )) #И кажется, никогда не будет.
     vtRepickTrigger: bpy.props.EnumProperty(name="Repick trigger", default='ONE', items=( ('FULL', "Сomplete match of call modifiers", ""),
@@ -2742,6 +2771,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                   ('CONTROL',"Control","") ))
     vmPieScale: bpy.props.FloatProperty(name="Pie scale", default=1.5, min=1, max=2, subtype="FACTOR")
     vmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1, min=-1, max=1)
+    vmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=2, min=0, max=2)
     #Quick math:
     vqmDimensionConflictPriority: bpy.props.EnumProperty(name="Dimension conflict", default='FIRST', items=( ('FIRST', "Read from the first", ""),
                                                                                                              ('LAST',  "Read from the second",""),
@@ -2750,7 +2780,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vqmPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
                                                                                    ('CONTROL',"Control","") ))
     vqmPieScale:             bpy.props.FloatProperty(name="Pie scale",              default=1.5, min=1, max=2, subtype="FACTOR")
-    vqmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1,   min=0, max=1) #См. |15|.
+    vqmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1,   min=0, max=2)
+    vqmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=1, min=0, max=2)
     #Swapper:
     vsCanTriggerToAnyType: bpy.props.BoolProperty(name="Can swap with any type", default=False)
     #Hider:
@@ -2787,8 +2818,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
     vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
-    vaShowPassThroughtNodeSelectingMap:        bpy.props.BoolProperty(name="aaa",         default=False) #todo у
-    vlPassThrought:        bpy.props.BoolProperty(name="bbb",         default=False) #todo у
     def AddHandSplitProp(self, where, txt_prop, tgl=True):
         spl = where.row().split(factor=0.38, align=True)
         spl.active = tgl
@@ -2859,6 +2888,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colProp = colTool.column(align=True)
                 AddHandSplitProp(colProp,'vmPieScale')
                 AddHandSplitProp(colProp,'vmPieSocketDisplayType')
+                AddHandSplitProp(colProp,'vmPieAlignment')
                 colProp.active = self.vmPieType=='CONTROL'
             if colTool:=AddSelfBoxDiscl(colMaster,'vqmBoxDiscl', VoronoiQuickMathTool):
                 #Джинсы-для-собаки конфликт: может быть слева, как все булевы, ибо не-настройки-пирога, +одинаково с Mixer
@@ -2870,6 +2900,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colProp = colTool.column(align=True)
                 AddHandSplitProp(colProp,'vqmPieScale')
                 AddHandSplitProp(colProp,'vqmPieSocketDisplayType')
+                AddHandSplitProp(colProp,'vqmPieAlignment')
                 colProp.active = self.vqmPieType=='CONTROL'
             if colTool:=AddSelfBoxDiscl(colMaster,'vsBoxDiscl', VoronoiSwapperTool):
                 colTool.prop(self,'vsCanTriggerToAnyType')
@@ -2924,7 +2955,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 row = where.row(align=True)
                 row.prop(self, txt)
                 row.active = getattr(self, txt.replace("Colored","Draw"))
-            AddColoredProp(colCol,'dsIsColoredSkText')
+            AddColoredProp(colCol,'dsIsColoredText')
             AddColoredProp(colCol,'dsIsColoredMarker')
             AddColoredProp(colCol,'dsIsColoredPoint')
             AddColoredProp(colCol,'dsIsColoredLine')
@@ -2932,13 +2963,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             colProps = colMaster.column()
             AddHandSplitProp(colProps, 'dsIsAlwaysLine')
             AddHandSplitProp(colProps, 'dsSocketAreaAlpha')
-            tgl = ( (self.dsIsDrawText and not self.dsIsColoredSkText)or
+            tgl = ( (self.dsIsDrawText and not self.dsIsColoredText)or
                     (self.dsIsDrawMarker and not self.dsIsColoredMarker)or
                     (self.dsIsDrawPoint  and not self.dsIsColoredPoint )or
                     (self.dsIsDrawLine   and not self.dsIsColoredLine  )or
                     (self.dsIsDrawSkArea and not self.dsIsColoredSkArea) )
             AddHandSplitProp(colProps, 'dsUniformColor', tgl)
-            tgl = ( (self.dsIsDrawText and self.dsIsColoredSkText)or
+            tgl = ( (self.dsIsDrawText and self.dsIsColoredText)or
                     (self.dsIsDrawPoint  and self.dsIsColoredPoint )or
                     (self.dsIsDrawLine   and self.dsIsColoredLine  ) )
             AddHandSplitProp(colProps, 'dsNodeColor', tgl)
@@ -3133,6 +3164,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vmPieType',1):                        "Контроль",
             Gapn('vmPieScale'):                         "Размер пирога",
             Gapn('vmPieSocketDisplayType'):             "Отображение типа сокета",
+            Gapn('vmPieAlignment'):                     "Выравнивание между элементами",
             Gapn('vqmDimensionConflictPriority'):       "Конфликт размерностей",
                 Gapn('vqmDimensionConflictPriority',0):     "Читать из первого",
                 Gapn('vqmDimensionConflictPriority',1):     "Читать из второго",
