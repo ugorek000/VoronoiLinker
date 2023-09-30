@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,1,5), 'blender':(3,6,3), #2023.09.30
+           'version':(3,1,6), 'blender':(3,6,3), #2023.09.30
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -59,7 +59,8 @@ def VecWorldToRegScale(vec, self):
 def RecrGetNodeFinalLoc(nd):
     return nd.location+RecrGetNodeFinalLoc(nd.parent) if nd.parent else nd.location
 
-set_skTypeFields = {'VALUE', 'RGBA', 'VECTOR', 'INT', 'BOOLEAN'} #Ещё и для VQMT.
+set_skTypeFields = {'VALUE', 'RGBA', 'VECTOR', 'INT', 'BOOLEAN'} #Используют в сыром виде VQMT и VQDT.
+set_skTypeArrFields = {'VECTOR', 'RGBA'}
 def SkBetweenFieldsCheck(self, sk1, sk2):
     #Заметка: учитывая предназначение и название этой функции, sk1 и sk2 в любом случае должны быть из полей, и только из них.
     return (sk1.type in set_skTypeFields)and( (self.vtCanBetweenFiveFields)and(sk2.type in set_skTypeFields)or(sk1.type==sk2.type) )
@@ -96,6 +97,9 @@ def RememberLastSockets(sko, ski):
             rpData.lastNd2name = ski.node.name
             rpData.lastNd2Id = ski.node.as_pointer()
             rpData.lastSk2 = ski if ski.id_data==sko.id_data else None
+def NewLinkAndRemember(tree, sko, ski):
+    sko.id_data.links.new(sko, ski)
+    RememberLastSockets(sko, ski)
 
 def CompareSkLabelName(sk1, sk2): #Для VMLT и VRT.
     return (sk1.label if sk1.label else sk1.name)==(sk2.label if sk2.label else sk2.name)
@@ -337,7 +341,7 @@ def DrawNodeStencilFull(self, cusorPos, fg, txtDnnl, lds, isCanText=True):
         if isCanText:
             DrawTextNodeStencil(self, cusorPos, fg.tg, txtDnnl, lds, colNode)
         else:
-            return colNode #Для VEST,
+            return colNode #Для VEST.
     elif self.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
     return False
@@ -1014,7 +1018,7 @@ def DoPreview(self, context, goalSk):
                             for sk in nd.inputs:
                                 if sk.type=='GEOMETRY':
                                     skIn = sk
-                                    break #Важно найти самый первый сверху. #todo: почему? и подробнее закоментить
+                                    break #Важно найти самый первый сверху <=> продолжать цикл без нужды, уже найдено.
                 case 'CompositorNodeTree':
                     for nd in list_wayTreeNd[higWay][0].nodes:
                         if nd.type=='VIEWER':
@@ -1289,14 +1293,14 @@ AddToRegAndAddToKmiDefs(VoronoiMixerTool, "LEFTMOUSE_ScA") #Миксер пер�
 vmtSep = 'MixerItemsSeparator'
 dict_dictTupleMixerMain = { #Порядок важен; самые частые(в этом списке) идут первее (кроме MixRGB).
         'ShaderNodeTree':     {'SHADER':     ('ShaderNodeMixShader','ShaderNodeAddShader'),
-                               'VALUE':      ('ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath',                       'ShaderNodeCombineXYZ'),
+                               'VALUE':      ('ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath'),
                                'RGBA':       ('ShaderNodeMixRGB',  'ShaderNodeMix'),
-                               'VECTOR':     ('ShaderNodeMixRGB',  'ShaderNodeMix',                                       'ShaderNodeVectorMath','ShaderNodeSeparateXYZ'),
+                               'VECTOR':     ('ShaderNodeMixRGB',  'ShaderNodeMix',                                       'ShaderNodeVectorMath'),
                                'INT':        ('ShaderNodeMixRGB',  'ShaderNodeMix',                      'ShaderNodeMath')},
                                ##
-        'GeometryNodeTree':   {'VALUE':      ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath',                       'ShaderNodeCombineXYZ'),
+        'GeometryNodeTree':   {'VALUE':      ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
                                'RGBA':       ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare'),
-                               'VECTOR':     ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare',                 'ShaderNodeVectorMath','ShaderNodeSeparateXYZ'),
+                               'VECTOR':     ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare',                 'ShaderNodeVectorMath'),
                                'STRING':     ('GeometryNodeSwitch',                'FunctionNodeCompare',                                        'GeometryNodeStringJoin'),
                                'INT':        ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
                                'BOOLEAN':    ('GeometryNodeSwitch','ShaderNodeMix',                      'ShaderNodeMath',                       'FunctionNodeBooleanMath'),
@@ -1307,16 +1311,16 @@ dict_dictTupleMixerMain = { #Порядок важен; самые частые(
                                'IMAGE':      ('GeometryNodeSwitch',),
                                'GEOMETRY':   ('GeometryNodeSwitch','GeometryNodeJoinGeometry','GeometryNodeInstanceOnPoints','GeometryNodeCurveToMesh','GeometryNodeMeshBoolean','GeometryNodeGeometryToInstance')},
                                ##
-        'CompositorNodeTree': {'VALUE':      ('CompositorNodeMath','CompositorNodeCombineXYZ',vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
-                               'RGBA':       ('CompositorNodeAlphaOver',                      vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
-                               'VECTOR':     ('CompositorNodeSeparateXYZ',                    vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
-                               'INT':        ('CompositorNodeMath',                           vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView')},
+        'CompositorNodeTree': {'VALUE':      ('CompositorNodeMath',     vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
+                               'RGBA':       ('CompositorNodeAlphaOver',vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
+                               'VECTOR':     (                          vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView'),
+                               'INT':        ('CompositorNodeMath',     vmtSep,'CompositorNodeMixRGB','CompositorNodeSwitch','CompositorNodeSplitViewer','CompositorNodeSwitchView')},
                                ##
         'TextureNodeTree':    {'VALUE':      ('TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath'),
                                'RGBA':       ('TextureNodeMixRGB','TextureNodeTexture'),
                                'VECTOR':     ('TextureNodeMixRGB',                                        'TextureNodeDistance'),
                                'INT':        ('TextureNodeMixRGB','TextureNodeTexture','TextureNodeMath')}}
-dict_tupleMixerNodesDefs = { #'-1' означает визуальную здесь метку, что их сокеты подключения высчитываются автоматически (См. |8|), а не указаны явно в этом списке; '-2' = у нода всего один инпут.
+dict_tupleMixerNodesDefs = { #'-1' означает визуальную здесь метку, что их сокеты подключения высчитываются автоматически (См. |8|), а не указаны явно в этом списке
         #Отсортировано по количеству в "базе данных" выше.
         'GeometryNodeSwitch':             (-1, -1, "Switch"),
         'ShaderNodeMix':                  (-1, -1, "Mix"),
@@ -1330,16 +1334,12 @@ dict_tupleMixerNodesDefs = { #'-1' означает визуальную зде�
         'TextureNodeMixRGB':              (1, 2, "Mix Col"),
         'TextureNodeTexture':             (0, 1, "Texture"),
         'ShaderNodeVectorMath':           (0, 1, "Max Vector"),
-        'ShaderNodeCombineXYZ':           (0, 1, "Combite"),
-        'ShaderNodeSeparateXYZ':          (0, -2, "Separate"),
         'CompositorNodeMath':             (0, 1, "Max Float"),
         'TextureNodeMath':                (0, 1, "Max Float"),
         'ShaderNodeMixShader':            (1, 2, "Mix Shader"),
         'ShaderNodeAddShader':            (0, 1, "Add Shader"),
         'GeometryNodeStringJoin':         (1, 1, "Join String"),
         'FunctionNodeBooleanMath':        (0, 1, "Or"),
-        'CompositorNodeCombineXYZ':       (0, 1, "Combite"),
-        'CompositorNodeSeparateXYZ':      (0, -2, "Separate"),
         'CompositorNodeAlphaOver':        (1, 2, "Alpha Over"),
         'TextureNodeDistance':            (0, 1, "Distance"),
         'GeometryNodeJoinGeometry':       (0, 0, "Join"),
@@ -1370,9 +1370,6 @@ def DoMix(context, isS, isC, isA, txt_node):
             aNd.operation = 'EQUAL'
         case 'ShaderNodeMix':
             aNd.data_type = {'INT':'FLOAT', 'BOOLEAN':'FLOAT'}.get(txt, txt)
-    def LinksNew(sko, ski):
-        tree.links.new(sko, ski)
-        RememberLastSockets(sko, ski)
     match aNd.bl_idname:
         case 'GeometryNodeSwitch'|'FunctionNodeCompare'|'ShaderNodeMix': #|8|
             tgl = aNd.bl_idname!='FunctionNodeCompare'
@@ -1382,23 +1379,20 @@ def DoMix(context, isS, isC, isA, txt_node):
                 case 'ShaderNodeMix':       L = lambda a: {'INT':'VALUE', 'BOOLEAN':'VALUE'}.get(a, a)
             #Для микса и переключателя искать с конца, потому что их сокеты для переключения имеют тип некоторых искомых. У нода сравнения всё наоборот.
             list_foundSk = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==L(mxData.skType)]
-            LinksNew(mxData.sk0, list_foundSk[tgl^isS]) #Из-за направления поиска, нужно выбирать их из списка так же с учётом направления.
+            NewLinkAndRemember(mxData.sk0, list_foundSk[tgl^isS]) #Из-за направления поиска, нужно выбирать их из списка так же с учётом направления.
             if mxData.sk1:
-                LinksNew(mxData.sk1, list_foundSk[(not tgl)^isS])
+                NewLinkAndRemember(mxData.sk1, list_foundSk[(not tgl)^isS])
         case _:
-            if dict_tupleMixerNodesDefs[aNd.bl_idname][1]==-2: #Метка для нода, что имеет всего один сокет ввода.
-                LinksNew( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]] ) #Но не хард 'inputs[0]', а всё равно чтение.
-            else:
-                #Такая плотная суета ради мультиинпута -- для него нужно изменить порядок подключения.
-                if (mxData.sk1)and(aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input): #`0` здесь в основном из-за того, что в dict_tupleMixerNodesDefs у "нодов-мультиинпутов" всё по нулям.
-                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
-                tree.links.new( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0^isS]] ) #Это не LinksNew(), чтобы визуальный второй мультиинпута был последним в rpData.
-                if (mxData.sk1)and(not aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input):
-                    LinksNew( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
+            #Такая плотная суета ради мультиинпута -- для него нужно изменить порядок подключения.
+            if (mxData.sk1)and(aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input): #`0` здесь в основном из-за того, что в dict_tupleMixerNodesDefs у "нодов-мультиинпутов" всё по нулям.
+                NewLinkAndRemember( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
+            tree.links.new( mxData.sk0, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0^isS]] ) #Это не NewLinkAndRemember(), чтобы визуальный второй мультиинпута был последним в rpData.
+            if (mxData.sk1)and(not aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][0]].is_multi_input):
+                NewLinkAndRemember( mxData.sk1, aNd.inputs[dict_tupleMixerNodesDefs[aNd.bl_idname][1^isS]] )
     #Далее так же, как и в vqmt. У него первично; здесь дублировано для интуитивного соответствия.
     if isA:
         for sk in aNd.inputs:
-            LinksNew(mxData.sk0, sk)
+            NewLinkAndRemember(mxData.sk0, sk)
     if isC:
         for sk in aNd.inputs:
             sk.hide = True
@@ -1553,12 +1547,11 @@ class VoronoiQuickMathTool(bpy.types.Operator, VoronoiOpTool):
                     qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
                     qmData.pieAlignment = self.vqmPieAlignment
                     #Наличие только сокетов поля -- забота на уровень выше.
-                    set_skFieldArrTypes = {'VECTOR', 'RGBA'}
-                    isVec1 = qmData.sk0.type in set_skFieldArrTypes
+                    isVec1 = qmData.sk0.type in set_skTypeArrFields
                     if not qmData.sk1:
                         qmData.isVec = isVec1
                     else:
-                        isVec2 = qmData.sk1.type in set_skFieldArrTypes
+                        isVec2 = qmData.sk1.type in set_skTypeArrFields
                         if isVec1==isVec2:
                             qmData.isVec = isVec1
                         else:
@@ -1659,25 +1652,22 @@ class QuickMathMain(bpy.types.Operator, VoronoiOpTool):
                 aNd.operation = self.operation
                 #Идея с event.shift гениальна. Изначально ради одиночного линка во второй сокет, но благодаря визуальному поиску ниже, может и менять местами два линка.
                 skInx = aNd.inputs[0] #"Inx", потому что пародия на int "index", но потом понял, что можно сразу в сокет для линковки далее.
-                def LinksNew(sko, ski):
-                    tree.links.new(sko, ski)
-                    RememberLastSockets(sko, ski)
                 if event.shift:
                     for sk in aNd.inputs:
                         if (sk!=skInx)and(sk.enabled)and(not sk.links):
                             if sk.type==skInx.type: #Сравнение, потому что операция 'SCALE'.
                                 skInx = sk
                                 break
-                LinksNew(qmData.sk0, skInx)
+                NewLinkAndRemember(qmData.sk0, skInx)
                 if qmData.sk1:
                     #Второй ищется "визуально"; сделано ради операции 'SCALE'.
                     for sk in aNd.inputs: #Ищется сверху вниз. Потому что ещё и 'MulAdd'.
                         if (sk.enabled)and(not sk.links):
-                            LinksNew(qmData.sk1, sk)
+                            NewLinkAndRemember(qmData.sk1, sk)
                             break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
                 elif event.alt: #Если alt, то соеденить первый во все.
                     for sk in aNd.inputs:
-                        LinksNew(qmData.sk0, sk)
+                        NewLinkAndRemember(qmData.sk0, sk)
                 #Установить значение по умолчанию для второго сокета (большинство нули). Нужно для красоты; и вообще это математика.
                 #Заметка: нод вектора уже создаётся по нулям, так что для него обнулять без нужды.
                 tuple_default = (0.0, 0.0, 0.0) if not qmData.isVec else ( (0,0,0), (0,0,0), (0,0,0), 0.0 )
@@ -1980,8 +1970,8 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpTool):
                 else:
                     self.foundGoalTg = fgSkIn
                 tgl |= StencilUnCollapseNode(self, True, nd, self.foundGoalTg)
-                if (tgl)and(self.vhRedrawAfterChange):
-                    StencilReNext(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать. todo: я забыл почему.
+                if (tgl)and(self.vhReDrawAfterChange):
+                    StencilReNext(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать, ибо нод у присосавшегося сокета может быть свёрнут.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
                 if self.vtAlwaysUnhideCursorNode: #Благодаря этому можно выбрать, разворачивать нод при обработке, или нет.
@@ -1992,8 +1982,8 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpTool):
                     nd.hide = False
                 if self.vhIsToggleNodesOnDrag:
                     if self.firstResult is None:
-                        self.firstResult = HideFromNode(self.foundGoalTg.tg, True) #todo: вспомнить, почему `self.foundGoalTg.tg`.
-                    if HideFromNode(nd, self.firstResult, True)and(self.vhRedrawAfterChange):
+                        self.firstResult = HideFromNode(self, nd, True)
+                    if HideFromNode(self, nd, self.firstResult, True)and(self.vhReDrawAfterChange):
                         #Ну наконец-то смог починить. С одной стороны нет проскальзывающего кадра, с другой стороны нет "визуального" контакта с только что изменённым нодом,
                         # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации редки.
                         #Есть ещё вариант сделать изменение нода после отрисовки одного кадра, но наверное окажется тоже не очень.
@@ -2012,7 +2002,7 @@ class VoronoiHiderTool(bpy.types.Operator, VoronoiOpTool):
                         case 0: #Обработка нода.
                             if not self.vhIsToggleNodesOnDrag:
                                 #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
-                                HideFromNode(self.foundGoalTg.tg, HideFromNode(self.foundGoalTg.tg, True), True)
+                                HideFromNode(self, self.foundGoalTg.tg, HideFromNode(self, self.foundGoalTg.tg, True), True)
                         case 1: #Скрытие сокета.
                             self.foundGoalTg.tg.hide = True
                         case 2: #Переключение видимости значения сокета.
@@ -2034,7 +2024,7 @@ AddToKmiDefs(VoronoiHiderTool, "E_Sca", {'isHideSocket':1})
 AddToKmiDefs(VoronoiHiderTool, "E_sCa", {'isHideSocket':0})
 
 #todo: учитывая, что есть моя хотелка для виртуальных в VLT, нужно ли вообще рскрывать последние виртуальные?
-def HideFromNode(nd, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
+def HideFromNode(self, nd, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
     scoGeoSks = 0
     def CheckSkZeroDefaultValue(sk): #Shader и Virtual всегда True, Geometry от настроек аддона.
         match sk.type:
@@ -2049,7 +2039,7 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
             case 'STRING':
                 return sk.default_value==''
             case 'GEOMETRY':
-                match prefs.vhNeverHideGeometry: #Задумывалось и для out тоже, но как-то леновато, а ещё `GeometryNodeBoundBox`, так что...
+                match self.vhNeverHideGeometry: #Задумывалось и для out тоже, но как-то леновато, а ещё `GeometryNodeBoundBox`, так что...
                     case 'FALSE': return True
                     case 'TRUE': return False
                     case 'ONLY_FIRST':
@@ -2073,9 +2063,8 @@ def HideFromNode(nd, lastResult, isCanDo=False): #Изначально личн�
                         case 'IF_FALSE': return not sk.default_value
             case _:
                 return True
-    prefs = Prefs() #todo: сбежавшие от пайки? проверить топологию и скорее всего так и оставить.
-    vhHideBoolSocket = prefs.vhHideBoolSocket
-    vhHideHiddenBoolSocket = prefs.vhHideHiddenBoolSocket
+    vhHideBoolSocket = self.vhHideBoolSocket #Ради этого пришлось проложить маршрут self'а. Чем-то мне не понравилось Prefs() здесь.
+    vhHideHiddenBoolSocket = self.vhHideHiddenBoolSocket
     if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для 'isCanDo'.
         def CheckAndDoForIo(where, L):
             success = False
@@ -2302,13 +2291,15 @@ class VoronoiEnumSelectorTool(bpy.types.Operator, VoronoiOpTool):
                 continue
             if nd.bl_idname in set_equestrianPortalBlids: #Игнорировать "порталы" "трёх всадников".
                 continue
+            if nd.hide: #У свёрнутых нод результат переключения не увидеть, поэтому игнорировать.
+                continue
             if self.isToggleOptions:
                 self.foundGoalNd = li
                 #Так же, как и в VHT:
                 if self.vesIsToggleNodesOnDrag:
                     if self.firstResult is None:
                         self.firstResult = ToggleOptionsFromNode(nd, True)
-                    if ToggleOptionsFromNode(nd, self.firstResult, True)and(self.vesRedrawAfterChange):
+                    if ToggleOptionsFromNode(nd, self.firstResult, True)and(self.vesReDrawAfterChange):
                         StencilReNext(VoronoiEnumSelectorTool, self, context)
                 break
             else:
@@ -2454,7 +2445,7 @@ def CallbackDrawVoronoiRepeating(self, context):
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalTg] )
         else:
             DrawWidePoint(self, cusorPos)
-class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено в отдельный инструмент, чтобы не осквернять святая святых спагетти-кодом (изначально было только для VLT).
+class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено в отдельный инструмент, чтобы не осквернять святая святых спагетти-кодом (изначально был только для VLT).
     bl_idname = 'node.voronoi_repeating'
     bl_label = "Voronoi Repeating"
     isFromOut: bpy.props.BoolProperty()
@@ -2469,6 +2460,8 @@ class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
+            if nd==lSkO.node: #Исключить само-нод.
+                break #continue
             if self.isAutoRepeatMode:
                 lSkI = rpData.lastSk2
                 if (self.isFromOut)or(lSkI):
@@ -2511,7 +2504,7 @@ class VoronoiRepeatingTool(bpy.types.Operator, VoronoiOpTool): #Вынесено
                         # if (rpData.lastSk1)and(rpData.lastSk1.id_data!=self.foundGoalTg.tg.id_data): return {'CANCELLED'}
                         #Нет нужды проверять существование дерева, потому что если присосавшийся сокет тут существует, то уже где-то.
                         context.space_data.edit_tree.links.new(rpData.lastSk1, self.foundGoalTg.tg)
-                        RememberLastSockets(rpData.lastSk1, self.foundGoalTg.tg) #Потому что. И вообще... саморекурсия?.
+                        RememberLastSockets(rpData.lastSk1, self.foundGoalTg.tg) #Потому что. И вообще.. "саморекурсия"?.
                 return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
@@ -2550,6 +2543,98 @@ AddToKmiDefs(VoronoiRepeatingTool, "V_scA", {'isAutoRepeatMode':True, 'isFromOut
 AddToKmiDefs(VoronoiRepeatingTool, "V_Sca", {'isAutoRepeatMode':True, 'isFromOut':False})
 AddToKmiDefs(VoronoiRepeatingTool, "V_sca", {'isAutoRepeatMode':False})
 
+def CallbackDrawVoronoiQuickDimensions(self, context):
+    if StencilStartDrawCallback(self, context):
+        return
+    cusorPos = context.space_data.cursor_location
+    if self.foundGoalSkOut:
+        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=True, textSideFlip=True )
+    elif self.dsIsDrawPoint:
+        DrawWidePoint(self, cusorPos)
+class VoronoiQuickDimensionsTool(bpy.types.Operator, VoronoiOpTool):
+    bl_idname = 'node.voronoi_quick_dimensions'
+    bl_label = "Voronoi Quick Dimensions"
+    def NextAssignment(self, context):
+        if not context.space_data.edit_tree:
+            return
+        self.foundGoalSkOut = None
+        callPos = context.space_data.cursor_location
+        for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
+            nd = li.tg
+            StencilUnCollapseNode(self, False, nd)
+            list_fgSksOut = GetNearestSockets(nd, callPos)[1]
+            if not list_fgSksOut:
+                continue
+            for li in list_fgSksOut:
+                skOut = li.tg
+                tgl = skOut.type in set_skTypeFields
+                tgl |= skOut.type=='GEOMETRY' #Почему бы и нет. См. в dict_dictQuickDimensionsMain.
+                if tgl:
+                    self.foundGoalSkOut = li
+                    break
+            StencilUnCollapseNode(self, True, nd, self.foundGoalSkOut)
+            if self.foundGoalSkOut:
+                break
+    def modal(self, context, event):
+        context.area.tag_redraw()
+        match event.type:
+            case 'MOUSEMOVE':
+                VoronoiQuickDimensionsTool.NextAssignment(self, context)
+            case self.keyType|'ESC':
+                if result:=StencilModalEsc(self, context, event):
+                    return result
+                if self.foundGoalSkOut:
+                    skOut = self.foundGoalSkOut.tg
+                    tree = context.space_data.edit_tree
+                    isOutNdCol = skOut.node.bl_idname==dict_dictQuickDimensionsMain[tree.bl_idname]['RGBA'][0]
+                    txt_node = dict_dictQuickDimensionsMain[tree.bl_idname][skOut.type][isOutNdCol]
+                    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=True)
+                    aNd = tree.nodes.active
+                    aNd.width = 140
+                    if aNd.bl_idname in {dict_dictQuickDimensionsMain[tree.bl_idname]['RGBA'][0], dict_dictQuickDimensionsMain[tree.bl_idname]['VALUE'][1]}:
+                        aNd.show_options = False #Слишком неэстетично прятать без разбору, поэтому проверка выше.
+                    ##
+                    if skOut.type in set_skTypeArrFields: #Зато экономия явных определений для каждого типа.
+                        aNd.inputs[0].hide_value = True
+                    skIn = aNd.inputs[0]
+                    for ski in aNd.inputs:
+                        if CompareSkLabelName(skOut, ski):
+                            skIn = ski
+                            break
+                    NewLinkAndRemember(skOut, skIn)
+                    return {'FINISHED'}
+                return {'FINISHED'}
+        return {'RUNNING_MODAL'}
+    def invoke(self, context, event):
+        if result:=StencilBeginToolInvoke(self, context):
+            return result
+        self.foundGoalSkOut = None
+        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiQuickDimensions):
+            VoronoiQuickDimensionsTool.NextAssignment(self, context)
+        return {'RUNNING_MODAL'}
+
+AddToRegAndAddToKmiDefs(VoronoiQuickDimensionsTool, "D_scA")
+
+dict_dictQuickDimensionsMain = {
+        'ShaderNodeTree':    {'VECTOR':  ('ShaderNodeSeparateXYZ',),
+                              'RGBA':    ('ShaderNodeSeparateColor',),
+                              'VALUE':   ('ShaderNodeCombineXYZ','ShaderNodeCombineColor'),
+                              'INT':     ('ShaderNodeCombineXYZ',)},
+        'GeometryNodeTree':  {'VECTOR':  ('ShaderNodeSeparateXYZ',),
+                              'RGBA':    ('FunctionNodeSeparateColor',),
+                              'VALUE':   ('ShaderNodeCombineXYZ','FunctionNodeCombineColor'),
+                              'INT':     ('ShaderNodeCombineXYZ',),
+                              'BOOLEAN': ('ShaderNodeCombineXYZ',),
+                              'GEOMETRY':('GeometryNodeSeparateComponents',)}, #Зато одинаковый по смыслу. Воспринимать как мини-рофл.
+        'CompositorNodeTree':{'VECTOR':  ('CompositorNodeSeparateXYZ',),
+                              'RGBA':    ('CompositorNodeSeparateColor',),
+                              'VALUE':   ('CompositorNodeCombineXYZ','CompositorNodeCombineColor'),
+                              'INT':     ('CompositorNodeCombineXYZ',)},
+        'TextureNodeTree':   {'VECTOR':  ('TextureNodeSeparateColor',),
+                              'RGBA':    ('TextureNodeSeparateColor',),
+                              'VALUE':   ('TextureNodeCombineColor','TextureNodeCombineColor'), #Нет обработок отсутствия второго, поэтому два одинаковых.
+                              'INT':     ('TextureNodeCombineColor',)}}
+
 #Шаблон для быстрого и удобного добавления нового инструмента:
 def CallbackDrawVoronoiDummy(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2569,12 +2654,14 @@ class VoronoiDummyTool(bpy.types.Operator, VoronoiOpTool):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
+            StencilUnCollapseNode(self, False, nd)
             if nd.type=='REROUTE':
                 continue
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
             fgSkIn = list_fgSksIn[0] if list_fgSksIn else None
             fgSkOut = list_fgSksOut[0] if list_fgSksOut else None
             self.foundGoalSk = MinFromFgs(fgSkOut, fgSkIn)
+            StencilUnCollapseNode(self, True, nd, self.foundGoalSk)
             break
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -2673,7 +2760,7 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
                         opName = eval("bpy.types."+eval("bpy.ops."+li.idname).idname()).bl_label #Я в ахрене. Наверное кому-то стоит лучше разбираться в api.
                         txt += "#"+opName+" "+str(dict(li.properties.items()))+"\n"
                         txt += "# "+GetTxtProps(li, ('active','type','ctrl_ui','shift_ui','alt_ui','oskey_ui','key_modifier','repeat'))+"\n"
-                #Так что сохранение хоткеев с восстановлением не поддреживается.
+                #Так что сохранение хоткеев с восстановлением пока не поддреживается.
             context.window_manager.clipboard = txt
             #Для консоли: bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items['node.voronoi_linker'].type
         else:
@@ -2792,7 +2879,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                                  ('NEVER',   "Never",   ""),
                                                                                                                  ('IF_TRUE', "If true", "") ))
     vhIsToggleNodesOnDrag:     bpy.props.BoolProperty(name="Toggle nodes on drag",       default=True)
-    vhRedrawAfterChange:       bpy.props.BoolProperty(name="Redraw after change",        default=False)
+    vhReDrawAfterChange:       bpy.props.BoolProperty(name="Redraw after change",        default=False)
     vhTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
     vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                       ('NAME',     "Only name",     ""),
@@ -2801,7 +2888,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vhLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side", default=3, min=1, max=4) #Настройка выше и так какая-то бесполезная, а эта прям ваще.
     #Enum selector:
     vesIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
-    vesRedrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=False)
+    vesReDrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=False)
     vesIsInstantActivation: bpy.props.BoolProperty(name="Instant activation",   default=True)
     vesIsDrawEnumNames: bpy.props.BoolProperty(name="Draw enum names", default=False)
     vesDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
@@ -2905,7 +2992,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 AddHandSplitProp(colTool,'vhHideHiddenBoolSocket')
                 colTool.prop(self,'vhIsToggleNodesOnDrag')
                 colProp = colTool.column(align=True)
-                colProp.prop(self,'vhRedrawAfterChange')
+                colProp.prop(self,'vhReDrawAfterChange')
                 colProp.active = self.vhIsToggleNodesOnDrag
                 colTool.prop(self,'vhTriggerOnCollapsedNodes')
                 colTool.separator()
@@ -2916,14 +3003,14 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             if colTool:=AddSelfBoxDiscl(colMaster,'vesBoxDiscl', VoronoiEnumSelectorTool):
                 colTool.prop(self,'vesIsToggleNodesOnDrag')
                 colProp = colTool.column(align=True)
-                colProp.prop(self,'vesRedrawAfterChange')
+                colProp.prop(self,'vesReDrawAfterChange')
                 colProp.active = self.vesIsToggleNodesOnDrag
                 AddHandSplitProp(colTool,'vesBoxScale')
                 AddHandSplitProp(colTool,'vesDisplayLabels')
                 AddHandSplitProp(colTool,'vesDarkStyle')
                 colTool.prop(self,'vesIsInstantActivation')
                 colToolBox = colTool.column(align=True)
-                #colToolBox.active = True not self.vesIsInstantActivation #Я забыл что у VEST есть isToggleOptions, который рисует к нодам.
+                #colToolBox.active = not self.vesIsInstantActivation #Я забыл что у VEST есть isToggleOptions, который рисует к нодам.
                 AddHandSplitProp(colToolBox,'vesIsDrawEnumNames')
                 colProp = colToolBox.column(align=True)
                 colProp.active = not self.vesIsDrawEnumNames
@@ -3172,7 +3259,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vhHideBoolSocket',1):                 "Если True",
                 Gapn('vhHideBoolSocket',3):                 "Если False",
             Gapn('vhIsToggleNodesOnDrag'):              "Переключать ноды при ведении курсора",
-            Gapn('vhRedrawAfterChange'):                "Перерисовывать после изменения",
+            Gapn('vhReDrawAfterChange'):                "Перерисовывать после изменения",
             Gapn('vhTriggerOnCollapsedNodes'):          "Триггериться на свёрнутые ноды",
             Gapn('vhDrawNodeNameLabel'):                "Показывать текст для нода",
                 Gapn('vhDrawNodeNameLabel',1):              "Только имя",
