@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,1,4), 'blender':(3,6,3), #2023.09.30
+           'version':(3,1,5), 'blender':(3,6,3), #2023.09.30
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -329,6 +329,18 @@ def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide,
                 case 4: tuple_side = (-1, 1, -0.5)
             DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[0], tuple_side[2]), nd.name, col)
             DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
+def DrawNodeStencilFull(self, cusorPos, fg, txtDnnl, lds, isCanText=True):
+    if fg:
+        #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
+        #Поэтому, для нода всё одноцветное -- пользовательское для нода, или пользовательское постоянной перезаписи.
+        colNode = DrawNodeStencil(self, cusorPos, fg.pos)
+        if isCanText:
+            DrawTextNodeStencil(self, cusorPos, fg.tg, txtDnnl, lds, colNode)
+        else:
+            return colNode #Для VEST,
+    elif self.dsIsDrawPoint:
+        DrawWidePoint(self, cusorPos)
+    return False
 
 #Высокоуровневый шаблон рисования для сокетов; тут весь аддон про сокеты, поэтому в названии нет "Sk".
 #Пользоваться этим шаблоном невероятно кайфово, после того хардкора что был в ранних версиях (даже не заглядывайте туда, там около-ад).
@@ -1935,13 +1947,7 @@ def CallbackDrawVoronoiHider(self, context):
         elif self.dsIsDrawPoint:
             DrawWidePoint(self, cusorPos)
     else:
-        if self.foundGoalTg:
-            #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
-            #Поэтому, для нода всё одноцветное -- пользовательское для нода, или пользовательское постоянной перезаписи.
-            colNode = DrawNodeStencil(self, cusorPos, self.foundGoalTg.pos)
-            DrawTextNodeStencil(self, cusorPos, self.foundGoalTg.tg, self.vhDrawNodeNameLabel, self.vhLabelDispalySide, colNode)
-        elif self.dsIsDrawPoint:
-            DrawWidePoint(self, cusorPos)
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalTg, self.vhDrawNodeNameLabel, self.vhLabelDispalySide)
 class VoronoiHiderTool(bpy.types.Operator, VoronoiOpTool):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
@@ -2253,19 +2259,12 @@ def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if self.foundGoalNd:
-        #Так же, как и для VHT.
-        colNode = DrawNodeStencil(self, cusorPos, self.foundGoalNd.pos)
-        if self.vesIsDrawEnumNames: #Именно поэтому шаблон рисования для нода был разделён на два шаблона.
-            sco = -0.5
-            col = colNode if self.dsIsColoredText else GetUniformColVec(self)
-            for li in GetListOfNdEnums(self.foundGoalNd.tg):
-                DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
-                sco -= 1.5
-        else:
-            DrawTextNodeStencil(self, cusorPos, self.foundGoalNd.tg, self.vesDrawNodeNameLabel, self.vesLabelDispalySide, colNode)
-    elif self.dsIsDrawPoint:
-        DrawWidePoint(self, cusorPos)
+    if colNode:=DrawNodeStencilFull(self, cusorPos, self.foundGoalNd, self.vesDrawNodeNameLabel, self.vesLabelDispalySide, not self.vesIsDrawEnumNames):
+        sco = -0.5
+        col = colNode if self.dsIsColoredText else GetUniformColVec(self)
+        for li in GetListOfNdEnums(self.foundGoalNd.tg):
+            DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
+            sco -= 1.5
 def CallbackDrawVoronoiEnumSelectorNode(self, context): #Тут вся тусовка про... о нет.
     if StencilStartDrawCallback(self, context):
         return
@@ -2449,11 +2448,7 @@ def CallbackDrawVoronoiRepeating(self, context):
         return
     cusorPos = context.space_data.cursor_location
     if self.isAutoRepeatMode:
-        if self.foundGoalTg: #todo: кажется есть одинаковые куски кода для шаблонирования.
-            colNode = DrawNodeStencil(self, cusorPos, self.foundGoalTg.pos)
-            DrawTextNodeStencil(self, cusorPos, self.foundGoalTg.tg, self.vhDrawNodeNameLabel, self.vhLabelDispalySide, colNode)
-        elif self.dsIsDrawPoint:
-            DrawWidePoint(self, cusorPos)
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalTg, 'NONE', 0) #Здесь нет vrDrawNodeNameLabel. Может быть когда-нибудь добавлю.
     else:
         if self.foundGoalTg:
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalTg] )
@@ -2928,7 +2923,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 AddHandSplitProp(colTool,'vesDarkStyle')
                 colTool.prop(self,'vesIsInstantActivation')
                 colToolBox = colTool.column(align=True)
-                colToolBox.active = not self.vesIsInstantActivation
+                #colToolBox.active = True not self.vesIsInstantActivation #Я забыл что у VEST есть isToggleOptions, который рисует к нодам.
                 AddHandSplitProp(colToolBox,'vesIsDrawEnumNames')
                 colProp = colToolBox.column(align=True)
                 colProp.active = not self.vesIsDrawEnumNames
