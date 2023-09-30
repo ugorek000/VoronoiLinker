@@ -97,7 +97,7 @@ def RememberLastSockets(sko, ski):
             rpData.lastNd2name = ski.node.name
             rpData.lastNd2Id = ski.node.as_pointer()
             rpData.lastSk2 = ski if ski.id_data==sko.id_data else None
-def NewLinkAndRemember(tree, sko, ski):
+def NewLinkAndRemember(sko, ski):
     sko.id_data.links.new(sko, ski)
     RememberLastSockets(sko, ski)
 
