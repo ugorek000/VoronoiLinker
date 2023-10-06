@@ -1,5 +1,3 @@
-https://github.com/ugorek000/VoronoiLinker/assets/120259754/ec51db76-5ecc-49d1-bd7b-bbeb6e9e8089
-
 # VoronoiLinker
 Blender Addon for Node Editor which adds ~three~ nine new awesome tools:
 * Voronoi Linker
@@ -12,6 +10,10 @@ Blender Addon for Node Editor which adds ~three~ nine new awesome tools:
 * Voronoi EnumSelector
 * Voronoi Repeating
 * Voronoi QuickDimensions
+
+\* Планируются: \*
+* Voronoi Interface Copier
+* Voronoi Links Transfer
 
 Disclaimer: Скрипт аддона предоставляется как есть. Воспринимайте это, как археологическую находку, ни с чем не связанную. Поэтому перед использованием обязательно ознакомьтесь с содержимым того, что будете себе устанавливать. Ибо вы используете этот файл на свой страх и риск.
 
