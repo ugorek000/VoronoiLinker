@@ -3,17 +3,17 @@ Blender Addon for Node Editor which adds ~three~ nine new awesome tools:
 * Voronoi Linker
 * Voronoi Preview
 * Voronoi Mixer
-* Voronoi QuickMath
+* Voronoi Quick Math
 * Voronoi Swapper
 * Voronoi Hider
 * Voronoi MassLinker
-* Voronoi EnumSelector
+* Voronoi Enum Selector
 * Voronoi Repeating
-* Voronoi QuickDimensions
+* Voronoi Quick Dimensions
 
-\* Планируются: \*
-* Voronoi Interface Copier
-* Voronoi Links Transfer
+\* Планируются \*
+* Voronoi InterfaceCopier
+* Voronoi LinksTransfer
 
 Disclaimer: Скрипт аддона предоставляется как есть. Воспринимайте это, как археологическую находку, ни с чем не связанную. Поэтому перед использованием обязательно ознакомьтесь с содержимым того, что будете себе устанавливать. Ибо вы используете этот файл на свой страх и риск.
 
