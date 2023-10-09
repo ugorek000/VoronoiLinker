@@ -35,7 +35,6 @@ voronoiPreviewResultNdName = "SavePreviewResult"
 
 list_classes = []
 list_kmiDefs = []
-#todo: список с переводами теперь собирать таким же образом.
 
 def TranslateIface(txt):
     return bpy.app.translations.pgettext_iface(txt)
@@ -70,18 +69,14 @@ def SkBetweenFieldsCheck(self, sk1, sk2):
     return (sk1.type in set_skTypeFields)and( (self.isCanBetweenFields)and(sk2.type in set_skTypeFields)or(sk1.type==sk2.type) )
 
 
+dict_numToKey = {"1":'ONE', "2":'TWO', "3":'THREE', "4":'FOUR', "5":'FIVE', "6":'SIX', "7":'SEVEN', "8":'EIGHT', "9":'NINE', "0":'ZERO'}
 def SmartAddToRegAndAddToKmiDefs(cls, keys, dict_props={}):
     global list_classes #Понятия не имею почему без этого не может.
     if cls not in list_classes: #Благодаря этому "Smart", и регистрация инструментов стала чуть проще. Но порядок всё ещё важен,
         # может быть стоило проверять через множество, но выгода производительности почти никакая -- разовое выполнение при регистрации аддона.
         list_classes.append(cls)
     global list_kmiDefs #И тут тоже.
-    list_kmiDefs += [ (cls.bl_idname, keys[:-4], keys[-3]=="S", keys[-2]=="C", keys[-1]=="A", dict_props) ] #Мб от этих '_sca' тоже Smart.
-
-#todo выяснить, а потом:
-#    for li in (('isPassThrough', False), ('isCanBetweenFields', True)):
-#        if dict_props.get(li[0], None) is None:
-#            dict_props[li[0]] = li[1]
+    list_kmiDefs += [ (cls.bl_idname, dict_numToKey.get(keys[:-4], keys[:-4]), keys[-3]=="S", keys[-2]=="C", keys[-1]=="A", dict_props) ]
 
 
 class RepeatingData: #См. VRT.
@@ -420,7 +415,7 @@ def ForseSetSelfNonePropToDefault(kmi, self):
     for li in self.rna_type.properties:
         if li.identifier!='rna_type':
             #Заметка: определить установленность в kmi -- наличие `kmi.properties[li.identifier]`.
-            setattr(self, li.identifier, getattr(kmi.properties, li.identifier)) #Ради этого мне пришлось реверсинжерерить Blender с отладкой. А ларчик просто открывался...
+            setattr(self, li.identifier, getattr(kmi.properties, li.identifier)) #Ради этого мне пришлось реверсинженерить Blender с отладкой. А ларчик просто открывался...
 
 #Теперь ООП иерархия.
 class VoronoiOp(bpy.types.Operator):
@@ -552,7 +547,7 @@ def RestoreCollapsedNodes(nodes):
 def StencilUnCollapseNode(nd, tar=True):
     #if type(tar)==str: tar = isInverse #Остаток от возможности разворачивания нода "в любом случае".
     #if (self.vtAlwaysUnhideCursorNode)or(tar)and( not(isInverse and self.vtAlwaysUnhideCursorNode) ): #Запаянная старая версия.
-    if tar: #Стало проще, но избавляться от ^этой функции не стоит, потому что количество вызовов не изменилось, ибо 'isBoth'.
+    if tar: #Стало проще, но избавляться от этой функции не стоит, потому что количество вызовов особо не изменилось, ибо 'isBoth'.
         result = nd.hide
         nd.hide = False
         return result
@@ -1550,7 +1545,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                             self.foundGoalSkOut0 = li
                             tgl = False
                             break
-                    else: #Для isQuickQuickOpr присасываться только у типам сокетов от явно указанных операций.
+                    else: #Для isQuickQuickOpr присасываться только к типам сокетов от явно указанных операций.
                         match li.tg.type:
                             case 'VALUE'|'INT': tgl = not self.quickOprFloat
                             case 'VECTOR': tgl = not self.quickOprVector
@@ -2052,8 +2047,8 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_Sca", {'isAddMode':False, 'isIgnoreLinked':False})
+SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_scA", {'isAddMode':True,  'isIgnoreLinked':False})
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_sCA", {'isAddMode':False, 'isIgnoreLinked':True })
-#SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_scA", {'isAddMode':True,  'isIgnoreLinked':False}) #Без явного указания isIgnoreLinked почему-то оставалось True.
 
 #Нужен только для наведения порядка и эстетики в дереве.
 #Для тех, кого (например меня) напрягают "торчащие без дела" пустые сокеты выхода, или нулевые (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
@@ -2546,7 +2541,6 @@ class OpEnumSelectorBox(VoronoiOp):
 class EnumSelectorBox(bpy.types.Menu):
     bl_idname = 'VL_MT_voronoi_enum_selector_box'
     bl_label = "Enum Selector"
-    bl_options = {'UNDO'}
     def draw(self, context):
         pie = self.layout.menu_pie()
         def GetCol(where, tgl=True):
@@ -2905,7 +2899,7 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
                     #Так что сохранение хоткеев с восстановлением пока не поддреживается.
                 context.window_manager.clipboard = txt
                 #Для консоли: bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items['node.voronoi_linker'].type
-            case 'AddNewVlKmi':
+            case 'AddNewKmi':
                 bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items.new("node.voronoi_",'D','PRESS').show_expanded = True
             case _:
                 Prefs().vaUiTabs = self.opt
@@ -3211,7 +3205,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         except Exception as ex:
             colMaster.label(text=str(ex), icon='ERROR')
     def DrawTabKeymaps(self, context, where):
-        #todo: "highly targeted vqmt operations"
         colMaster = where.column()
         try:
             colMaster.separator()
@@ -3226,7 +3219,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
             set_getKmi = set()
             #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
-            #Теперь сделал так. Как работал предыдущий метод для меня загадка.
+            #Теперь сделал так. Как работал предыдущий -- метод для меня загадка.
             for liKmi in kmUNe.keymap_items:
                 if liKmi.idname.startswith("node.voronoi_"):
                     set_getKmi.add(liKmi)
@@ -3242,7 +3235,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowAddNew = rowLabelMain.row(align=True)
             rowAddNew.ui_units_x = 12
             rowAddNew.separator()
-            rowAddNew.operator(VoronoiAddonTabs.bl_idname, text="Add New", icon='ADD').opt = 'AddNewVlKmi' # NONE  ADD
+            rowAddNew.operator(VoronoiAddonTabs.bl_idname, text="Add New", icon='ADD').opt = 'AddNewKmi' # NONE  ADD
             import rna_keymap_ui
             sco = 0 #Хоткеев теперь стало тааак много, что неплохо было бы увидеть их количество.
             for li in sorted(set_getKmi, key=lambda a: a.id):
