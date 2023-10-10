@@ -661,7 +661,7 @@ def GetNearestSockets(nd, callPos): #Выдаёт список "ближайши
 
 #todo если вектор(массив) от кастомных нодов, то ручная проверка на вектор бесполезна. Нужно придумать как определить массив от обычного сокета.
 
-#Возможно когда-нибудь придётся добавить "область активации", возвращение курсора в который наверенно делает результат работы инструмента никаким. Актуально для VST с 'isIgnoreLinked'.
+#Возможно когда-нибудь придётся добавить "область активации", возвращение курсора в которую намеренно делает результат работы инструмента никаким. Актуально для VST с 'isIgnoreLinked'.
 
 def CallbackDrawVoronoiLinker(self, context):
     if StencilStartDrawCallback(self, context):
@@ -1658,7 +1658,7 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4})
-#todo придумать что-то для типов редакторов, в которых нет некоторыз их ^ типов.
+#todo придумать что-то для типов редакторов, в которых нет некоторых из ^ типов.
 
 #Быстрая математика.
 #Заполучить нод с нужной операцией и автоматическим соединением в сокеты, благодаря мощностям VL'а.
@@ -1801,7 +1801,6 @@ def DoQuickMath(event, tree, opr, isQqo=False):
             sk.default_value = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)[cyc]
     else: #Оптимизация для экономии в dict_dictDefaultValueOperation.
         tuple_col = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)
-        #for ti in tuple_col: aNd.inputs[ti[0]].default_value = ti[1]
         aNd.inputs[-2].default_value = tuple_col[0]
         aNd.inputs[-1].default_value = tuple_col[1]
     #Скрыть все сокеты по запросу. На покерфейсе, ибо залинкованные сокеты всё равно не скроются; и даже без проверки 'sk.enabled'.
@@ -3287,7 +3286,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                     if li.id<0:
                         set_kmiCustom.add(li)
                         list_sco[3] += 1
-                    elif any([getattr(li.properties, pr, None) for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor'}]):
+                    elif any([getattr(li.properties, pr, None) for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie'}]):
                         set_kmiQqm.add(li)
                         list_sco[2] += 1
                     else:
