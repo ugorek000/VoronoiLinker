@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,2,0), 'blender':(3,6,4), #2023.10.10
+           'version':(3,2,1), 'blender':(3,6,4), #2023.10.10
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -46,6 +46,7 @@ def GetSkCol(sk): #Про `NodeSocketUndefined` см. |2|. Сокеты от п�
 #В далёком будущем может быть стоит добавить мультиякори для VPT. Нод будет перенапраляться в ближайший якорь. Удаление всех якорей через "дабл призыв" на одном и том же месте; или как-нибудь.
 #todo после перехода в Blender 4.0 добавить новый инструмент VICT; ctrl shift c. Копировать имя или заголовок сокета, а потом вставка его в имя интерфейса троих всадников.
 #todo выключить бесполезные для других деревьях варианты инструментов.
+#Может быть стоит когда-нибуть добавить в свойства инструмента клавишу для модицифирования в процессе самого инструмента, например вариант Alt при Alt D для VQDT.
 
 def PowerArr4ToVec(arr, pw):
     return Vector(arr[0]**pw, arr[1]**pw, arr[2]**pw, arr[3]**pw)
@@ -510,7 +511,7 @@ def StencilToolWorkPrepare(self, context, event, Func):
     #Суета с хоткеями оператора:
     kmi = GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt))
     self.keyType = kmi.type
-    ForseSetSelfNonePropToDefault(kmi, self)
+    ForseSetSelfNonePropToDefault(kmi, self) #Из-за invoke() в VQMT придётся переезжать в StencilBeginToolInvoke(). Но пока так, а там посмотрим.
     #"0" -- количество хитов, 1..3 -- карта проверки, 4 -- предыдущее состояние переключателя, 5 -- метка активации без модификаторов.
     self.dict_isMoveOutSco = {0:0, 1:kmi.shift_ui, 2:kmi.ctrl_ui, 3:kmi.alt_ui, 4:False, 5:not(kmi.shift_ui or kmi.ctrl_ui or kmi.alt_ui)} #`4:False` потому что см. |14|.
     #Древний мейнстрим:
@@ -553,12 +554,12 @@ def StencilUnCollapseNode(nd, tar=True):
         return result
     return False
 
-class FoundTarget: #Создан для замены списка и повышения читабельности.
+class FoundTarget:
     def __init__(self, tg=None, dist=0.0, pos=Vector(0.0, 0.0), boxHeiBound=(0.0, 0.0), txt=''):
         self.tg = tg
         self.dist = dist
         self.pos = pos
-        #Далее нужно только для сокетов
+        #Далее нужно только для сокетов.
         self.boxHeiBound = boxHeiBound
         self.name = txt #Нужен для поддержки перевода на другие языки. Получать перевод каждый раз при рисовании слишком не комильфо, поэтому вычисляется в заранее.
 
@@ -599,7 +600,7 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
 #Уж было я хотел добавить велосипедную структуру ускорения, но внезапно осознал, что ещё нужна информация об "вторых ближайших". Так что кажись без полной обработки никуда.
 #Если вы знаете, как можно это ускорить с сохранением информации, поделитесь со мной.
 #С другой стороны, за всё время существования аддона не было ни одной стычки с производительностью, так что... только ради эстетики.
-#А ещё нужно учесть свёрнутые ноды, пропади они пропадом, которые могут раскрыться в процессе, наворачивая всю прелесть кеширования.
+#А ещё нужно учитывать свёрнутые ноды, пропади они пропадом, которые могут раскрыться в процессе, наворачивая всю прелесть кеширования.
 
 def GetFromIoPuts(nd, side, callPos): #Вынесено для Preview Tool его опции 'vpRvEeSksHighlighting'.
     def SkIsLinkedVisible(sk): #'is_linked' может быть выключенным линком, поэтому нужно заглядывать в содержимое.
@@ -660,6 +661,8 @@ def GetNearestSockets(nd, callPos): #Выдаёт список "ближайши
 
 #todo если вектор(массив) от кастомных нодов, то ручная проверка на вектор бесполезна. Нужно придумать как определить массив от обычного сокета.
 
+#Возможно когда-нибудь придётся добавить "область активации", возвращение курсора в который наверенно делает результат работы инструмента никаким. Актуально для VST с 'isIgnoreLinked'.
+
 def CallbackDrawVoronoiLinker(self, context):
     if StencilStartDrawCallback(self, context):
         return
@@ -673,8 +676,8 @@ def CallbackDrawVoronoiLinker(self, context):
     else:
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut, self.foundGoalSkIn] )
 #На самых истоках весь аддон создавался только ради этого инструмента. А то-то вы думаете названия одинаковые.
-#Но потом я под-ахренел от обузданных возможностей, и меня понесло... понесло на создание троицы. Но этого оказалось мало, и теперь инструментов больше семи. Чума!
-#Дублирующие комментарии есть только здесь (и в целом по убыванию). При спорных ситуациях обращаться к VLT, как к примеру.
+#Но потом я под-ахренел от обузданных возможностей, и меня понесло... понесло на создание мейнстримной тройки. Но этого оказалось мало, и теперь инструментов больше чем 7. Чума!
+#Дублирующие комментарии есть только здесь (и в целом по убыванию). При спорных ситуациях обращаться к VLT, как к истине для подражания.
 class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый первый. Босс всех инструментов. Во славу полю расстояния!
     bl_idname = 'node.voronoi_linker'
     bl_label = "Voronoi Linker"
@@ -1204,6 +1207,7 @@ class MixerData:
     sk1 = None
     skType = ""
     isHideOptions = False
+    isPlaceImmediately = False
     isSpeedPie = False
     pieScale = 0
     pieDisplaySocketTypeInfo = 0
@@ -1231,7 +1235,9 @@ def CallbackDrawVoronoiMixer(self, context):
 class VoronoiMixerTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_mixer'
     bl_label = "Voronoi Mixer"
-    isHideOptions: bpy.props.BoolProperty(name="Hide node options", default=False)
+    isCanFromOne:       bpy.props.BoolProperty(name="Can from one socket", default=True) #Стоит первым, чтобы быть похожим на VQMT в kmi.
+    isHideOptions:      bpy.props.BoolProperty(name="Hide node options",   default=False)
+    isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
@@ -1286,13 +1292,14 @@ class VoronoiMixerTool(VoronoiToolDblSk):
             case self.keyType|'ESC':
                 if result:=StencilModalEsc(self, context, event):
                     return result
-                if self.foundGoalSkOut0: #Теперь можно и с одним.
+                if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
                     mxData.sk0 = self.foundGoalSkOut0.tg
                     mxData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
                     #Поддержка виртуальных выключена; читается только из первого
                     mxData.skType = mxData.sk0.type# if mxData.sk0.bl_idname!='NodeSocketVirtual' else mxData.sk1.type
                     mxData.isSpeedPie = self.vmPieType=='SPEED'
                     mxData.isHideOptions = self.isHideOptions
+                    mxData.isPlaceImmediately = self.isPlaceImmediately
                     mxData.pieScale = self.vmPieScale
                     mxData.pieDisplaySocketTypeInfo = self.vmPieSocketDisplayType
                     mxData.pieAlignment = self.vmPieAlignment
@@ -1383,7 +1390,7 @@ def DoMix(context, isS, isC, isA, txt_node):
     tree = context.space_data.edit_tree
     if not tree:
         return
-    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=True)
+    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not mxData.isPlaceImmediately)
     aNd = tree.nodes.active
     aNd.width = 140
     txt = {'VALUE':'FLOAT'}.get(mxData.skType, mxData.skType)
@@ -1509,6 +1516,7 @@ class QuickMathData:
     depth = 0
     qmSkType = ''
     isHideOptions = False
+    isPlaceImmediately = False
     isSpeedPie = False
     pieScale = 0
     pieDisplaySocketTypeInfo = 0
@@ -1518,11 +1526,14 @@ qmData = QuickMathData()
 class VoronoiQuickMathTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_quick_math'
     bl_label = "Voronoi Quick Math"
-    isHideOptions: bpy.props.BoolProperty(name="Hide node options", default=False)
-    quickOprFloat:  bpy.props.StringProperty(name="Float",  default="")
+    quickOprFloat:  bpy.props.StringProperty(name="Float",  default="") #Они в начале, чтобы в kmi отображалось выровненным.
     quickOprVector: bpy.props.StringProperty(name="Vector", default="")
+    isCanFromOne:       bpy.props.BoolProperty(name="Can from one socket", default=True)
+    isHideOptions:      bpy.props.BoolProperty(name="Hide node options",   default=False)
+    isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
     quickOprBool:   bpy.props.StringProperty(name="Bool",   default="")
     quickOprColor:  bpy.props.StringProperty(name="Color",  default="")
+    justCallPie: bpy.props.IntProperty(name="Just call pie", default=0, min=0, max=4)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
@@ -1587,10 +1598,11 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             case self.keyType|'ESC':
                 if result:=StencilModalEsc(self, context, event):
                     return result
-                if self.foundGoalSkOut0:
+                if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
                     qmData.sk0 = self.foundGoalSkOut0.tg
                     qmData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
                     qmData.isHideOptions = self.isHideOptions
+                    qmData.isPlaceImmediately = self.isPlaceImmediately
                     qmData.qmSkType = qmData.sk0.type #Заметка: наличие только сокетов поля -- забота на уровень выше.
                     match qmData.sk0.type:
                         case 'INT': qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
@@ -1613,6 +1625,20 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
     def invoke(self, context, event):
         if result:=StencilBeginToolInvoke(self, context):
             return result
+        ForseSetSelfNonePropToDefault(GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt)), self) #todo придумать, что с этим сделать; неэстетично.
+        if self.justCallPie:
+            qmData.sk0 = None #Обнулять для полноты картины и для GetSkCol().
+            qmData.sk1 = None
+            qmData.isHideOptions = self.isHideOptions
+            qmData.isPlaceImmediately = self.isPlaceImmediately
+            qmData.qmSkType = ('VALUE','VECTOR','BOOLEAN','RGBA')[self.justCallPie-1]
+            qmData.depth = 0
+            qmData.isSpeedPie = self.vqmPieType=='SPEED'
+            qmData.pieScale = self.vqmPieScale
+            qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
+            qmData.pieAlignment = self.vqmPieAlignment
+            bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
+            return {'FINISHED'}
         self.foundGoalSkOut0 = None
         self.foundGoalSkOut1 = None
         self.isQuickQuickOpr = not not( (self.quickOprFloat)or(self.quickOprVector)or(self.quickOprBool)or(self.quickOprColor) )
@@ -1622,10 +1648,17 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Осталось на правой, чтобы не охреневать от тройного клика левой при 'Speed Pie' типе пирога.
 #Список быстрых операций для быстрой математики, "x2 комбо".
+#Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае 4-й буль скорее всего придётся делать пустым.
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'     , 'isHideOptions':True})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY', 'isHideOptions':True})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT', 'isHideOptions':True})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_scA",  {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'  , 'isHideOptions':True})
+#Хотел я реализовать это для QuickMathMain, но оказалось слишком лажа превращать технический оператор в пользовательский. Основная проблема -- qmData настроек пирога.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1})
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2})
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3})
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4})
+#todo придумать что-то для типов редакторов, в которых нет некоторыз их ^ типов.
 
 #Быстрая математика.
 #Заполучить нод с нужной операцией и автоматическим соединением в сокеты, благодаря мощностям VL'а.
@@ -1674,7 +1707,7 @@ dict_quickMathMain = {
         'BOOLEAN': tuple_tupleQuickMathMapBoolean,
         'RGBA':    tuple_tupleQuickModeMapColor}
 #Ассоциация нода для типа редактора и сокета
-dict_dictQmEditorNodes = { 
+dict_dictQmEditorNodes = {
         'VALUE':   {'ShaderNodeTree':     'ShaderNodeMath',
                     'GeometryNodeTree':   'ShaderNodeMath',
                     'CompositorNodeTree': 'CompositorNodeMath',
@@ -1690,7 +1723,7 @@ dict_dictQmEditorNodes = {
                     'CompositorNodeTree': 'CompositorNodeMixRGB',
                     'TextureNodeTree':    'TextureNodeMixRGB'} }
 #Значения по умолчанию для сокетов в зависимости от операции
-dict_dictDefaultValueOperation = { 
+dict_dictDefaultValueOperation = {
         'VALUE': {'MULTIPLY':(1.0, 1.0, 1.0),
                   'DIVIDE':(1.0, 1.0, 1.0),
                   'POWER':(2.0, 0.3333, 0.0),
@@ -1700,21 +1733,34 @@ dict_dictDefaultValueOperation = {
                    'DIVIDE':( (1,1,1), (1,1,1), (1,1,1), 1.0 ),
                    'CROSS_PRODUCT':( (0,0,1), (0,0,1), (0,0,1), 1.0 ),
                    'SCALE':( (0,0,0), (0,0,0), (0,0,0), math.pi )},
-        'BOOLEAN': {},
-        'RGBA': {} }
+        'BOOLEAN': {'AND': (True, True),
+                    'NOR': (True, True),
+                    'XOR': (False, True),
+                    'XNOR': (False, True),
+                    'IMPLY': (True, False),
+                    'NIMPLY': (True, False)},
+        'RGBA': {'ADD':       ( (0,0,0,1), (0,0,0,1) ),
+                 'SUBTRACT':  ( (0,0,0,1), (0,0,0,1) ),
+                 'MULTIPLY':  ( (1,1,1,1), (1,1,1,1) ),
+                 'DIVIDE':    ( (1,1,1,1), (1,1,1,1) ),
+                 'DIFFERENCE':( (0,0,0,1), (1,1,1,1) ),
+                 'EXCLUSION': ( (0,0,0,1), (1,1,1,1) ),
+                 'VALUE':     ( (1,1,1,1), (1,1,1,1) ),
+                 'SATURATION':( (1,1,1,1), (0,0,1,1) ),
+                 'HUE':       ( (1,1,1,1), (0,1,0,1) ),
+                 'COLOR':     ( (1,1,1,1), (1,0,0,1) ) } }
 dict_defaultDefault = {
         #Заметка: основано на типе нода, а не на типе сокета. Повезло, что они одинаковые.
         'VALUE': (0.0, 0.0, 0.0),
         'VECTOR': ((0,0,0), (0,0,0), (0,0,0), 0.0),
         'BOOLEAN': (False, False),
-        'RGBA': {(-1, (1,1,1,1)), (-2, (0,0,0,1))} #Можно было оставить без изменений, но всё равно обнуляю. Ради чего был создан VQMT?
-        }
+        'RGBA': ( (.25,.25,.25,1), (.5,.5,.5,1) ) } #Можно было оставить без изменений, но всё равно обнуляю. Ради чего был создан VQMT?
 def DoQuickMath(event, tree, opr, isQqo=False):
     txt = dict_dictQmEditorNodes[qmData.qmSkType].get(tree.bl_idname, "")
     if not txt: #Если нет в списке, то этот нод не существует (по задумке списка) в этом типе редактора => "смешивать" нечем, поэтому выходим.
         return {'CANCELLED'}
     #Ядро быстрой математики, добавить нод и создать линки:
-    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt, use_transform=True)
+    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt, use_transform=not qmData.isPlaceImmediately)
     aNd = tree.nodes.active
     if qmData.qmSkType!='RGBA': #Ох уж этот цвет.
         aNd.operation = opr
@@ -1723,6 +1769,9 @@ def DoQuickMath(event, tree, opr, isQqo=False):
         aNd.blend_type = opr
         aNd.inputs[0].default_value = 1.0
         aNd.inputs[0].hide = opr in {'ADD','SUBTRACT','DIVIDE','MULTIPLY','DIFFERENCE','EXCLUSION','VALUE','SATURATION','HUE','COLOR'}
+    #Теперь существует justCallPie, а значит пришло время скрывать значение первого сокета (но нужда в этом только для вектора).
+    if qmData.qmSkType=='VECTOR':
+        aNd.inputs[0].hide_value = True
     #Идея с event.shift гениальна. Изначально ради одиночного линка во второй сокет, но благодаря визуальному поиску ниже, может и менять местами два линка.
     skInx = aNd.inputs[0] if qmData.qmSkType!='RGBA' else aNd.inputs[-2] #"Inx", потому что пародия на int "index", но потом понял, что можно сразу в сокет для линковки далее.
     if event.shift:
@@ -1731,17 +1780,18 @@ def DoQuickMath(event, tree, opr, isQqo=False):
                 if sk.type==skInx.type: #Сравнение, потому что операция 'SCALE'.
                     skInx = sk
                     break
-    NewLinkAndRemember(qmData.sk0, skInx)
-    if qmData.sk1:
-        #Второй ищется "визуально"; сделано ради операции 'SCALE'.
-        for sk in aNd.inputs: #Ищется сверху вниз. Потому что ещё и 'MulAdd'.
-            if (sk.enabled)and(not sk.links)and(sk.type==skInx.type):
-                NewLinkAndRemember(qmData.sk1, sk)
-                break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
-    elif (not isQqo)and(event.alt): #Если alt, то соеденить первый во все.
-        for sk in aNd.inputs:
-            if sk.type==skInx.type:
-                NewLinkAndRemember(qmData.sk0, sk)
+    if qmData.sk0:
+        NewLinkAndRemember(qmData.sk0, skInx)
+        if qmData.sk1:
+            #Второй ищется "визуально"; сделано ради операции 'SCALE'.
+            for sk in aNd.inputs: #Ищется сверху вниз. Потому что ещё и 'MulAdd'.
+                if (sk.enabled)and(not sk.links)and(sk.type==skInx.type):
+                    NewLinkAndRemember(qmData.sk1, sk)
+                    break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
+        elif (not isQqo)and(event.alt): #Если alt, то соеденить первый во все.
+            for sk in aNd.inputs:
+                if sk.type==skInx.type:
+                    NewLinkAndRemember(qmData.sk0, sk)
     #Установить значение по умолчанию для второго сокета (большинство нули). Нужно для красоты; и вообще это математика.
     #Заметка: нод вектора уже создаётся по нулям, так что для него обнулять без нужды.
     tuple_default = dict_defaultDefault[qmData.qmSkType]
@@ -1751,8 +1801,9 @@ def DoQuickMath(event, tree, opr, isQqo=False):
             sk.default_value = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)[cyc]
     else: #Оптимизация для экономии в dict_dictDefaultValueOperation.
         tuple_col = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)
-        for ti in tuple_col:
-            aNd.inputs[ti[0]].default_value = ti[1]
+        #for ti in tuple_col: aNd.inputs[ti[0]].default_value = ti[1]
+        aNd.inputs[-2].default_value = tuple_col[0]
+        aNd.inputs[-1].default_value = tuple_col[1]
     #Скрыть все сокеты по запросу. На покерфейсе, ибо залинкованные сокеты всё равно не скроются; и даже без проверки 'sk.enabled'.
     if event.ctrl:
         for sk in aNd.inputs:
@@ -1767,6 +1818,7 @@ class QuickMathMain(VoronoiOp):
         #Раньше нужно было отчищать мост вручную, потому что он оставался равным последней записи. Сейчас уже не нужно.
         return {'FINISHED'}
     def invoke(self, context, event):
+        #Заметка: использование здесь ForseSetSelfNonePropToDefault() уже не работает задуманным образом для непрямого вызова этого оператора.
         tree = context.space_data.edit_tree
         if not tree:
             return {'CANCELLED'}
@@ -1792,7 +1844,7 @@ class QuickMathPie(bpy.types.Menu):
         def AddOp(where, txt, ico='NONE'):
             if not qmData.isSpeedPie:
                 where = where.row(align=True)
-                if qmData.pieDisplaySocketTypeInfo==2:
+                if (qmData.pieDisplaySocketTypeInfo==2)and(colCurSk):
                     col = where.column()
                     if qmData.pieScale>1.25:
                         row = col.column()
@@ -1808,7 +1860,7 @@ class QuickMathPie(bpy.types.Menu):
             #Автоматический перевод выключен, ибо оригинальные операции у нода математики тоже не переводятся.
             where.operator(QuickMathMain.bl_idname, text=txt.capitalize() if qmData.depth else txt, icon=ico, translate=False).operation = txt
         pie = self.layout.menu_pie()
-        colCurSk = GetSkCol(qmData.sk0)
+        colCurSk = GetSkCol(qmData.sk0) if qmData.sk0 else None #Скорее всего есть ненулевая эстетика в том, что для justCallPie цвет сокета не отображается (по крайней мере для psdt=1).
         if qmData.isSpeedPie:
             for li in qmData.list_displayItems:
                 if not li: #Для пустых записей в базе данных для быстрого пирога.
@@ -1826,7 +1878,8 @@ class QuickMathPie(bpy.types.Menu):
                 colLabel = pie.column()
                 box = colLabel.box()
                 row = box.row(align=True)
-                row.template_node_socket(color=colCurSk)
+                if colCurSk:
+                    row.template_node_socket(color=colCurSk)
                 match qmData.qmSkType:
                     case 'VALUE':   txt = "Float Quick Math"
                     case 'VECTOR':  txt = "Vector Quick Math"
@@ -1891,7 +1944,7 @@ class QuickMathPie(bpy.types.Menu):
             def DrawForCol():
                 for li in ('LIGHTEN','DARKEN','SCREEN','DODGE','LINEAR_LIGHT','SOFT_LIGHT','OVERLAY','BURN'):
                     AddOp(colRight, li)
-                for li in ('ADD','SUBTRACT','DIVIDE','MULTIPLY','DIFFERENCE','EXCLUSION'):
+                for li in ('ADD','SUBTRACT','MULTIPLY','DIVIDE','DIFFERENCE','EXCLUSION'):
                     AddOp(colLeft, li)
                 for li in ('VALUE','SATURATION','HUE','COLOR'):
                     AddOp(colCenter, li)
@@ -1918,8 +1971,8 @@ def CallbackDrawVoronoiSwapper(self, context):
 class VoronoiSwapperTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_swaper'
     bl_label = "Voronoi Swapper"
-    isAddMode:      bpy.props.BoolProperty(name="Add mode")
-    isIgnoreLinked: bpy.props.BoolProperty(name="Ignore linked")
+    isAddMode:      bpy.props.BoolProperty(name="Add mode",               default=False)
+    isIgnoreLinked: bpy.props.BoolProperty(name="Ignore linked",          default=False)
     isCanAnyType:   bpy.props.BoolProperty(name="Can swap with any type", default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
@@ -2046,8 +2099,8 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
             VoronoiSwapperTool.NextAssignment(self, context, True)
         return {'RUNNING_MODAL'}
 
-SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_Sca", {'isAddMode':False, 'isIgnoreLinked':False})
-SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_scA", {'isAddMode':True,  'isIgnoreLinked':False})
+SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_Sca")
+SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_scA", {'isAddMode':True })
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_sCA", {'isAddMode':False, 'isIgnoreLinked':True })
 
 #Нужен только для наведения порядка и эстетики в дереве.
@@ -2067,6 +2120,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
     isHideSocket: bpy.props.IntProperty(name="Hide mode", min=0, max=2)
+    isTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
     def NextAssignment(self, context):
         if not context.space_data.edit_tree:
             return
@@ -2074,7 +2128,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            if (not self.vhTriggerOnCollapsedNodes)and(nd.hide):
+            if (not self.isTriggerOnCollapsedNodes)and(nd.hide):
                 continue
             #Для этого инструмента рероуты пропускаются, по очевидным причинам.
             if nd.type=='REROUTE':
@@ -2093,23 +2147,23 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                     self.foundGoalTg = MinFromFgs(fgSkOut, fgSkIn)
                 else:
                     self.foundGoalTg = fgSkIn
-                tgl = StencilUnCollapseNode(nd, self.foundGoalTg)
-                if (tgl)and(self.vhReDrawAfterChange):
+                if StencilUnCollapseNode(nd, self.foundGoalTg):
                     StencilReNext(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать, ибо нод у присосавшегося сокета может быть свёрнут.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
-#                if self.vtAlwaysUnhideCursorNod: #Благодаря этому можно выбрать, разворачивать нод при обработке, или нет.
-#                    # К тому же логически совпадает со всем остальным. Только при ^ False никого не разворачивает.
-#                    # aucn: False    True
-#                    # Все:  Частично Все
-#                    # VHT:  Никто    Все
-#                    nd.hide = False todo:
                 if self.vhIsToggleNodesOnDrag:
                     if self.firstResult is None:
+                        #Если активация для нода ничего не изменила, то для остальных хочется иметь сокрытие, а не раскрытие. Но текущая концепция не позволяет,
+                        # информации об этом тупо нет. Поэтому реализовал это точечно во вне (здесь), а не модификацией самой реализации.
+                        LGetVisSide = lambda io: [sk for sk in io if sk.enabled and not sk.hide]
+                        list_visibleSks = [LGetVisSide(nd.inputs),LGetVisSide(nd.outputs)]
                         self.firstResult = HideFromNode(self, nd, True)
+                        HideFromNode(self, nd, self.firstResult, True) #Заметка: изменить для нода (для проверки ниже), но не трогать 'self.firstResult'.
+                        if list_visibleSks==[LGetVisSide(nd.inputs),LGetVisSide(nd.outputs)]:
+                            self.firstResult = True
                     if HideFromNode(self, nd, self.firstResult, True)and(self.vhReDrawAfterChange):
                         #Ну наконец-то смог починить. С одной стороны нет проскальзывающего кадра, с другой стороны нет "визуального" контакта с только что изменённым нодом,
-                        # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации редки.
+                        # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации не частые.
                         #Есть ещё вариант сделать изменение нода после отрисовки одного кадра, но наверное окажется тоже не очень.
                         StencilReNext(VoronoiHiderTool, self, context)
             break
@@ -2127,7 +2181,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                             if not self.vhIsToggleNodesOnDrag:
                                 #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
                                 HideFromNode(self, self.foundGoalTg.tg, HideFromNode(self, self.foundGoalTg.tg, True), True)
-                        case 1: #Скрытие сокета.
+                        case 1: #Сокрытие сокета.
                             self.foundGoalTg.tg.hide = True
                         case 2: #Переключение видимости значения сокета.
                             self.foundGoalTg.tg.hide_value = not self.foundGoalTg.tg.hide_value
@@ -2195,7 +2249,7 @@ def HideFromNode(self, nd, lastResult, isCanDo=False): #Изначально л�
             success = False
             for sk in where:
                 if (sk.enabled)and(not sk.links)and(L(sk)):
-                    success = (success)or(not sk.hide)
+                    success |= not sk.hide
                     if isCanDo:
                         sk.hide = True
             return success
@@ -2213,6 +2267,7 @@ def HideFromNode(self, nd, lastResult, isCanDo=False): #Изначально л�
             success |= CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ) #Здесь наоборот, чтобы функция гарантированно выполнилась. #todo: о чём наоборот?
         else:
             if nd.type in {'GROUP_INPUT','GROUP_OUTPUT','SIMULATION_INPUT','SIMULATION_OUTPUT'}: #Всё равно переключать последний виртуальный, даже если нет соединений во вне.
+                #todo Repeat zone и вообще вынести это^ во вне.
                 if nd.outputs:
                     sk = nd.outputs[-1]
                     if sk.bl_idname=='NodeSocketVirtual':
@@ -2277,7 +2332,7 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
     bl_label = "Voronoi MassLinker" #Единственный, у кого нет пробела. Потому что слишком котопёсный))00)0
     # А если серьёзно, то он действительно самый странный. Пародирует VLT с его dsIsAlwaysLine. SocketArea стакаются, если из нескольких в одного. Пишет в функции рисования...
     # А ещё именно он есть/будет на превью аддона, ибо обладает самой большой степенью визуальности из всех инструментов (причем без верхнего предела).
-    isIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore existing links")
+    isIgnoreExistingLinks: bpy.props.BoolProperty(name="Ignore existing links", default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
@@ -2354,8 +2409,8 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
             VoronoiMassLinkerTool.NextAssignment(self, context, True)
         return {'RUNNING_MODAL'}
 
-SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "RIGHTMOUSE_SCA", {'isIgnoreExistingLinks':True })
-SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA",  {'isIgnoreExistingLinks':False})
+SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA")
+SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "RIGHTMOUSE_SCA", {'isIgnoreExistingLinks':True})
 
 class EnumSelectorData:
     list_enumProps = [] #Для пайки, и проверка перед вызовом, есть ли вообще что.
@@ -2405,9 +2460,9 @@ def CallbackDrawVoronoiEnumSelectorNode(self, context): #Тут вся тусо�
 class VoronoiEnumSelectorTool(VoronoiToolNd):
     bl_idname = 'node.voronoi_enum_selector'
     bl_label = "Voronoi Enum Selector"
-    isToggleOptions: bpy.props.BoolProperty(name="Toggle node options mode")
-    isPieChoice:     bpy.props.BoolProperty(name="Pie choice")
-    isSelectNode:    bpy.props.BoolProperty(name="Select target node", default=True)
+    isToggleOptions: bpy.props.BoolProperty(name="Toggle node options mode", default=False)
+    isPieChoice:     bpy.props.BoolProperty(name="Pie choice",               default=False)
+    isSelectNode:    bpy.props.BoolProperty(name="Select target node",       default=True)
     def NextAssignment(self, context):
         if not context.space_data.edit_tree:
             return
@@ -2492,9 +2547,9 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
         return {'RUNNING_MODAL'}
 
 #Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'. И вообще, учитывая причину создания этого инструмента, нужно минимизировать сложность вызова.
-SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isToggleOptions':False, 'isPieChoice':True })
-SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_Sca", {'isToggleOptions':False, 'isPieChoice':False})
-SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions':True})
+SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isPieChoice':True     })
+SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_Sca", {                       })
+SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions':True })
 
 def DrawEnumSelectorBox(where, lyDomain=None):
     colMaster = where.column()
@@ -2578,8 +2633,8 @@ def CallbackDrawVoronoiRepeating(self, context):
 class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельный инструмент, чтобы не осквернять святая святых спагетти-кодом (изначально был только для VLT).
     bl_idname = 'node.voronoi_repeating'
     bl_label = "Voronoi Repeating"
-    isAutoRepeatMode: bpy.props.BoolProperty(name="Is auto repeat mode")
-    isFromOut: bpy.props.BoolProperty(name="From out")
+    isAutoRepeatMode: bpy.props.BoolProperty(name="Is auto repeat mode", default=False)
+    isFromOut:        bpy.props.BoolProperty(name="From out",            default=False)
     def NextAssignment(self, context):
         if not context.space_data.edit_tree:
             return
@@ -2664,8 +2719,8 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
             VoronoiRepeatingTool.NextAssignment(self, context)
         return {'RUNNING_MODAL'}
 
-SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_sca", {'isAutoRepeatMode':False})
-SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_Sca", {'isAutoRepeatMode':True, 'isFromOut':False})
+SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_sca")
+SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_Sca", {'isAutoRepeatMode':True })
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_scA", {'isAutoRepeatMode':True, 'isFromOut':True })
 
 def CallbackDrawVoronoiQuickDimensions(self, context):
@@ -2679,6 +2734,7 @@ def CallbackDrawVoronoiQuickDimensions(self, context):
 class VoronoiQuickDimensionsTool(VoronoiToolSk):
     bl_idname = 'node.voronoi_quick_dimensions'
     bl_label = "Voronoi Quick Dimensions"
+    isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately", default=False)
     def NextAssignment(self, context):
         if not context.space_data.edit_tree:
             return
@@ -2716,7 +2772,7 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
                     isOutNdCol = skOut.node.bl_idname==dict_qDM['RGBA'][0]
                     txt_node = dict_qDM[skOut.type][isOutNdCol]
                     ##
-                    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=True)
+                    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not self.isPlaceImmediately)
                     aNd = tree.nodes.active
                     aNd.width = 140
                     if aNd.bl_idname in {dict_qDM['RGBA'][0], dict_qDM['VALUE'][1]}:
@@ -2910,7 +2966,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vaUiTabs: bpy.props.EnumProperty(name="Addon Prefs Tabs", default='SETTINGS', items=( ('SETTINGS',"Settings",""),
                                                                                           ('DRAW',    "Draw",    ""),
                                                                                           ('KEYMAP',  "Keymap",  "") ))
-    vaShowAddonOptions: bpy.props.BoolProperty(name="VL Addon", default=False)
+    vaShowAddonOptions: bpy.props.BoolProperty(name="VL Addon:", default=False)
     vaShowAllToolsOptions: bpy.props.BoolProperty(name="All"+voronoiTextToolSettings, default=False) #todo потом поставить на True.
     vaInfoRestore: bpy.props.BoolProperty(name="", description="This list is just a copy from the \"Preferences > Keymap\".\nResrore will restore everything \"Node Editor\", not just addon")
     #Box disclosures:
@@ -2921,6 +2977,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vsBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     vhBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     vesBoxDiscl: bpy.props.BoolProperty(name="", default=True)
+    ##
+    vaKmiMainBoxDiscl:   bpy.props.BoolProperty(name="", default=True)
+    vaKmiQqmBoxDiscl:    bpy.props.BoolProperty(name="", default=True)
+    vaKmiCustomBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в StencilBeginToolInvoke().
     #Draw
     dsIsDrawText:   bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов.
@@ -2987,7 +3047,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                   ('CONTROL',"Control","") ))
     vmPieScale: bpy.props.FloatProperty(name="Pie scale", default=1.5, min=1, max=2, subtype="FACTOR")
     vmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1, min=-1, max=1)
-    vmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=2, min=0, max=2)
+    vmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=1, min=0, max=2)
     #Quick math:
     vqmPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
                                                                                    ('CONTROL',"Control","") ))
@@ -3006,9 +3066,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                                  ('IF_FALSE',"If false",""),
                                                                                                                  ('NEVER',   "Never",   ""),
                                                                                                                  ('IF_TRUE', "If true", "") ))
-    vhIsToggleNodesOnDrag:     bpy.props.BoolProperty(name="Toggle nodes on drag",       default=True)
-    vhReDrawAfterChange:       bpy.props.BoolProperty(name="Redraw after change",        default=False)
-    vhTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
+    vhIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
+    vhReDrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=False)
     vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                       ('NAME',     "Only name",     ""),
                                                                                                       ('LABEL',    "Only label",    ""),
@@ -3028,6 +3087,13 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
     vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
+    def AddDisclosureProp(self, where, who, txt_prop, txt=None, isActive=False): #Не может на всю ширину, если where -- row().
+        tgl = getattr(who, txt_prop)
+        row = where.row(align=True)
+        row.alignment = 'LEFT'
+        row.prop(who, txt_prop, text=txt, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
+        row.active = isActive
+        return tgl
     def AddHandSplitProp(self, where, txt_prop, tgl=True):
         spl = where.row().split(factor=0.38, align=True)
         spl.active = tgl
@@ -3044,16 +3110,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         else:
             spl.prop(self, txt_prop, text="" if isNotBool else None)
     def DrawTabSettings(self, context, where):
+        AddDisclosureProp = self.AddDisclosureProp
         AddHandSplitProp = self.AddHandSplitProp
         def FastBox(where):
             return where.box().column(align=True)
-        def AddDisclosureProp(where, who, txt_prop, txt=None, isActive=False): #Не может на всю ширину, если where -- row().
-            tgl = getattr(who, txt_prop)
-            row = where.row(align=True)
-            row.alignment = 'LEFT'
-            row.prop(who, txt_prop, text=txt, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
-            row.active = isActive
-            return tgl
         def AddSelfBoxDiscl(where, txt_prop, cls=None):
             colBox = FastBox(where)
             if AddDisclosureProp(colBox, self, txt_prop, txt=(cls.bl_label+voronoiTextToolSettings) if cls else None):
@@ -3072,7 +3132,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 else:
                     where.prop(who, txt_prop)
             if colTool:=AddSelfBoxDiscl(colMaster,'vaShowAllToolsOptions'):
-#                colTool.prop(self,'vtSearchMethod')
+                #colTool.prop(self,'vtSearchMethod')
                 colTool.prop(self,'vtRepickTrigger')
             if colTool:=AddSelfBoxDiscl(colMaster,'vlBoxDiscl', VoronoiLinkerTool):
                 LeftProp(colTool, self,'vlReroutesCanInAnyType')
@@ -3112,7 +3172,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colProp = colTool.column(align=True)
                 LeftProp(colTool, self,'vhReDrawAfterChange')
                 colProp.active = self.vhIsToggleNodesOnDrag
-                LeftProp(colTool, self,'vhTriggerOnCollapsedNodes')
                 colTool.separator()
                 AddHandSplitProp(colTool,'vhDrawNodeNameLabel')
                 colProp = colTool.column(align=True)
@@ -3217,12 +3276,24 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowLabelPost.active = False
             colList = colMaster.column(align=True)
             kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
-            set_getKmi = set()
+            set_kmiMain = set()
+            set_kmiQqm = set()
+            set_kmiCustom = set()
             #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
             #Теперь сделал так. Как работал предыдущий -- метод для меня загадка.
-            for liKmi in kmUNe.keymap_items:
-                if liKmi.idname.startswith("node.voronoi_"):
-                    set_getKmi.add(liKmi)
+            list_sco = [0, 0, 0, 0] #Хоткеев теперь стало тааак много, что неплохо было бы узнать их количество.
+            for li in kmUNe.keymap_items:
+                if li.idname.startswith("node.voronoi_"):
+                    if li.id<0:
+                        set_kmiCustom.add(li)
+                        list_sco[3] += 1
+                    elif any([getattr(li.properties, pr, None) for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor'}]):
+                        set_kmiQqm.add(li)
+                        list_sco[2] += 1
+                    else:
+                        set_kmiMain.add(li)
+                        list_sco[1] += 1
+                    list_sco[0] += 1 #..количество по факту префикса.
             if kmUNe.is_user_modified:
                 rowRestore = rowLabelMain.row(align=True)
                 rowInfo = rowRestore.row()
@@ -3237,15 +3308,25 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowAddNew.separator()
             rowAddNew.operator(VoronoiAddonTabs.bl_idname, text="Add New", icon='ADD').opt = 'AddNewKmi' # NONE  ADD
             import rna_keymap_ui
-            sco = 0 #Хоткеев теперь стало тааак много, что неплохо было бы увидеть их количество.
-            for li in sorted(set_getKmi, key=lambda a: a.id):
-                colList.context_pointer_set('keymap', kmUNe)
-                rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmUNe, li, colList, 0)
-                sco += 1 #..количество по факту отображения.
-            rowLabelPost.label(text=f"({sco})")
+            tuple_cats = (('vaKmiMainBoxDiscl',"Main"), ('vaKmiQqmBoxDiscl',"Quick quick math"), ('vaKmiCustomBoxDiscl',"Custom"))
+            def AddKmisCategory(where, set_of, inx):
+                if not set_of:
+                    return
+                colListCat = where.row().column(align=True)
+                rowDiscl = colListCat.row(align=True)
+                rowDiscl.active = False
+                tgl = self.AddDisclosureProp(rowDiscl, self, tuple_cats[inx][0], tuple_cats[inx][1]+f" ({list_sco[inx+1]}):")
+                if not tgl:
+                    return
+                for li in sorted(set_of, key=lambda a: a.id):
+                    colListCat.context_pointer_set('keymap', kmUNe)
+                    rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmUNe, li, colListCat, 0) #Заметка: если colListCat будет не colListCat, то возможность удалоения kmi станет недоступной.
+            AddKmisCategory(colList, set_kmiCustom, 2)
+            AddKmisCategory(colList, set_kmiMain, 0)
+            AddKmisCategory(colList, set_kmiQqm, 1)
+            rowLabelPost.label(text=f"({list_sco[0]})")
         except Exception as ex:
             colMaster.label(text=str(ex), icon='ERROR')
-    #Здесь была благодарность пользователю за идею вкладок. Теперь моего уровня питона стало достаточно.
     def draw(self, context):
         colMaster = self.layout.column()
         colMain = colMaster.column(align=True)
@@ -3382,7 +3463,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vhHideBoolSocket',3):             "Если False",
             Gapn('vhIsToggleNodesOnDrag'):          "Переключать ноды при ведении курсора",
             Gapn('vhReDrawAfterChange'):            "Перерисовывать после изменения",
-            Gapn('vhTriggerOnCollapsedNodes'):      "Триггериться на свёрнутые ноды",
+#            Gapn('vhTriggerOnCollapsedNodes'):      "Триггериться на свёрнутые ноды",
             Gapn('vhDrawNodeNameLabel'):            "Показывать текст для нода",
                 Gapn('vhDrawNodeNameLabel',1):          "Только имя",
                 Gapn('vhDrawNodeNameLabel',2):          "Только заголовок",
