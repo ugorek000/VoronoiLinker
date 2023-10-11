@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,2,1), 'blender':(3,6,4), #2023.10.10
+           'version':(3,2,2), 'blender':(3,6,4), #2023.10.11
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -464,12 +464,13 @@ def ProcCanMoveOut(self, event):
 
 #Шаблоны в порядке по нахождению в коде:
 
-def StencilReNext(cls, self, context, tgl=None): #tgl -- костыль, и лишение простора для NextAssignment().
+def StencilReNext(self, context, *naArgs):
     bpy.ops.wm.redraw_timer(type='DRAW_WIN', iterations=0) #Заставляет курсор меняться на мгновение.
-    if tgl is None:
-        cls.NextAssignment(self, context) #Через self.NextAssignment не работает чёрт возьми, по неведомым мне причинам. Видимо я чего-то не знаю.
-    else: #v^ Осторожно в вызывающем уровне, чтобы не уйти в вечный цикл!
-        cls.NextAssignment(self, context, tgl)
+    #Заметка: осторожно в вызывающем уровне, чтобы не уйти в вечный цикл!
+    if naArgs:
+        self.NextAssignment(context, naArgs)
+    else:
+        self.NextAssignment(context)
 
 def StencilModalEsc(self, context, event):
     if event.type=='ESC': #Собственно то, что и должна делать клавиша побега.
@@ -693,7 +694,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
             #Свёрнутость для рероутов работает, хоть и не отображается визуально; но теперь нет нужды обрабатывать,
             if StencilUnCollapseNode(nd, isBoth): # ибо поддержка свёрнутости введена.
                 #Нужно перерисовывать, если соединилось во вход свёрнутого нода.
-                #StencilReNext(VoronoiLinkerTool, self, context, False)
+                #StencilReNext(self, context, False)
                 #todo нужно было, а теперь оно само работает. Чёрная магия. Нужно понять почему.
                 pass
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
@@ -731,12 +732,11 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                                 #Используемый в проверке выше "self.foundGoalSkIn" обнуляется, поэтому нужно выходить, иначе будет попытка чтения из несуществующего элемента следующей итерацией.
                                 break
                     if StencilUnCollapseNode(nd): #"Мейнстримная" обработка свёрнутости.
-                        StencilReNext(VoronoiLinkerTool, self, context, False)
+                        StencilReNext(self, context, False)
             break #Обработать нужно только первый ближайший, удовлетворяющий условиям. Иначе результатом будет самый дальний.
         if (self.vlAutoUnhideVirtual)and(self.foundGoalSkOut)and(self.foundGoalSkOut.tg.node.type=='GROUP_INPUT'):
             self.foundGoalSkOut.tg.node.outputs[-1].hide = False
     def modal(self, context, event):
-#        a = a #todo: проверить с последовательным наличием по инструменту.
         context.area.tag_redraw() #Неожиданно, но кажется теперь оно перерисовывается само по себе. Но только при каких-то обстоятельствах. Ибо для некоторых инструментов
         # в кастомных деревьях если у нодов нет сокетов.. что-то не работает.
         isCanReOut = ProcCanMoveOut(self, event) #Находится здесь, потому что должно обрабатываться не только от движения курсора, а сразу после нажатии модификатора.
@@ -874,17 +874,23 @@ class VoronoiPreviewTool(VoronoiToolSk):
             #В случае успеха переходить к сокетам:
             list_fgSksOut = GetNearestSockets(nd, callPos)[1]
             for li in list_fgSksOut:
-                #Этот инструмент триггерится на любой выход кроме виртуального. В геометрических нодах искать только выходы геометрии.
-                #Якорь притягивает на себя превиев; рероут может принимать любой тип; следовательно -- при наличии якоря отключать триггер только на геосокеты
-                if (li.tg.bl_idname!='NodeSocketVirtual')and( (context.space_data.tree_type!='GeometryNodeTree')or(li.tg.type=='GEOMETRY')or(isAncohorExist) ):
-                    if (not(self.isTriggerOnlyOnLink))or(li.tg.is_linked): #Помощь в реверс-инженеринге, триггериться только на существующие линки. Ускоряет процесс "считывания/понимания" дерева.
-                        self.foundGoalSkOut = li
-                        break
+                #Игнорировать свои сокеты мостов здесь. Нужно для нод нодгрупп, у которых "торчит" сокет моста и к которому произойдёт присасывание без этой проверки; и после чего они будут удалены в PreviewFromSk().
+                if li.tg.name!=voronoiSkPreviewName:
+                    #Этот инструмент триггерится на любой выход кроме виртуального. В геометрических нодах искать только выходы геометрии.
+                    #Якорь притягивает на себя превиев; рероут может принимать любой тип; следовательно -- при наличии якоря отключать триггер только на геосокеты
+                    if (li.tg.bl_idname!='NodeSocketVirtual')and( (context.space_data.tree_type!='GeometryNodeTree')or(li.tg.type=='GEOMETRY')or(isAncohorExist) ):
+                        if (not(self.isTriggerOnlyOnLink))or(li.tg.is_linked): #Помощь в реверс-инженеринге, триггериться только на существующие линки. Ускоряет процесс "считывания/понимания" дерева.
+                            self.foundGoalSkOut = li
+                            break
             if (self.foundGoalSkOut)or(not(self.isTriggerOnlyOnLink)):
                 break #Завершать в случае успеха, или пока не будет сокет с линком.
         if self.foundGoalSkOut:
             if self.vpIsLivePreview:
-                self.foundGoalSkOut.tg = DoPreview(self, context, self.foundGoalSkOut.tg) #Повторное присваивание нужно если в процессе сокет потеряется. См. |3|
+#                self.foundGoalSkOut.tg = PreviewFromSk(self, context, self.foundGoalSkOut.tg) #Повторное присваивание нужно если в процессе сокет потеряется. См. |3|
+                try:
+                    PreviewFromSk(self, context, self.foundGoalSkOut.tg)
+                except: #todo придумать что делать с ошибками в NA() во всех инструментах.
+                    pass
             if self.vpRvEeIsColorOnionNodes: #Помощь в реверс-инженеринге, вместо поиска глазами тоненьких линий, быстрое визуальное считывание связанных нод топологией.
                 for nd in context.space_data.edit_tree.nodes:
                     nd.use_custom_color = False #Не париться с запоминанием последних и тупо выключать у всех каждый раз. Дёшево и сердито.
@@ -913,7 +919,7 @@ class VoronoiPreviewTool(VoronoiToolSk):
                     return result
                 if not self.foundGoalSkOut:
                     return {'CANCELLED'}
-                DoPreview(self, context, self.foundGoalSkOut.tg)
+                PreviewFromSk(self, context, self.foundGoalSkOut.tg)
                 RememberLastSockets(self.foundGoalSkOut.tg, None)
                 if self.vpRvEeIsColorOnionNodes:
                     for nd in context.space_data.edit_tree.nodes:
@@ -981,226 +987,241 @@ class VoronoiPreviewAnchorTool(VoronoiTool):
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewTool,       "LEFTMOUSE_SCa")
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewAnchorTool, "RIGHTMOUSE_SCa")
 
-tuple_shaderNodesWithColor = ('BSDF_ANISOTROPIC','BSDF_DIFFUSE',         'BSDF_GLASS',       'BSDF_GLOSSY',
-                              'BSDF_HAIR',       'BSDF_HAIR_PRINCIPLED', 'PRINCIPLED_VOLUME','BACKGROUND',
-                              'BSDF_REFRACTION' ,'SUBSURFACE_SCATTERING','BSDF_TOON',        'BSDF_TRANSLUCENT',
-                              'BSDF_TRANSPARENT','BSDF_VELVET',          'VOLUME_ABSORPTION','VOLUME_SCATTER',
-                              'BSDF_PRINCIPLED', 'EEVEE_SPECULAR',       'EMISSION')
-def GetSkIndex(sk):
+def GetSkIndex(sk): #todo посмотреть использующих.
     return int(sk.path_from_id().split(".")[-1].split("[")[-1][:-1]) if sk else -1
-def DoPreview(self, context, goalSk):
-    if not goalSk: #Для |3|, и просто общая проверка.
-        return None
-    def GetTrueTreeWay(context, nd):
-        #NodeWrangler находил путь рекурсивно через активный нод дерева, используя "while tree.nodes.active != context.active_node:" (строка 613 в версии 3.43).
-        #Этот способ имеет недостатки, ибо активным нодом может оказаться не нод-группа, банально тем, что можно открыть два окна редактора и спокойно нарушить этот "путь".
-        #Погрузившись в документацию и исходный код я обнаружил простой api -- ".space_data.path". См. https://docs.blender.org/api/current/bpy.types.SpaceNodeEditorPath.html
-        #Это "честный" api, дающий доступ для редактора узлов к пути от базы до финального дерева, отображаемого прямо сейчас.
-        list_wayTreeNd = [ [ph.node_tree, ph.node_tree.nodes.active] for ph in reversed(context.space_data.path) ] #Путь реверсирован. 0-й -- целевой, последний -- корень
-        #Как я могу судить, сама суть реализации редактора узлов не хранит >нод<, через который пользователь зашёл в группу (но это не точно).
-        #Поэтому если активным оказалась не нод-группа, то заменить на первый найденный-по-группе нод (или ничего, если не найдено)
-        for cyc in range(1, length(list_wayTreeNd)):
-            li = list_wayTreeNd[cyc]
-            if (not li[1])or(li[1].type!='GROUP')or(li[1].node_tree!=list_wayTreeNd[cyc-1][0]): #Определить некорректного.
-                li[1] = None #Если ниже не найден, то останется имеющийся неправильный. Поэтому обнулить его.
-                for nd in li[0].nodes:
-                    if (nd.type=='GROUP')and(nd.node_tree==list_wayTreeNd[cyc-1][0]): #Если в текущей глубине с неправильным нодом имеется нод группы с правильной группой.
-                        li[1] = nd
-                        break #Починка этой глубины произошла успешно.
-        return list_wayTreeNd
-    curTree = context.space_data.edit_tree
-    #|12| Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента.
-    #Должно было стать логическим продолжением после "завершение после напарывания", но допёр до этого только сейчас.
-    if not curTree.nodes.get(voronoiAnchorName):
-        #Удалить все свои следы предыдущего использования для всех нод-групп, чей тип текущего редактора такой же.
-        for ng in bpy.data.node_groups:
-            if ng.bl_idname==context.space_data.tree_type:
-                sk = True
-                while sk: #Ищется по имени. Пользователь может сделать дубликат, от чего без while они будут исчезать по одному каждое движение мыши.
-                    sk = ng.outputs.get(voronoiSkPreviewName)
-                    if sk:
-                        ng.outputs.remove(sk)
-    #|3| Переполучить сокет. Нужен в ситуациях присасывания к своим сокетам предпросмотра, которые исчезли.
-    #todo: подробнее описать и осознать проблему повторно с |3|.
-    if GetSkIndex(goalSk)==-1:
-        return None #Если сокет был удалён, вернуться.
-    #Выстроить путь:
-    list_wayTreeNd = GetTrueTreeWay(context, goalSk.node)
-    higWay = length(list_wayTreeNd)-1
-    ixSkLastUsed = -1 #См. |4|
-    isZeroPreviewGen = True #См. |5|
-    for cyc in range(higWay+1):
-        ndIn = None
-        skOut = None
-        skIn = None
-        #Проверка по той же причине, по которой мне не нравится способ от NW. #todo описать подробнее
-        isPrecipice = (list_wayTreeNd[cyc][1]==None)and(cyc>0) #Обрыв обрабатывается на очередной глубине, ибо случай тривиален. Но не обрабатывается у корня, ибо догадайтесь сами.
-        #Найти принимающий нод текущего уровня
-        if (cyc!=higWay)and(not isPrecipice): #"not isPrecipice" -- в случае обрыва найти принимающий нод в коре, (а потом продолжить обработку обрыва).
-            for nd in list_wayTreeNd[cyc][0].nodes:
+
+class WayTree:
+    def __init__(self, tree=None, nd=None):
+        self.tree = tree
+        self.nd = nd
+        self.isCorrect = None #Целевой глубине не с кем сравнивать.
+        self.isUseExtAndSkPr = None #Оптимизация для чистки.
+        self.prLink = None #Для более адекватной организации для RvEe.
+def GetTreesPath(context, nd):
+    list_path = [ WayTree(pt.node_tree, pt.node_tree.nodes.active) for pt in context.space_data.path ]
+    #Как я могу судить, сама суть реализации редактора узлов не хранит >нод<, через который пользователь зашёл в группу (но это не точно).
+    #Поэтому если активным оказалась не нод-группа, то заменить на первый найденный-по-группе нод (или ничего, если не найдено)
+    for curWy, upWy in zip(list_path, list_path[1:]):
+        if (not curWy.nd)or(curWy.nd.type!='GROUP')or(curWy.nd.node_tree!=upWy.tree): #Определить отсутствие связи между глубинами.
+            curWy.nd = None #Избавиться от текущего неправильного. Уж лучше останется никакой.
+            for nd in curWy.tree.nodes:
+                if (nd.type=='GROUP')and(nd.node_tree==upWy.tree): #Если в текущей глубине с неправильным нодом имеется нод группы с правильной группой.
+                    curWy.nd = nd
+                    break #Починка этой глубины успешно завершена.
+        curWy.isCorrect = curWy.nd==upWy.tree #По факту.
+    return list_path
+
+def GetRootNd(tree):
+    match tree.bl_idname:
+        case 'ShaderNodeTree':
+            for nd in tree.nodes:
+                if (nd.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT'})and(nd.is_active_output):
+                    return nd
+        case 'GeometryNodeTree':
+            for nd in tree.nodes:
+                if (nd.type=='VIEWER')and([sk.links for sk in nd.inputs]): #todo протестить.
+                    return nd
+            for nd in tree.nodes:
                 if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
-                    ndIn = nd
-        else:
-            match context.space_data.tree_type:
-                case 'ShaderNodeTree':
-                    for nd in list_wayTreeNd[higWay][0].nodes:
-                        if nd.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT'}:
-                            if nd.is_active_output:
-                                #Соединять в сокет объёма, если предпросматриваемый сокет имеет имя "Объём" и тип принимающего нода имеет вход для объёма
-                                skIn = nd.inputs[ (goalSk.name=="Volume")*(nd.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD'}) ]
-                case 'GeometryNodeTree':
-                    for nd in list_wayTreeNd[higWay][0].nodes:
-                        if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
-                            for sk in nd.inputs:
-                                if sk.type=='GEOMETRY':
-                                    skIn = sk
-                                    break #Важно найти самый первый сверху <=> продолжать цикл без нужды, уже найдено.
-                case 'CompositorNodeTree':
-                    for nd in list_wayTreeNd[higWay][0].nodes:
-                        if nd.type=='VIEWER':
-                            skIn = nd.inputs[0]
-                    if not skIn: #Если не нашёлся композитный виевер, искать основной нод вывода.
-                        for nd in list_wayTreeNd[higWay][0].nodes:
-                            if (nd.type=='COMPOSITE'):
-                                skIn = nd.inputs[0]
-                case 'TextureNodeTree':
-                    for nd in list_wayTreeNd[higWay][0].nodes:
-                        if nd.type=='OUTPUT':
-                            skIn = nd.inputs[0]
-            if skIn: #Если найдено успешно, то установить нод из найденного сокета.
-                ndIn = skIn.node
-        if isPrecipice: #Если активный нод на пути удалился, то продолжать путь не от кого.
-            #Можно просто выйти, а можно создать "группу перед обрывом" в корне и соединить.
-            if skIn: #Наличие обрыва не означает, что корень точно будет. Он тоже может потеряться.
-                tree = list_wayTreeNd[higWay][0]
-                ndOut = None #Для того, чтобы найти имеющийся или иначе создать.
-                for nd in tree.nodes:
-                    nd.select = False
-                    if (nd.type=='GROUP')and(nd.node_tree==list_wayTreeNd[cyc-1][0]):
-                        ndOut = nd
-                        break
-                #todo: закоментить
-                ndOut = ndOut or tree.nodes.new(tree.bl_idname.replace("Tree", "Group"))
-                ndOut.node_tree = list_wayTreeNd[cyc-1][0]
-                tree.links.new(ndOut.outputs.get(voronoiSkPreviewName), skIn)
-                ndOut.location = ndIn.location-Vector(ndOut.width+20, 0)
-            return goalSk
-        #Определить сокет отправляющего нода
-        if cyc==0:
-            skOut = goalSk
-        else:
-            skOut = list_wayTreeNd[cyc][1].outputs.get(voronoiSkPreviewName) #Получить по имени на очередной глубине.
-            if (not skOut)and(ixSkLastUsed in range(length(list_wayTreeNd[cyc][1].outputs))): #Если нет своего превиева, то получить от |4|.
-                skOut = list_wayTreeNd[cyc][1].outputs[ixSkLastUsed]
-        #Определить сокет принимающего нода:
-        #|4| Моё улучшающее изобретение -- если соединение уже имеется, то зачем создавать рядом такое же?.
-        #Это эстетически комфортно, а так же помогает отчистить последствия предпросмотра не выходя из целевой глубины.
-        for lk in skOut.links: #Если этот сокет соединён куда-то.
-            if lk.to_node==ndIn: #Если соединён с нодом для соединения.
-                skIn = lk.to_socket #Выбрать его сокет => соединять с voronoiSkPreviewName не придётся, оно уже.
-                ixSkLastUsed = GetSkIndex(skIn) # И так может продолжаться до самого корня.
-        #Если не удобный |4|, то создать очередной новый сокет для вывода
-        if (not skIn)and(cyc!=higWay): #Вторая проверка нужна для ситуации если корень потерял вывод. В геонодах не страшно, но в других будет обработка "как есть".
-            if context.space_data.tree_type=='GeometryNodeTree':
-                txt = "NodeSocketGeometry"
-            elif skOut.type=='SHADER':
-                txt = "NodeSocketShader"
-            else:
-                #Почему цвет, а не шейдер, как у NW'а? Потому что иногда есть нужда вставить нод куда-то в пути превиева.
-                #Но если линки шейдерные -- готовьтесь к разочарованию. Поэтому цвет; кой и был изначально у NW.
-                txt = "NodeSocketColor"
-            #Скрыть отображение значения у NodeSocketInterface, а не у конкретного нода в который соединяется
-            if not list_wayTreeNd[cyc][0].outputs.get(voronoiSkPreviewName): #См. |12|
-                list_wayTreeNd[cyc][0].outputs.new(txt, voronoiSkPreviewName).hide_value = True #Не путать интерфейс и сокет у конкретного нода.
-            if not ndIn: #Если выводы групп куда-то потерялись, то создать его самостоятельно, вместо того чтобы остановиться, и не знать что делать.
-                ndIn = list_wayTreeNd[cyc][0].nodes.new('NodeGroupOutput')
-                #Если потеря в целевой глубине, то нодом должен быть нод целевого сокета, а его там может не оказаться, ибо в пути содержится дерево и его активный нод. todo: понять повторно.
-                ndIn.location = list_wayTreeNd[cyc][1].location
-                ndIn.location.x += list_wayTreeNd[cyc][1].width*2
-            skIn = ndIn.inputs.get(voronoiSkPreviewName)
-            isZeroPreviewGen = False
-        #Удобный сразу-в-шейдер. (Такое же изобретение, как и |4|, только чуть менее удобное. Мб стоит избавиться от такой возможности)
-        #Основной приём для шейдеров -- цвет, поэтому проверять нужно только для сокетов цвета.
-        #Продолжить проверку если у корня есть вывод, и он куда-то подсоединён (может быть это окажется шейдер).
-        if (self.vpIsAutoShader)and(skOut.type=='RGBA')and(skIn)and(length(skIn.links)>0):
-            #Мультиинпутов у корней не бывает, так что проверяется первый линк сокета. И если его нод находится в группе с "шейдерами что имеют цвет", то продолжить.
-            #|5| isZeroPreviewGen нужен, чтобы если просмотр из группы, то не соединятся в шейдер; но если это был "тру" путь без создания voronoiSkPreviewName, то из групп соединяться можно
-            if (skIn.links[0].from_node.type in tuple_shaderNodesWithColor)and(isZeroPreviewGen):
-                #Если сокет шейдера подсоединён только в корень
-                if length(skIn.links[0].from_socket.links)==1:
-                    #То тогда однозначный вариант определён, сменить сокет вывода с корня на сокет цвета шейдера. Повезло, что у всех шейдеров цвет именуется одинаково (почти у всех).
-                    skIn = skIn.links[0].from_node.inputs.get("Color") or skIn.links[0].from_node.inputs.get("Base Color")
+                    for sk in nd.inputs:
+                        if sk.type=='GEOMETRY':
+                            return nd
+        case 'CompositorNodeTree':
+            for nd in tree.nodes:
+                if nd.type=='VIEWER':
+                    return nd
+            for nd in tree.nodes:
+                if nd.type=='COMPOSITE':
+                    return nd
+        case 'TextureNodeTree':
+            for nd in tree.nodes:
+                if nd.type=='OUTPUT':
+                    return nd
+    return None
+def GetRootSk(tree, ndRoot, targetSk):
+    match tree.bl_idname:
+        case 'ShaderNodeTree':
+            return ndRoot.inputs[ (targetSk.name=="Volume")*(ndRoot.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD'}) ]
+        case 'GeometryNodeTree':
+            for sk in ndRoot.inputs:
+                if sk.type=='GEOMETRY':
+                    return sk
+    return ndRoot.inputs[0] #Заметка: здесь окажется неудачный от GeometryNodeTree выше.
+
+featureUsingExistingPath = True
+def DoPreview(context, targetSk): #todo стоит ли просекаться сквозь симуляцию и зону повторения, или игнорировать их?
+    def NewLostNode(txt_type, ndTar=None):
+        ndNew = tree.nodes.new(txt_type)
+        if ndTar:
+            ndNew.location = ndTar.location
+            ndNew.location.x += ndTar.width*2
+        return ndNew
+    def GetSkFromIdf(io, idf):
+        for sk in io:
+            if sk.identifier==idf:
+                return sk
+        return None
+    list_way = GetTreesPath(context, targetSk.node)
+    higWay = length(list_way)-1
+    list_way[higWay].nd = targetSk.node #Подразумеваемым гарантией-конвеером глубин заходов целевой не обрабатывается, поэтому указывать явно. (Незабыть перевести с эльфийского на русский)
+    ##
+    previewSkType = "RGBA" #Цвет, а не шейдер -- потому что иногда есть нужда вставить нод куда-то в пути превиева.
+    if list_way[0].tree.bl_idname=='GeometryNodeTree':
+        previewSkType = "GEOMETRY"
+    elif targetSk.type=='SHADER':
+        previewSkType = "SHADER"
+    #Но если линки шейдерные -- готовьтесь к разочарованию. Поэтому цвет (кой и был изначально у NW).
+    idLastSkEx = '' #Для featureUsingExistingPath.
+    for cyc in reversed(range(higWay+1)):
+        def GetBridgeSk(io):
+            sk = io.get(voronoiSkPreviewName)
+            if (sk)and(sk.type!=previewSkType):
+                tree.outputs.remove(tree.outputs.get(voronoiSkPreviewName))
+                return None
+            return sk
+        def GetTypeSkfBridge():
+            match previewSkType:
+                case 'GEOMETRY': return "NodeSocketGeometry"
+                case 'SHADER':   return "NodeSocketShader"
+                case 'RGBA':     return "NodeSocketColor"
+        curWay = list_way[cyc]
+        tree = curWay.tree
+        #Определить отправляющий нод:
+        portalFromNd = curWay.nd #targetSk.node уже включён в путь для cyc==higWay.
+        isCreatedNgOut = False
+        if not portalFromNd:
+            portalFromNd = tree.nodes.new(tree.bl_idname.replace("Tree","Group"))
+            portalFromNd.node_tree = list_way[cyc+1].tree
+            isCreatedNgOut = True #Чтобы установить позицию нода от принимающего нода, который сейчас неизвестен.
+        #Определить принимающий нод:
+        portalToNd = None
+        if not cyc: #Корень.
+            portalToNd = GetRootNd(tree)
+            if not portalToNd:
+                #"Визуальное оповещение", что соединяться некуда. Можно было бы и вручную добавить, но лень шататься с принимающими нодами ShaderNodeTree'а.
+                portalToNd = NewLostNode('NodeReroute', portalFromNd)
+        else: #Очередная глубина.
+            for nd in tree.nodes:
+                if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
+                    portalToNd = nd
+                    break
+            if not portalToNd:
+                #Создать вывод группы самостоятельно, вместо того чтобы остановиться и не знать что делать.
+                portalToNd = NewLostNode('NodeGroupOutput', portalFromNd)
+        if isCreatedNgOut:
+            portalFromNd.location = portalToNd.location-Vector(portalFromNd.width+40, 0)
+        #Определить отправляющий сокет:
+        portalFromSk = None
+        if (featureUsingExistingPath)and(idLastSkEx):
+            portalFromSk = GetSkFromIdf(portalFromNd.outputs, idLastSkEx)
+            idLastSkEx = '' #Важно обнулять. Выбранный сокет может не иметь линков или связи до следующего портала, отчего на следующей глубине будут несоответствия.
+        if not portalFromSk:
+            portalFromSk = targetSk if cyc==higWay else GetBridgeSk(portalFromNd.outputs)
+        #Определить принимающий сокет:
+        portalToSk = None
+        if (featureUsingExistingPath)and(cyc): #Имеет смысл записывать для не-корня.
+            #Моё улучшающее изобретение -- если соединение уже имеется, то зачем создавать рядом такое же?.
+            #Это эстетически комфортно, а так же помогает отчистить последствия предпросмотра не выходя из целевой глубины (добавлены условия, см. чистку).
+            for lk in portalFromSk.links:
+                #Поскольку интерфейсы не удаляются, вместо мейнстрима ниже он заполучится отсюда (и результат будет таким же), поэтому вторая проверка для isUseExtAndSkPr.
+                if (lk.to_node==portalToNd)and(lk.to_socket.name!=voronoiSkPreviewName):
+                    portalToSk = lk.to_socket
+                    idLastSkEx = portalToSk.identifier #Выходы нода нодгруппы и входы выхода группы совпадают. Сохранить информацию для следующей глубины продолжения.
+                    curWay.isUseExtAndSkPr = GetBridgeSk(portalToNd.inputs) #Для чистки. Если будет без линков, то удалять. При чистке они не ищутся по факту, потому что Big(O).
+        if not portalToSk: #Основной мейнстрим получения.
+            portalToSk = GetRootSk(tree, portalToNd, targetSk) if not cyc else GetBridgeSk(portalToNd.inputs)
+        if (not portalToSk)and(cyc): #Очередные глубины -- всегда группы, для них и нужно генерировать skf. Проверка на cyc не обязательна, сокет с корнем (из-за рероута) всегда будет.
+            #Если выше не смог получить сокет от входов нода нод группы, то и интерфейса-то тоже нет. Поэтому проверка `not tree.outputs.get(voronoiSkPreviewName)` без нужды.
+            tree.outputs.new(GetTypeSkfBridge(), voronoiSkPreviewName).hide_value = True
+            portalToSk = GetBridgeSk(portalToNd.inputs) #Перевыбрать новосозданный.
         #Соединить:
-        ndAnch = list_wayTreeNd[cyc][0].nodes.get(voronoiAnchorName)
-        if ndAnch: #Якорь делает "планы изменились", и пересасывает поток на себя.
-            list_wayTreeNd[cyc][0].links.new(skOut, ndAnch.inputs[0])
-            #list_wayTreeNd[cyc][0].links.new(ndAnch.outputs[0], skIn) #todo: какое-то робкое ответвление? или удалить, или удалить.
+        ndAnchor = tree.nodes.get(voronoiAnchorName)
+        if ndAnchor: #Якорь делает "планы изменились", и пересасывает поток на себя.
+            lk = tree.links.new(portalFromSk, ndAnchor.inputs[0])
+            #tree.links.new(ndAnchor.outputs[0], portalToSk) #todo посмотреть, что из этого можно сделать.
             break #Завершение после напарывания повышает возможности использования якоря, делая его ещё круче. Если у вас течка от Voronoi_Anchor, то я вас понимаю. У меня тоже.
-            #Завершение позволяет иметь пользовательское соединение от глубины с якорем и до корня, не разрушая их (но сокеты предпросмотра всё равно создаются).
-        #todo переосмыслить якори и глубины, или по крайней мере скомпилировать всё это у себя в голове.
-        elif (skOut)and(skIn): #Иначе обычное соединение маршрута.
-            if self.vpRvEeIsSavePreviewResults: #Помощь в реверс-инженеринге, сохранять вычленённые промежуточные результаты для последующего "менеджмента".
-                def GetTypeOfNodeSave(sk):
-                    match sk.type:
-                        case 'GEOMETRY': return 2
-                        case 'SHADER': return 1
-                        case _: return 0
-                tree = list_wayTreeNd[cyc][0]
-                #Создать:
-                typ = GetTypeOfNodeSave(skOut)
-                vec = skIn.node.location
-                vec = [vec[0]+skIn.node.width+40, vec[1]]
-                nd = tree.nodes.get(voronoiPreviewResultNdName)
-                if nd:
-                    if nd.label!=voronoiPreviewResultNdName:
-                        nd.name += "_"+nd.label
-                        nd = None
-                    elif GetTypeOfNodeSave(nd.outputs[0])!=typ:
-                        vec = nd.location
-                        tree.nodes.remove(nd)
-                        nd = None
-                if not nd:
-                    match typ:
-                        case 0: txt = "MixRGB" #"MixRGB" потому что он есть во всех редакторах, а ещё Shift+G > Type.
-                        case 1: txt = "AddShader"
-                        case 2: txt = "SeparateGeometry"
-                    nd = tree.nodes.new(tree.bl_idname.replace("Tree","")+txt)
-                    #Поставить:
-                    nd.location = vec
-                nd.name = voronoiPreviewResultNdName
-                nd.label = nd.name
-                nd.use_custom_color = True
-                match typ:
-                    case 0:
-                        nd.color = (0.42968, 0.42968, 0.113725)
-                        nd.show_options = False
-                        nd.blend_type = 'ADD'
-                        nd.inputs[0].default_value = 0
-                        nd.inputs[1].default_value = (0.155927, 0.155927, 0.012286, 1.0)
-                        nd.inputs[0].hide = True
-                        nd.inputs[1].name = "Color"
-                        nd.inputs[2].hide = True
-                        inx = 1
-                    case 1:
-                        nd.color = (0.168627, 0.395780, 0.168627)
-                        nd.inputs[1].hide = True
-                        inx = 0
-                    case 2:
-                        nd.color = (0.113725, 0.447058, 0.368627)
-                        nd.show_options = False
-                        nd.inputs[1].hide = True
-                        nd.outputs[0].name = "Geometry"
-                        nd.outputs[1].hide = True
-                        inx = 0
-                #Соединить:
-                list_wayTreeNd[cyc][0].links.new(skOut, nd.inputs[inx])
-                list_wayTreeNd[cyc][0].links.new(nd.outputs[0], skIn)
-            else:
-                list_wayTreeNd[cyc][0].links.new(skOut, skIn)
+            #Завершение позволяет иметь пользовательское соединение от глубины с якорем и до корня, не разрушая их.
+        elif (portalFromSk)and(portalToSk): #Иначе обычное соединение маршрута.
+            lk = tree.links.new(portalFromSk, portalToSk)
+        curWay.prLink = lk
+    return list_way
+def PreviewFromSk(self, context, targetSk):
+    if (not targetSk)or(not targetSk.is_output):
+        return
+    list_way = DoPreview(context, targetSk)
+    dict_treeNExt = dict({(wy.tree, wy.isUseExtAndSkPr) for wy in list_way})
+    #Гениально я придумал удалять интерфейсы после предпросмотра; стало возможным благодаря не-удалению в контекстных путях. Теперь ими можно будет пользоваться более свободно.
+    tree = context.space_data.edit_tree
+    if not tree.nodes.get(voronoiAnchorName):
+        #Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента. todo описать какое.
+        #Должно было стать логическим продолжением после "завершение после напарывания", но допёр до этого только сейчас.
+        for ng in bpy.data.node_groups: #Удалить все свои следы предыдущего использования инструмента для всех нод-групп,
+            if ng.bl_idname==tree.bl_idname: # чей тип текущего редактора такой же.
+                #Но не удалять мосты для деревьев контекстного пути (удалять, если их сокеты пустые).
+                sk = dict_treeNExt.get(ng, None) #Для Ctrl-F: isUseExtAndSkPr используется здесь.
+                if (ng not in dict_treeNExt)or((not sk.links) if sk else None):
+                    sk = True
+                    while sk: #Ищется по имени. Пользователь может сделать дубликат, от чего без while они будут исчезать по одному каждую активацию предпросмотра.
+                        sk = ng.outputs.get(voronoiSkPreviewName)
+                        if sk:
+                            ng.outputs.remove(sk)
     if self.isSelectingPreviewedNode:
-        #Выделить предпросматриваемый нод:
-        NdSelectAndActive(goalSk.node)
-    return goalSk #Вернуть сокет. Нужно для |3|.
+        NdSelectAndActive(targetSk.node)
+    if self.vpRvEeIsSavePreviewResults: #Помощь в реверс-инженеринге, сохранять текущий сокет просмотра для последующего "менеджмента".
+        def GetTypeOfNodeSave(sk):
+            match sk.type:
+                case 'GEOMETRY': return 2
+                case 'SHADER': return 1
+                case _: return 0
+        prLink = list_way[length(list_way)-1].prLink
+        idSkSave = GetTypeOfNodeSave(prLink.from_socket)
+        vec = prLink.to_node.location
+        vec = [vec[0]+prLink.to_node.width+40, vec[1]]
+        ndReSave = tree.nodes.get(voronoiPreviewResultNdName)
+        if ndReSave:
+            if ndReSave.label!=voronoiPreviewResultNdName:
+                ndReSave.name += "_"+ndReSave.label
+                ndReSave = None
+            elif GetTypeOfNodeSave(ndReSave.outputs[0])!=idSkSave: #Если это нод от другого типа сохранения
+                vec = ndReSave.location.copy() #При смене типа сохранять позицию "активного" нода-сохранения. Заметка: не забывать про .copy(), потому что далее нод удаляется.
+                tree.nodes.remove(ndReSave)
+                ndReSave = None
+        if not ndReSave:
+            match idSkSave:
+                case 0: txt = "MixRGB" #"MixRGB" потому что он есть во всех редакторах, а ещё Shift+G > Type.
+                case 1: txt = "AddShader"
+                case 2: txt = "SeparateGeometry"
+            ndReSave = tree.nodes.new(tree.bl_idname.replace("Tree","")+txt)
+            ndReSave.location = vec
+        ndReSave.name = voronoiPreviewResultNdName
+        ndReSave.select = False
+        ndReSave.label = ndReSave.name
+        ndReSave.use_custom_color = True
+        match idSkSave: #Разукрасить нод сохранения.
+            case 0:
+                ndReSave.color = (0.42968, 0.42968, 0.113725)
+                ndReSave.show_options = False
+                ndReSave.blend_type = 'ADD'
+                ndReSave.inputs[0].default_value = 0
+                ndReSave.inputs[1].default_value = (0.155927, 0.155927, 0.012286, 1.0)
+                ndReSave.inputs[2].default_value = ndReSave.inputs[1].default_value #Немного лишнее.
+                ndReSave.inputs[0].hide = True
+                ndReSave.inputs[1].name = "Color"
+                ndReSave.inputs[2].hide = True
+                inx = 1
+            case 1:
+                ndReSave.color = (0.168627, 0.395780, 0.168627)
+                ndReSave.inputs[1].hide = True
+                inx = 0
+            case 2:
+                ndReSave.color = (0.113725, 0.447058, 0.368627)
+                ndReSave.show_options = False
+                ndReSave.inputs[1].hide = True
+                ndReSave.outputs[0].name = "Geometry"
+                ndReSave.outputs[1].hide = True
+                inx = 0
+        tree.links.new(prLink.from_socket, ndReSave.inputs[inx])
+        tree.links.new(ndReSave.outputs[0], prLink.to_socket)
 
 class MixerData:
     sk0 = None
@@ -3003,7 +3024,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                   ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте знать.
                                                                                                   ('ONLYTEXT',  "Only text", "3") ))
     dsFontFile: bpy.props.StringProperty(name="Font file", default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
-    dsLineWidth:   bpy.props.IntProperty(  name="Line Width", default=1,  min=1,  max=16, subtype="FACTOR")
+    dsLineWidth:   bpy.props.FloatProperty(  name="Line Width", default=1.25,  min=0.5,  max=16, subtype="FACTOR")
     dsPointRadius: bpy.props.FloatProperty(name="Point size", default=1,  min=0,  max=3)
     dsFontSize:    bpy.props.IntProperty(name=  "Font size",  default=28, min=10, max=48)
     ##
@@ -3033,10 +3054,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     #Preview:
     vpAllowClassicCompositorViewer: bpy.props.BoolProperty(name="Allow classic Compositor Viewer", default=False)
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow classic GeoNodes Viewer",   default=True)
-    ##
-    vpIsLivePreview:         bpy.props.BoolProperty(name="Live preview",                        default=True)
-    vpIsAutoShader:          bpy.props.BoolProperty(name="Color Socket directly into a shader", default=True)
-    ##
+    vpIsLivePreview: bpy.props.BoolProperty(name="Live preview", default=True)
     vpRvEeIsColorOnionNodes:    bpy.props.BoolProperty(name="Node onion colors",               default=False)
     vpRvEeSksHighlighting:      bpy.props.BoolProperty(name="Topology connected highlighting", default=False)
     vpRvEeIsSavePreviewResults: bpy.props.BoolProperty(name="Save preview results",            default=False)
@@ -3146,7 +3164,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 LeftProp(colTool, self,'vpRvEeIsColorOnionNodes')
                 LeftProp(colTool, self,'vpRvEeIsSavePreviewResults')
                 LeftProp(colTool, self,'vpRvEeSksHighlighting')
-                LeftProp(colTool, self,'vpIsAutoShader')
             if colTool:=AddSelfBoxDiscl(colMaster,'vmBoxDiscl', VoronoiMixerTool):
                 LeftProp(colTool, self,'vmReroutesCanInAnyType')
                 AddHandSplitProp(colTool,'vmPieType')
@@ -3444,7 +3461,6 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Gapn('vpAllowClassicCompositorViewer'): "Разрешить классический Viewer Композитора",
             Gapn('vpAllowClassicGeoViewer'):        "Разрешить классический Viewer Геометрических узлов",
             Gapn('vpIsLivePreview'):                "Предпросмотр в реальном времени",
-            Gapn('vpIsAutoShader'):                 "Сокет цвета сразу в шейдер",
             Gapn('vpRvEeIsColorOnionNodes'):        "Луковичные цвета нод",
             Gapn('vpRvEeSksHighlighting'):          "Подсветка топологических соединений",
             Gapn('vpRvEeIsSavePreviewResults'):     "Сохранять результаты предпросмотра",
@@ -3518,8 +3534,8 @@ def register():
             for di in dict_props:
                 setattr(kmi.properties, di, dict_props[di])
     ##
-    CollectTranslationDict()
-    RegisterTranslations()
+#    CollectTranslationDict()
+#    RegisterTranslations()
 def unregister():
     for li in reversed(list_classes):
         bpy.utils.unregister_class(li)
