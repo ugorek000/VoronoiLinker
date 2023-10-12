@@ -4,12 +4,12 @@
 # !!! Отказ от ответственности: Содержимое этого файла является полностью случайно сгенерированными битами, включая этот дисклеймер тоже.
 # Используйте этот файл на свой страх и риск.
 
-#Этот аддон создавался мной как самопис лично для меня и под меня; который я сделал публичным для всех желающих, ибо результат получился потрясающий. Наслаждайтесь.
+#Этот аддон создавался мной как самопис лично для меня и под меня; который я по доброте душевной, сделал публичным для всех желающих. Ибо результат получился потрясающий. Наслаждайтесь.
 
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,2,2), 'blender':(3,6,4), #2023.10.11
+           'version':(3,3,0), 'blender':(3,6,4), #2023.10.12
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -24,7 +24,7 @@ import math, mathutils
 def Vector(*args): return mathutils.Vector((args)) #Очень долго я охреневал от двойных скобок 'Vector((a,b))', и только сейчас допёр так сделать. Ну наконец-то настанет наслаждение.
 #def Vectorq(seq): return mathutils.Vector(seq)
 
-voronoiAddonName = bl_info['name'].replace(" ","") #todo узнать разницу между названием аддона, именем аддона, именем файла, именем модуля; и ещё в установленных посмотреть.
+voronoiAddonName = bl_info['name'].replace(" ","") #todo1 узнать разницу между названием аддона, именем аддона, именем файла, именем модуля; и ещё в установленных посмотреть.
 
 #Текст ниже не переводится на другие языки. Потому что забыл. И нужно ли?.
 voronoiAnchorName = "Voronoi_Anchor"
@@ -44,8 +44,6 @@ def GetSkCol(sk): #Про `NodeSocketUndefined` см. |2|. Сокеты от п�
     return sk.draw_color(bpy.context, sk.node) if sk.bl_idname!='NodeSocketUndefined' else (1.0, 0.2, 0.2, 1.0)
 
 #В далёком будущем может быть стоит добавить мультиякори для VPT. Нод будет перенапраляться в ближайший якорь. Удаление всех якорей через "дабл призыв" на одном и том же месте; или как-нибудь.
-#todo после перехода в Blender 4.0 добавить новый инструмент VICT; ctrl shift c. Копировать имя или заголовок сокета, а потом вставка его в имя интерфейса троих всадников.
-#todo выключить бесполезные для других деревьях варианты инструментов.
 #Может быть стоит когда-нибуть добавить в свойства инструмента клавишу для модицифирования в процессе самого инструмента, например вариант Alt при Alt D для VQDT.
 
 def PowerArr4ToVec(arr, pw):
@@ -115,12 +113,28 @@ def NdSelectAndActive(ndTar):
     ndTar.id_data.nodes.active = ndTar #Важно не только то, что только один он выделяется, но ещё и то, что он становится активным.
     ndTar.select = True
 
+#Таблица полезности инструментов в аддонских деревьях:
+# VLT   Да
+# VPT   Нет
+# VPAT  Мб(?)
+# VMT   Нет
+# VQMT  Нет
+# VST   Да
+# VHT   Да
+# VMLT  Да
+# VEST  Да(?)
+# VRT   Да
+# VQDT  Нет
+# todo2 будущие:
+# VICT  Нет
+# VTT   Да
+
 def PrepareShaders(self):
     self.gpuLine = gpu.shader.from_builtin('POLYLINE_SMOOTH_COLOR')
     self.gpuArea = gpu.shader.from_builtin('UNIFORM_COLOR')
     #Параметры, которые не нужно устанавливать каждый раз:
     self.gpuLine.uniform_float('viewportSize', gpu.state.viewport_get()[2:4])
-    #todo выяснить как или сделать сглаживание для полигонов тоже.
+    #todo1 выяснить как или сделать сглаживание для полигонов тоже.
     #self.gpuLine.uniform_float('lineSmooth', True) #Нет нужды, по умолчанию True.
 def DrawWay(self, vpos, vcol, wid):
     gpu.state.blend_set('ALPHA') #Рисование текста сбрасывает метку об альфе, поэтому устанавливается каждый раз.
@@ -398,9 +412,9 @@ def DrawToolOftenStencil(self, cusorPos, list_twoTgSks, #Одинаковое с
     except Exception as ex:
         pass; print("VL DrawToolOftenStencil() --", ex)
 
-#todo Головная боль с "проскальзывающими" кадрами!! Debug, Collapse, Alt, и много где ещё.
+#todo2 Головная боль с "проскальзывающими" кадрами!! Debug, Collapse, Alt, и много где ещё.
 
-def GetOpKmi(self, tuple_tar): #todo есть ли концепция или способ правильнее?
+def GetOpKmi(self, tuple_tar): #todo0 есть ли концепция или способ правильнее?
     #return bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items[getattr(bpy.types, self.bl_idname).bl_idname] #Чума (но только если без дубликатов).
     txt_toolBlId = getattr(bpy.types, self.bl_idname).bl_idname
     #Оператор может иметь несколько комбинаций вызова, все из которых будут одинаковы по ключу в `keymap_items`, от чего за константу кажись никак не распознать.
@@ -425,7 +439,9 @@ class VoronoiOp(bpy.types.Operator):
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR' #Не знаю, зачем это нужно, но пусть будет.
 class VoronoiTool(VoronoiOp): #Корень для инструментов.
-    isPassThrough: bpy.props.BoolProperty(name="Pass through node selecting", description="Clicking over a node activates selection, not the tool", default=False) #Всегда неизбежно происходит кликанье в дереве, где обитают ноды, поэтому для всех инструментов.
+    #Всегда неизбежно происходит кликанье в дереве, где обитают ноды, поэтому для всех инструментов
+    isPassThrough: bpy.props.BoolProperty(name="Pass through node selecting", description="Clicking over a node activates selection, not the tool", default=False)
+    #Заметка: NextAssignment имеется у всех; и теперь одинаков по количеству параметров, чтобы проще обрабатывать шаблонами.
 class VoronoiToolSk(VoronoiTool):
     pass
 class VoronoiToolDblSk(VoronoiToolSk):
@@ -462,15 +478,40 @@ def ProcCanMoveOut(self, event):
             self.dict_isMoveOutSco[0] += 1
     return not(self.dict_isMoveOutSco[0]%2)and(self.dict_isMoveOutSco[0]>1)
 
-#Шаблоны в порядке по нахождению в коде:
-
 def StencilReNext(self, context, *naArgs):
     bpy.ops.wm.redraw_timer(type='DRAW_WIN', iterations=0) #Заставляет курсор меняться на мгновение.
-    #Заметка: осторожно в вызывающем уровне, чтобы не уйти в вечный цикл!
-    if naArgs:
-        self.NextAssignment(context, naArgs)
-    else:
-        self.NextAssignment(context)
+    #Заметка: осторожно с вызозом StencilReNext() в NextAssignment(), чтобы не уйти в вечный цикл!
+    self.NextAssignment(context, *naArgs) #Заметка: не забывать разворачивать нарезку.
+
+#Мейнстримные шаблоны, отсортированы в порядке по нахождению в коде:
+
+def StencilMouseNextAndReout(self, context, event, *naArgsDouble): #Заметка: аккуратнее с naDoubleArgs, должен быть всегда чётным.
+    #Заметка: первым в naArgsDouble -- для False (as отсутствие isBoth), ибо оно первичнее.
+    half = length(naArgsDouble)//2
+    #ProcCanMoveOut за пределами match event.type, потому что должно обрабатываться не только от движения курсора, а сразу после нажатия модификатора.
+    isCanReOut = ProcCanMoveOut(self, event) if naArgsDouble else False
+    if isCanReOut:
+        self.NextAssignment(context, *naArgsDouble[half:]) #И тут тоже не забывать разворачивать.
+    match event.type:
+        case 'MOUSEMOVE':
+            if not isCanReOut: #Но не делать двойную обработку, если оно уже выше; или всегда проходит, если нет ProcCanMoveOut()'а.
+                self.NextAssignment(context, *naArgsDouble[:half])
+        case self.kmi.type|'ESC': #Раньше было `self.keyType` и `.. = kmi.type`, теперь имеется полный kmi.
+            return True
+    return False
+
+#todo1 обработать все комбинации в n^3: space_data.tree_type и space_data.edit_tree.bl_idname; классическое, потерянное, и аддонское; привязанное и не привязанное к редактору.
+#todo1 И потом работоспособность всех инструментов в них. А потом проверить в существующем дереве взаиводействие потерянного сокета у потерянного нода для инструментов.
+def UselessForCustomUndefTrees(context, isForCustom=True, isForUndef=True): #'isForCustom' ради VPAT. Второй для компании.
+    tree = context.space_data.edit_tree
+    if not tree:
+        return {'FINISHED'} #CANCELLED
+    txt_treeBlid = tree.bl_idname
+    if (isForUndef)and(txt_treeBlid=='NodeTreeUndefined'): #Для поломанного дерева space_data.tree_type==''. А я то думал это просто ссылка.
+        return {'CANCELLED'} #В отличие от StencilModalEsc(), здесь покидается для не-рисования.
+    elif (isForCustom)and(txt_treeBlid not in {'ShaderNodeTree','GeometryNodeTree','CompositorNodeTree','TextureNodeTree'}):
+        return {'PASS_THROUGH'} #CANCELLED
+    return {}
 
 def StencilModalEsc(self, context, event):
     if event.type=='ESC': #Собственно то, что и должна делать клавиша побега.
@@ -496,7 +537,7 @@ def StencilProcPassThrought(self, context): #Вынесено во вне для
         tree.nodes.active.select = False #Но без условий, для всех подряд. Ибо ^иначе будет всегда выделение без переключения; и у меня нет идей, как бы я парился с распознованием таких ситуаций.
         return {'PASS_THROUGH'}
     return {}
-def StencilBeginToolInvoke(self, context):
+def StencilBeginToolInvoke(self, context, event):
     def SolderingAllPrefsToSelf(self): #Меня напрягают постоянные вызовы Prefs() с его "многочленами" и одним взятием индекса; особенно в функциях рисования. Поэтому запаял их на каждый вызов инструмента.
         #Из-за пайки в себя пришлось проложить путь self'ов во все функции рисования; благодаря чему отпала нужда хранить некоторые переменные, как глобальные.
         prefs = Prefs() #Можно было бы сделать так, но тогда пришлось бы делать на каждую функцию; поэтому нет. Уж гулять, так по-просторному.
@@ -506,16 +547,18 @@ def StencilBeginToolInvoke(self, context):
         self.vtRepickTriggerSold = self.vtRepickTrigger=='FULL' #"Пайка-надстройка".
     #Учитывая специфические ответвления для некоторых инструментов, пайка в себя перенесена в самое начало.
     SolderingAllPrefsToSelf(self)
-    return StencilProcPassThrought(self, context)
+    self.kmi = GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt))
+    isPass = StencilProcPassThrought(self, context)
+    if not isPass: #Для оптимизации; если всё равно завершится без выполнения с пропуском, то телодвижения ниже бесполезны.
+        ForseSetSelfNonePropToDefault(self.kmi, self) #Имеет смысл как можно раньше. Актуально для VQMT и VEST (и из-за них переехало из StencilToolWorkPrepare сюда).
+        #"0" -- количество хитов, 1..3 -- карта проверки, 4 -- предыдущее состояние переключателя, 5 -- метка активации без модификаторов; `4:False` потому что см. |14|.
+        self.dict_isMoveOutSco = {0:0, 1:self.kmi.shift_ui, 2:self.kmi.ctrl_ui, 3:self.kmi.alt_ui, 4:False, 5:not(self.kmi.shift_ui or self.kmi.ctrl_ui or self.kmi.alt_ui)}
+        #Заметка: self.dict_isMoveOutSco будет читаться только через StencilMouseNextAndReout(), а он будет вызыватся при работе инструмента. Так что находится в ветвлении isPass.
+    return isPass
 
-def StencilToolWorkPrepare(self, context, event, Func):
-    #Суета с хоткеями оператора:
-    kmi = GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt))
-    self.keyType = kmi.type
-    ForseSetSelfNonePropToDefault(kmi, self) #Из-за invoke() в VQMT придётся переезжать в StencilBeginToolInvoke(). Но пока так, а там посмотрим.
-    #"0" -- количество хитов, 1..3 -- карта проверки, 4 -- предыдущее состояние переключателя, 5 -- метка активации без модификаторов.
-    self.dict_isMoveOutSco = {0:0, 1:kmi.shift_ui, 2:kmi.ctrl_ui, 3:kmi.alt_ui, 4:False, 5:not(kmi.shift_ui or kmi.ctrl_ui or kmi.alt_ui)} #`4:False` потому что см. |14|.
-    #Древний мейнстрим:
+def StencilToolWorkPrepare(self, context, Func, *naArgs):
+    #Здесь был dict_isMoveOutSco; переехал в StencilBeginToolInvoke зацепом с self.kmi и ForseSetSelfNonePropToDefault().
+    #Древний мейнстрим (этот кусок кода не изменялся со времен динозавров): #todo1 найти бы версию, когда такое появилось.
     self.uiScale = UiScale()
     self.whereActivated = context.space_data #CallBack'и рисуются во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
     self.fontId = blf.load(self.dsFontFile) #Постоянная установка шрифта нужна чтобы шрифт не исчезал при смене темы оформления.
@@ -527,9 +570,8 @@ def StencilToolWorkPrepare(self, context, event, Func):
     Func = Func if tree else CallbackDrawEditTreeIsNone
     self.handle = bpy.types.SpaceNodeEditor.draw_handler_add(Func, (self,context), 'WINDOW', 'POST_PIXEL')
     context.window_manager.modal_handler_add(self)
-    return not not tree
-
-#todo проверить все инструменты на никакие деревья и поломанные деревья.
+    self.NextAssignment(context, naArgs)
+    #return not not tree #Теперь в этом нет нужды.
 
 #Обеспечивает поддержку свёрнутых нодов:
 #Дождались таки. Конечно же не "честную поддержку". Я презираю свёрнутые ноды, и у меня нет желания шататься с округлостью, и соответствующе изменённым рисованием.
@@ -576,7 +618,7 @@ def DistanceField(field0, boxbou): #Спасибо RayMarching'у, без нег
 def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт список ближайших нод. Честное поле расстояний.
     #Почти честное. Скруглённые уголки не высчитываются. Их отсутствие не мешает, а вычисление требует больше телодвижений. Поэтому выпендриваться нет нужды.
     #С другой стороны скруглённость актуальна для свёрнутых нод, но я их презираю, так что...
-    list_foundNodes = [] #todo париться с питоновскими и вообще ускорениями буду ещё не скоро.
+    list_foundNodes = [] #todo0 париться с питоновскими и вообще ускорениями буду ещё не скоро.
     for nd in nodes:
         if nd.type=='FRAME': #Рамки пропускаются, ибо ни одному инструменту они не нужны.
             continue
@@ -660,7 +702,7 @@ def GetNearestSockets(nd, callPos): #Выдаёт список "ближайши
     list_fgSksOut.sort(key=lambda a: a.dist)
     return list_fgSksIn, list_fgSksOut
 
-#todo если вектор(массив) от кастомных нодов, то ручная проверка на вектор бесполезна. Нужно придумать как определить массив от обычного сокета.
+#todo4 если вектор(массив) от кастомных нодов, то ручная проверка на вектор бесполезна. Нужно придумать как определить массив от обычного сокета.
 
 #Возможно когда-нибудь придётся добавить "область активации", возвращение курсора в которую намеренно делает результат работы инструмента никаким. Актуально для VST с 'isIgnoreLinked'.
 
@@ -690,13 +732,13 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            #Нод сокета активации инструмента (isBoth) в любом случае нужно разворачивать.
-            #Свёрнутость для рероутов работает, хоть и не отображается визуально; но теперь нет нужды обрабатывать,
-            if StencilUnCollapseNode(nd, isBoth): # ибо поддержка свёрнутости введена.
-                #Нужно перерисовывать, если соединилось во вход свёрнутого нода.
-                #StencilReNext(self, context, False)
-                #todo нужно было, а теперь оно само работает. Чёрная магия. Нужно понять почему.
-                pass
+            #Если сторона у всалдников группы пустая, то скрытый виртуальный не покажется. Поэтому здесь точечные проверки.
+            if self.vlAutoUnhideVirtual:
+                if (nd.type=='GROUP_INPUT')and(length(nd.outputs)==1)and(isBoth): #Актуально для isBoth, иначе при isBoth==False будет показывать сокет у свёрнутого нода.
+                    nd.outputs[-1].hide = False
+                if (nd.type=='GROUP_OUTPUT')and(length(nd.inputs)==1):
+                    nd.inputs[-1].hide = False
+                    nd.hide = False #Сокет показывается, но к нему не присасывается, от чего не обрабатывается шаблоном для раскрытия нода; поэтому вручную.
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
             #Этот инструмент триггерится на любой выход
             if isBoth:
@@ -704,6 +746,14 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
             #Получить вход по условиям:
             skOut = self.foundGoalSkOut.tg if self.foundGoalSkOut else None
             if skOut: #Первый заход всегда isBoth=True, однако нод может не иметь выходов.
+                #Заметка: нод сокета активации инструмента (isBoth) в любом случае нужно разворачивать.
+                #Свёрнутость для рероутов работает, хоть и не отображается визуально; но теперь нет нужды обрабатывать, ибо поддержка свёрнутости введена.
+                #Шаблон находится здесь, чтобы нод без выходов не разворачивался.
+                if StencilUnCollapseNode(nd, isBoth): #Заметка: isBoth нужен, чтобы нод для SkIn не развернулся раньше, чем задумывалось.
+                    #Нужно перерисовывать, если соединилось во вход свёрнутого нода.
+                    #StencilReNext(self, context, False)
+                    #todo3 нужно было, а теперь оно само работает. Чёрная магия. Нужно понять почему.
+                    pass
                 #На этом этапе условия для отрицания просто найдут другой результат. "Присосётся не к этому, так к другому".
                 for li in list_fgSksIn:
                     skIn = li.tg
@@ -721,9 +771,9 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                         break #Обработать нужно только первый ближайший, удовлетворяющий условиям. Иначе результатом будет самый дальний.
                 #На этом этапе условия для отрицания сделают результат никаким. Типа "Ничего не нашлось"; и будет обрабатываться соответствующим рисованием.
                 if self.foundGoalSkIn:
-                    if (self.vlAutoUnhideVirtual)and(self.foundGoalSkIn.tg.node.type=='GROUP_OUTPUT'): #Моя личная хотелка. Находится здесь, чтобы триггериться на один сокет выше, а не сразу на него.
-                        self.foundGoalSkIn.tg.node.inputs[-1].hide = False
-                    if self.foundGoalSkOut.tg.node==self.foundGoalSkIn.tg.node: #Если для выхода ближайший вход -- его же нод.
+                    if (self.vlAutoUnhideVirtual)and(self.foundGoalSkIn.tg.node.type=='GROUP_OUTPUT'): #Моя личная хотелка. Находится здесь, чтобы триггериться на один сокет выше, а не сразу на него,
+                        self.foundGoalSkIn.tg.node.inputs[-1].hide = False # а так же позволяет раскрывать сокет, даже если далее будет неудача с присоением SkIn.
+                    if self.foundGoalSkOut.tg.node==self.foundGoalSkIn.tg.node: #Если для выхода ближайший вход -- его же нод
                         self.foundGoalSkIn = None
                     elif self.foundGoalSkOut.tg.links: #Если выход уже куда-то подсоединён, даже если это выключенные линки.
                         for lk in self.foundGoalSkOut.tg.links:
@@ -738,33 +788,26 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
             self.foundGoalSkOut.tg.node.outputs[-1].hide = False
     def modal(self, context, event):
         context.area.tag_redraw() #Неожиданно, но кажется теперь оно перерисовывается само по себе. Но только при каких-то обстоятельствах. Ибо для некоторых инструментов
-        # в кастомных деревьях если у нодов нет сокетов.. что-то не работает.
-        isCanReOut = ProcCanMoveOut(self, event) #Находится здесь, потому что должно обрабатываться не только от движения курсора, а сразу после нажатии модификатора.
-        if isCanReOut:
-            #foundGoalSkIn и foundGoalSkOut как минимум гарантированно обнуляются из-за функции ниже с isBoth=True.
-            VoronoiLinkerTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut: #Но не делать двойную обработку.
-                    VoronoiLinkerTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                tree = context.space_data.edit_tree
-                if self.vlAutoUnhideVirtual:
-                    for nd in tree.nodes:
-                        if nd.type=='GROUP_INPUT':
-                            nd.outputs[-1].hide = self.dict_hideVirtualGpInNodes[nd]
-                        if nd.type=='GROUP_OUTPUT':
-                            nd.inputs[-1].hide = self.dict_hideVirtualGpOutNodes[nd]
-                if not( (self.foundGoalSkOut)and(self.foundGoalSkIn) ):
-                    return {'CANCELLED'}
-                DoLink(tree, self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Самая важная строчка переехала в эту функцию.
-                RememberLastSockets(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
-                return {'FINISHED'}
+        # в кастомных деревьях если у нодов нет сокетов.. что-то не работает. #todo0 выяснить подробнее.
+        #foundGoalSkIn и foundGoalSkOut как минимум гарантированно обнуляются в шаблоне с isBoth=True
+        if StencilMouseNextAndReout(self, context, event, False, True): #Здесь упакован `match event.type:`. Возвращает true, если завершение инструмента.
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            tree = context.space_data.edit_tree
+            if self.vlAutoUnhideVirtual:
+                for nd in tree.nodes:
+                    if nd.type=='GROUP_INPUT':
+                        nd.outputs[-1].hide = self.dict_hideVirtualGpInNodes[nd]
+                    if nd.type=='GROUP_OUTPUT':
+                        nd.inputs[-1].hide = self.dict_hideVirtualGpOutNodes[nd]
+            if not( (self.foundGoalSkOut)and(self.foundGoalSkIn) ):
+                return {'CANCELLED'}
+            DoLink(tree, self.foundGoalSkOut.tg, self.foundGoalSkIn.tg) #Самая важная строчка переехала в эту функцию.
+            RememberLastSockets(self.foundGoalSkOut.tg, self.foundGoalSkIn.tg)
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         if self.vlDeselectAllNodes:
             bpy.ops.node.select_all(action='DESELECT') #Возможно так же стоит делать активный нод никаким.
@@ -775,7 +818,6 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
         self.dict_hideVirtualGpInNodes = {}
         self.dict_hideVirtualGpOutNodes = {}
         if self.vlAutoUnhideVirtual: #К тусовке обработки свёрнутости добавляется моя личная хотелка; ибо виртуальные сокеты я всегда держу скрытыми.
-            #todo если сторона io пустая, то скрытый виртуальный не покажется.
             tree = context.space_data.edit_tree
             if tree:
                 for nd in tree.nodes:
@@ -784,8 +826,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                     if nd.type=='GROUP_OUTPUT':
                         self.dict_hideVirtualGpOutNodes[nd] = nd.inputs[-1].hide
         ##
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiLinker):
-            VoronoiLinkerTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiLinker, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiLinkerTool, "RIGHTMOUSE_scA")
@@ -842,7 +883,7 @@ class VoronoiPreviewTool(VoronoiToolSk):
     bl_label = "Voronoi Preview"
     isSelectingPreviewedNode: bpy.props.BoolProperty(name="Select previewed node",  default=True)
     isTriggerOnlyOnLink:      bpy.props.BoolProperty(name="Trigger only on linked", default=False) #Изначально часть возможностей реверсинженеринга.
-    def NextAssignment(self, context):
+    def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
             return
         isAncohorExist = context.space_data.edit_tree.nodes.get(voronoiAnchorName) #Если в геонодах есть якорь, то триггериться не только на геосокеты.
@@ -862,10 +903,10 @@ class VoronoiPreviewTool(VoronoiToolSk):
                     continue
             #Если в геометрических нодах, то игнорировать ноды без выходов геометрии
             if (context.space_data.tree_type=='GeometryNodeTree')and(not isAncohorExist):
-                if not [sk for sk in nd.outputs if (sk.type=='GEOMETRY')and(not sk.hide)and(sk.enabled)]: #Искать сокеты геометрии, которые видимы.
+                if not [True for sk in nd.outputs if (sk.type=='GEOMETRY')and(not sk.hide)and(sk.enabled)]: #Искать сокеты геометрии, которые видимы.
                     continue
             #Пропускать ноды если визуально нет сокетов; или есть, но только виртуальные. Для рероутов всё бесполезно.
-            if (not [sk for sk in nd.outputs if (not sk.hide)and(sk.enabled)and(sk.bl_idname!='NodeSocketVirtual')])and(nd.type!='REROUTE'):
+            if (not [True for sk in nd.outputs if (not sk.hide)and(sk.enabled)and(sk.bl_idname!='NodeSocketVirtual')])and(nd.type!='REROUTE'):
                 continue
             #Всё выше нужно было для того, чтобы точка не висела просто так и нод не мешал для удобного использования инструмента. По ощущениям получаются как "прозрачные" ноды.
             #Игнорировать свой собственный спец-рероут-якорь (проверка на тип и имя)
@@ -886,10 +927,9 @@ class VoronoiPreviewTool(VoronoiToolSk):
                 break #Завершать в случае успеха, или пока не будет сокет с линком.
         if self.foundGoalSkOut:
             if self.vpIsLivePreview:
-#                self.foundGoalSkOut.tg = PreviewFromSk(self, context, self.foundGoalSkOut.tg) #Повторное присваивание нужно если в процессе сокет потеряется. См. |3|
                 try:
                     PreviewFromSk(self, context, self.foundGoalSkOut.tg)
-                except: #todo придумать что делать с ошибками в NA() во всех инструментах.
+                except: #todo4 придумать что делать с ошибками в NA() во всех инструментах.
                     pass
             if self.vpRvEeIsColorOnionNodes: #Помощь в реверс-инженеринге, вместо поиска глазами тоненьких линий, быстрое визуальное считывание связанных нод топологией.
                 for nd in context.space_data.edit_tree.nodes:
@@ -911,26 +951,25 @@ class VoronoiPreviewTool(VoronoiToolSk):
             StencilUnCollapseNode(nd)
     def modal(self, context, event):
         context.area.tag_redraw()
-        match event.type:
-            case 'MOUSEMOVE':
-                VoronoiPreviewTool.NextAssignment(self, context)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if not self.foundGoalSkOut:
-                    return {'CANCELLED'}
-                PreviewFromSk(self, context, self.foundGoalSkOut.tg)
-                RememberLastSockets(self.foundGoalSkOut.tg, None)
-                if self.vpRvEeIsColorOnionNodes:
-                    for nd in context.space_data.edit_tree.nodes:
-                        dv = self.dict_saveRestoreNodeColors.get(nd, None) #Так же, как и в восстановлении свёрнутости.
-                        if dv is not None:
-                            nd.use_custom_color = dv[0]
-                            nd.color = dv[1]
-                return {'FINISHED'}
+        if StencilMouseNextAndReout(self, context, event):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if not self.foundGoalSkOut:
+                return {'CANCELLED'}
+            PreviewFromSk(self, context, self.foundGoalSkOut.tg)
+            RememberLastSockets(self.foundGoalSkOut.tg, None)
+            if self.vpRvEeIsColorOnionNodes:
+                for nd in context.space_data.edit_tree.nodes:
+                    dv = self.dict_saveRestoreNodeColors.get(nd, None) #Так же, как и в восстановлении свёрнутости.
+                    if dv is not None:
+                        nd.use_custom_color = dv[0]
+                        nd.color = dv[1]
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=UselessForCustomUndefTrees(context):
+            return result
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         #Если использование классического viewer'а разрешено, завершить инструмент с меткой пропуска, "передавая эстафету" оригинальному виеверу.
         match context.space_data.tree_type:
@@ -945,11 +984,10 @@ class VoronoiPreviewTool(VoronoiToolSk):
             #Запомнить все цвета, и обнулить их всех.
             self.dict_saveRestoreNodeColors = {}
             for nd in context.space_data.edit_tree.nodes:
-                self.dict_saveRestoreNodeColors[nd] = (nd.use_custom_color, nd.color.copy()) #todo Алерт x2(x4) комбо. Требуется помощь разрабов.
+                self.dict_saveRestoreNodeColors[nd] = (nd.use_custom_color, nd.color.copy()) #todo0 Алерт x2(x4) комбо. Погружаться в С++.
                 nd.use_custom_color = False
             #Заметка: ноды сохранения результата с луковичными цветами обрабатываются как есть естественным образом. Дублированный(aka сохранённый) нод не будет оставаться незатрагиваемым.
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiPreview):
-            VoronoiPreviewTool.NextAssignment(self, context)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiPreview)
         return {'RUNNING_MODAL'}
 #Вынесено в отдельный инструмент, потому что уж больно слишком разные; да и ныне не существующий '.isPlaceAnAnchor' мозолил глаза своим True-наличием и => бесполезностью всех остальных.
 #А так же задел на будущее для потенциальных мультиякорей, чтобы всё это не превращалось в спагетти-код.
@@ -957,15 +995,16 @@ class VoronoiPreviewAnchorTool(VoronoiTool):
     bl_idname = 'node.voronoi_preview_anchor'
     bl_label = "Voronoi Preview Anchor"
     def execute(self, context):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=UselessForCustomUndefTrees(context, isForCustom=False):
             return result
+        #Заметка: единственный доступный 'isPassThrough' поддерживается на половину. Если в kmi не указано, то через ForseSetSelfNonePropToDefault() не установить -- event'а нет.
+        if StencilProcPassThrought(self, context):
+            return {'PASS_THROUGH'}
         tree = context.space_data.edit_tree
         if not tree:
             return {'CANCELLED'}
         for nd in tree.nodes:
             nd.select = False
-        if tree.bl_idname=='NodeTreeUndefined':
-            return #Иначе "RuntimeError: Ошибка: Нодовая система «Animation Nodes» имеет неопределённый тип an_AnimationNodeTree".
         ndAnch = tree.nodes.get(voronoiAnchorName)
         tgl = not ndAnch #Метка для обработки при первом появлении.
         ndAnch = ndAnch or tree.nodes.new('NodeReroute')
@@ -986,9 +1025,6 @@ class VoronoiPreviewAnchorTool(VoronoiTool):
 
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewTool,       "LEFTMOUSE_SCa")
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewAnchorTool, "RIGHTMOUSE_SCa")
-
-def GetSkIndex(sk): #todo посмотреть использующих.
-    return int(sk.path_from_id().split(".")[-1].split("[")[-1][:-1]) if sk else -1
 
 class WayTree:
     def __init__(self, tree=None, nd=None):
@@ -1018,9 +1054,11 @@ def GetRootNd(tree):
                 if (nd.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT'})and(nd.is_active_output):
                     return nd
         case 'GeometryNodeTree':
-            for nd in tree.nodes:
-                if (nd.type=='VIEWER')and([sk.links for sk in nd.inputs]): #todo протестить.
-                    return nd
+            for nd in reversed(tree.nodes): #Активный виевер будет в конце списка, так что искать с конца.
+                if nd.type=='VIEWER':
+                    if [True for sk in nd.inputs[1:] if sk.links]: #Выбирать виевер только если у него есть линк для просмотра поля.
+                        return nd
+                    break #Обрабатывать только первый попавшийся виевер, он же активный. Потому что иначе будет некомфортное поведение для нескольких виеверов.
             for nd in tree.nodes:
                 if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
                     for sk in nd.inputs:
@@ -1049,7 +1087,7 @@ def GetRootSk(tree, ndRoot, targetSk):
     return ndRoot.inputs[0] #Заметка: здесь окажется неудачный от GeometryNodeTree выше.
 
 featureUsingExistingPath = True
-def DoPreview(context, targetSk): #todo стоит ли просекаться сквозь симуляцию и зону повторения, или игнорировать их?
+def DoPreview(context, targetSk): #todo4 стоит ли просекаться сквозь симуляцию и зону повторения, или игнорировать их?
     def NewLostNode(txt_type, ndTar=None):
         ndNew = tree.nodes.new(txt_type)
         if ndTar:
@@ -1073,8 +1111,8 @@ def DoPreview(context, targetSk): #todo стоит ли просекаться �
     #Но если линки шейдерные -- готовьтесь к разочарованию. Поэтому цвет (кой и был изначально у NW).
     idLastSkEx = '' #Для featureUsingExistingPath.
     for cyc in reversed(range(higWay+1)):
-        def GetBridgeSk(io):
-            sk = io.get(voronoiSkPreviewName)
+        def GetBridgeSk(ioputs):
+            sk = ioputs.get(voronoiSkPreviewName)
             if (sk)and(sk.type!=previewSkType):
                 tree.outputs.remove(tree.outputs.get(voronoiSkPreviewName))
                 return None
@@ -1138,7 +1176,7 @@ def DoPreview(context, targetSk): #todo стоит ли просекаться �
         ndAnchor = tree.nodes.get(voronoiAnchorName)
         if ndAnchor: #Якорь делает "планы изменились", и пересасывает поток на себя.
             lk = tree.links.new(portalFromSk, ndAnchor.inputs[0])
-            #tree.links.new(ndAnchor.outputs[0], portalToSk) #todo посмотреть, что из этого можно сделать.
+            #tree.links.new(ndAnchor.outputs[0], portalToSk) #todo3 посмотреть, что из этого можно сделать.
             break #Завершение после напарывания повышает возможности использования якоря, делая его ещё круче. Если у вас течка от Voronoi_Anchor, то я вас понимаю. У меня тоже.
             #Завершение позволяет иметь пользовательское соединение от глубины с якорем и до корня, не разрушая их.
         elif (portalFromSk)and(portalToSk): #Иначе обычное соединение маршрута.
@@ -1152,9 +1190,10 @@ def PreviewFromSk(self, context, targetSk):
     dict_treeNExt = dict({(wy.tree, wy.isUseExtAndSkPr) for wy in list_way})
     #Гениально я придумал удалять интерфейсы после предпросмотра; стало возможным благодаря не-удалению в контекстных путях. Теперь ими можно будет пользоваться более свободно.
     tree = context.space_data.edit_tree
-    if not tree.nodes.get(voronoiAnchorName):
-        #Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента. todo описать какое.
+    if (True)or(not tree.nodes.get(voronoiAnchorName)):
+        #Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента.
         #Должно было стать логическим продолжением после "завершение после напарывания", но допёр до этого только сейчас.
+        #P.s. Я забыл нахрен какое. А теперь они не удаляются от контекстных путей, так что информация уже утеряна D:
         for ng in bpy.data.node_groups: #Удалить все свои следы предыдущего использования инструмента для всех нод-групп,
             if ng.bl_idname==tree.bl_idname: # чей тип текущего редактора такой же.
                 #Но не удалять мосты для деревьев контекстного пути (удалять, если их сокеты пустые).
@@ -1262,10 +1301,12 @@ class VoronoiMixerTool(VoronoiToolDblSk):
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
+        if isBoth:
+            self.foundGoalSkOut0 = None #Нужно обнулять из-за наличия двух continue ниже.
         self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
         isBothSucessSwitch = True #Изначально был создан в VQMT. Нужен, чтобы повторно не перевыбирать уже успешный isBoth, если далее для второго сокета была лажа и цикл по нодам продолжился..
-        #Возможно стоит иметь два NextAssignment()'а вместо isBoth'а; но это не точно.
+        #todo1 Возможно стоит иметь два NextAssignment()'а вместо isBoth'а; но это не точно.
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             StencilUnCollapseNode(nd, isBoth)
@@ -1287,7 +1328,7 @@ class VoronoiMixerTool(VoronoiToolDblSk):
                     skOut1 = li.tg
                     #Критерии были такие же, как и у Линкера. Но из-за того, что через api сокеты на виртуальные больше не создаются, использование виртуальных для миксера выключено.
                     if (skOut1.bl_idname=='NodeSocketVirtual')or(skOut0.bl_idname=='NodeSocketVirtual'):
-                        continue #todo мб включить после моего DoLinkHH.
+                        continue #todo3 мб включить после моего DoLinkHH.
                     tgl = SkBetweenFieldsCheck(self, skOut0, skOut1)or(skOut1.bl_idname==skOut0.bl_idname)
                     tgl |= ( (skOut0.node.type=='REROUTE')or(skOut1.node.type=='REROUTE') )and(self.vmReroutesCanInAnyType)
                     if tgl:
@@ -1302,50 +1343,43 @@ class VoronoiMixerTool(VoronoiToolDblSk):
                 break
     def modal(self, context, event):
         context.area.tag_redraw()
-        isCanReOut = ProcCanMoveOut(self, event)
-        if isCanReOut:
-            self.foundGoalSkOut0 = None #Нужно обнулять из-за 2-х continue в функции ниже.
-            VoronoiMixerTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut:
-                    VoronoiMixerTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
-                    mxData.sk0 = self.foundGoalSkOut0.tg
-                    mxData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
-                    #Поддержка виртуальных выключена; читается только из первого
-                    mxData.skType = mxData.sk0.type# if mxData.sk0.bl_idname!='NodeSocketVirtual' else mxData.sk1.type
-                    mxData.isSpeedPie = self.vmPieType=='SPEED'
-                    mxData.isHideOptions = self.isHideOptions
-                    mxData.isPlaceImmediately = self.isPlaceImmediately
-                    mxData.pieScale = self.vmPieScale
-                    mxData.pieDisplaySocketTypeInfo = self.vmPieSocketDisplayType
-                    mxData.pieAlignment = self.vmPieAlignment
-                    di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
-                    if not di: #Если место действия не в классических редакторах, то просто выйти. Ибо классические редакторы у всех одинаковые, а аддонских есть бесчисленное множество.
-                        return {'CANCELLED'}
-                    di = di.get(mxData.skType, None)
-                    if di:
-                        if length(di)==1: #Если выбор всего один, то пропустить его и сразу переходить к смешиванию.
-                            DoMix(context, False, False, False, di[0]) #При моментальной активации пользователь мог и не отпускать модификаторы. Поэтому DoMix() получает не event, а вручную.
-                        else: #Иначе предоставить выбор
-                            bpy.ops.wm.call_menu_pie(name=MixerPie.bl_idname)
-                    else: #Иначе для типа сокета не определено. Например шейдер в геонодах.
-                        def PopupMessage(self, context):
-                            self.layout.label(text=txt_noMixingOptions, icon='RADIOBUT_OFF')
-                        bpy.context.window_manager.popup_menu(PopupMessage, title="")
-                return {'FINISHED'}
+        if StencilMouseNextAndReout(self, context, event, False, True):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
+                mxData.sk0 = self.foundGoalSkOut0.tg
+                mxData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
+                #Поддержка виртуальных выключена; читается только из первого
+                mxData.skType = mxData.sk0.type# if mxData.sk0.bl_idname!='NodeSocketVirtual' else mxData.sk1.type
+                mxData.isSpeedPie = self.vmPieType=='SPEED'
+                mxData.isHideOptions = self.isHideOptions
+                mxData.isPlaceImmediately = self.isPlaceImmediately
+                mxData.pieScale = self.vmPieScale
+                mxData.pieDisplaySocketTypeInfo = self.vmPieSocketDisplayType
+                mxData.pieAlignment = self.vmPieAlignment
+                di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
+                if not di: #Если место действия не в классических редакторах, то просто выйти. Ибо классические редакторы у всех одинаковые, а аддонских есть бесчисленное множество.
+                    return {'CANCELLED'}
+                di = di.get(mxData.skType, None)
+                if di:
+                    if length(di)==1: #Если выбор всего один, то пропустить его и сразу переходить к смешиванию.
+                        DoMix(context, False, False, False, di[0]) #При моментальной активации пользователь мог и не отпускать модификаторы. Поэтому DoMix() получает не event, а вручную.
+                    else: #Иначе предоставить выбор
+                        bpy.ops.wm.call_menu_pie(name=MixerPie.bl_idname)
+                else: #Иначе для типа сокета не определено. Например шейдер в геонодах.
+                    def PopupMessage(self, context):
+                        self.layout.label(text=txt_noMixingOptions, icon='RADIOBUT_OFF')
+                    bpy.context.window_manager.popup_menu(PopupMessage, title="")
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=UselessForCustomUndefTrees(context):
+            return result
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalSkOut0 = None
         self.foundGoalSkOut1 = None
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiMixer):
-            VoronoiMixerTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiMixer, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiMixerTool, "LEFTMOUSE_ScA") #Миксер перенесён на левую, чтобы освободить нагрузку для VQMT.
@@ -1363,7 +1397,7 @@ dict_dictTupleMixerMain = { #Порядок важен; самые частые(
                                'VECTOR':     ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare',                 'ShaderNodeVectorMath'),
                                'STRING':     ('GeometryNodeSwitch',                'FunctionNodeCompare',                                        'GeometryNodeStringJoin'),
                                'INT':        ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath'),
-                               'BOOLEAN':    ('GeometryNodeSwitch','ShaderNodeMix',                      'ShaderNodeMath',                       'FunctionNodeBooleanMath'),
+                               'BOOLEAN':    ('GeometryNodeSwitch','ShaderNodeMix','FunctionNodeCompare','ShaderNodeMath',                       'FunctionNodeBooleanMath'),
                                'OBJECT':     ('GeometryNodeSwitch',),
                                'MATERIAL':   ('GeometryNodeSwitch',),
                                'COLLECTION': ('GeometryNodeSwitch',),
@@ -1414,7 +1448,7 @@ def DoMix(context, isS, isC, isA, txt_node):
     bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not mxData.isPlaceImmediately)
     aNd = tree.nodes.active
     aNd.width = 140
-    txt = {'VALUE':'FLOAT'}.get(mxData.skType, mxData.skType)
+    txtFix = {'VALUE':'FLOAT'}.get(mxData.skType, mxData.skType)
     #Дважды switch case -- для комфортного кода и немножко экономии.
     match aNd.bl_idname:
         case 'ShaderNodeMath'|'ShaderNodeVectorMath'|'CompositorNodeMath'|'TextureNodeMath':
@@ -1424,21 +1458,21 @@ def DoMix(context, isS, isC, isA, txt_node):
         case 'TextureNodeTexture':
             aNd.show_preview = False
         case 'GeometryNodeSwitch':
-            aNd.input_type = txt
+            aNd.input_type = txtFix
         case 'FunctionNodeCompare':
-            aNd.data_type = {'BOOLEAN':'INT'}.get(txt, txt)
+            aNd.data_type = {'BOOLEAN':'INT'}.get(txtFix, txtFix)
             aNd.operation = 'EQUAL'
         case 'ShaderNodeMix':
-            aNd.data_type = {'INT':'FLOAT', 'BOOLEAN':'FLOAT'}.get(txt, txt)
+            aNd.data_type = {'INT':'FLOAT', 'BOOLEAN':'FLOAT'}.get(txtFix, txtFix)
     match aNd.bl_idname:
         case 'GeometryNodeSwitch'|'FunctionNodeCompare'|'ShaderNodeMix': #|8|
             tgl = aNd.bl_idname!='FunctionNodeCompare'
+            txtFix = mxData.skType
             match aNd.bl_idname:
-                case 'GeometryNodeSwitch':  L = lambda a: a
-                case 'FunctionNodeCompare': L = lambda a: {'BOOLEAN':'INT'}.get(a, a) #Не используется в dict_dictTupleMixerMain.
-                case 'ShaderNodeMix':       L = lambda a: {'INT':'VALUE', 'BOOLEAN':'VALUE'}.get(a, a)
+                case 'FunctionNodeCompare': txtFix = {'BOOLEAN':'INT'}.get(txtFix, txtFix)
+                case 'ShaderNodeMix':       txtFix = {'INT':'VALUE', 'BOOLEAN':'VALUE'}.get(txtFix, txtFix)
             #Для микса и переключателя искать с конца, потому что их сокеты для переключения имеют тип некоторых искомых. У нода сравнения всё наоборот.
-            list_foundSk = [sk for sk in (reversed(aNd.inputs) if tgl else aNd.inputs) if sk.type==L(mxData.skType)]
+            list_foundSk = [sk for sk in ( reversed(aNd.inputs) if tgl else aNd.inputs ) if sk.type==txtFix]
             NewLinkAndRemember(mxData.sk0, list_foundSk[tgl^isS]) #Из-за направления поиска, нужно выбирать их из списка так же с учётом направления.
             if mxData.sk1:
                 NewLinkAndRemember(mxData.sk1, list_foundSk[(not tgl)^isS])
@@ -1544,20 +1578,24 @@ class QuickMathData:
     pieAlignment = 0
 qmData = QuickMathData()
 
+#Используется CallbackDraw от Миксера! Потому что одинаковы.
+
 class VoronoiQuickMathTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_quick_math'
     bl_label = "Voronoi Quick Math"
-    quickOprFloat:  bpy.props.StringProperty(name="Float",  default="") #Они в начале, чтобы в kmi отображалось выровненным.
-    quickOprVector: bpy.props.StringProperty(name="Vector", default="")
+    quickOprFloat:  bpy.props.StringProperty(name="Float (quick)",  default="") #Они в начале, чтобы в kmi отображалось выровненным.
+    quickOprVector: bpy.props.StringProperty(name="Vector (quick)", default="") #quick вторым, чтобы при нехватке места отображалось первое слово.
     isCanFromOne:       bpy.props.BoolProperty(name="Can from one socket", default=True)
     isHideOptions:      bpy.props.BoolProperty(name="Hide node options",   default=False)
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
-    quickOprBool:   bpy.props.StringProperty(name="Bool",   default="")
-    quickOprColor:  bpy.props.StringProperty(name="Color",  default="")
+    quickOprBool:   bpy.props.StringProperty(name="Bool (quick)",   default="")
+    quickOprColor:  bpy.props.StringProperty(name="Color (quick)",  default="")
     justCallPie: bpy.props.IntProperty(name="Just call pie", default=0, min=0, max=4)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
+        if isBoth:
+            self.foundGoalSkOut0 = None
         self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
         isBothSucessSwitch = True
@@ -1608,45 +1646,38 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             break
     def modal(self, context, event):
         context.area.tag_redraw()
-        isCanReOut = ProcCanMoveOut(self, event)
-        if isCanReOut:
-            self.foundGoalSkOut0 = None
-            VoronoiQuickMathTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut:
-                    VoronoiQuickMathTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
-                    qmData.sk0 = self.foundGoalSkOut0.tg
-                    qmData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
-                    qmData.isHideOptions = self.isHideOptions
-                    qmData.isPlaceImmediately = self.isPlaceImmediately
-                    qmData.qmSkType = qmData.sk0.type #Заметка: наличие только сокетов поля -- забота на уровень выше.
-                    match qmData.sk0.type:
-                        case 'INT': qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
-                    if self.isQuickQuickOpr:
-                        match qmData.qmSkType:
-                            case 'VALUE':   txt_opr = self.quickOprFloat
-                            case 'VECTOR':  txt_opr = self.quickOprVector
-                            case 'BOOLEAN': txt_opr = self.quickOprBool
-                            case 'RGBA':    txt_opr = self.quickOprColor
-                        DoQuickMath(event, context.space_data.edit_tree, txt_opr, True)
-                        return {'FINISHED'}
-                    qmData.depth = 0
-                    qmData.isSpeedPie = self.vqmPieType=='SPEED'
-                    qmData.pieScale = self.vqmPieScale
-                    qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
-                    qmData.pieAlignment = self.vqmPieAlignment
-                    bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
-                return {'FINISHED'}
+        if StencilMouseNextAndReout(self, context, event, False, True):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if (self.foundGoalSkOut0)and(self.isCanFromOne or self.foundGoalSkOut1):
+                qmData.sk0 = self.foundGoalSkOut0.tg
+                qmData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
+                qmData.isHideOptions = self.isHideOptions
+                qmData.isPlaceImmediately = self.isPlaceImmediately
+                qmData.qmSkType = qmData.sk0.type #Заметка: наличие только сокетов поля -- забота на уровень выше.
+                match qmData.sk0.type:
+                    case 'INT': qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
+                if self.isQuickQuickOpr:
+                    match qmData.qmSkType:
+                        case 'VALUE':   txt_opr = self.quickOprFloat
+                        case 'VECTOR':  txt_opr = self.quickOprVector
+                        case 'BOOLEAN': txt_opr = self.quickOprBool
+                        case 'RGBA':    txt_opr = self.quickOprColor
+                    DoQuickMath(event, context.space_data.edit_tree, txt_opr, True)
+                    return {'FINISHED'}
+                qmData.depth = 0
+                qmData.isSpeedPie = self.vqmPieType=='SPEED'
+                qmData.pieScale = self.vqmPieScale
+                qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
+                qmData.pieAlignment = self.vqmPieAlignment
+                bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=UselessForCustomUndefTrees(context):
             return result
-        ForseSetSelfNonePropToDefault(GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt)), self) #todo придумать, что с этим сделать; неэстетично.
+        if result:=StencilBeginToolInvoke(self, context, event):
+            return result
         if self.justCallPie:
             qmData.sk0 = None #Обнулять для полноты картины и для GetSkCol().
             qmData.sk1 = None
@@ -1663,8 +1694,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
         self.foundGoalSkOut0 = None
         self.foundGoalSkOut1 = None
         self.isQuickQuickOpr = not not( (self.quickOprFloat)or(self.quickOprVector)or(self.quickOprBool)or(self.quickOprColor) )
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiMixer): #Каллбак от Миксера! Потому что одинаковы.
-            VoronoiQuickMathTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiMixer, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Осталось на правой, чтобы не охреневать от тройного клика левой при 'Speed Pie' типе пирога.
@@ -1679,7 +1709,6 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4})
-#todo придумать что-то для типов редакторов, в которых нет некоторых из ^ типов.
 
 #Быстрая математика.
 #Заполучить нод с нужной операцией и автоматическим соединением в сокеты, благодаря мощностям VL'а.
@@ -1997,6 +2026,8 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
+        if isBoth:
+            self.foundGoalSkIo0 = None
         self.foundGoalSkIo1 = None
         callPos = context.space_data.cursor_location
         isBothSucessSwitch = True
@@ -2051,72 +2082,62 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
             break
     def modal(self, context, event):
         context.area.tag_redraw()
-        isCanReOut = ProcCanMoveOut(self, event)
-        if isCanReOut:
-            self.foundGoalSkIo0 = None
-            self.foundGoalSkIo1 = None
-            VoronoiSwapperTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut:
-                    VoronoiSwapperTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
-                    skIo0 = self.foundGoalSkIo0.tg
-                    skIo1 = self.foundGoalSkIo1.tg
-                    tree = context.space_data.edit_tree
-                    if self.isAddMode:
-                        #Просто добавить линки с первого сокета на второй. Aka объединение, добавление.
-                        if skIo0.is_output:
-                            for lk in skIo0.links:
-                                if lk.to_node!=skIo1.node: # T 1  Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
-                                    tree.links.new(skIo1, lk.to_socket)
-                                    if lk.to_socket.is_multi_input: #Без этого lk всё равно указывает на "добавленный" линк, от чего удаляется. Поэтому явная проверка для мультиинпутов.
-                                        tree.links.remove(lk)
-                        else: #Добавлено ради мультиинпутов.
-                            for lk in skIo0.links:
-                                if lk.from_node!=skIo1.node: # F 1  ^
-                                    tree.links.new(lk.from_socket, skIo1)
+        if StencilMouseNextAndReout(self, context, event, False, True):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if (self.foundGoalSkIo0)and(self.foundGoalSkIo1):
+                skIo0 = self.foundGoalSkIo0.tg
+                skIo1 = self.foundGoalSkIo1.tg
+                tree = context.space_data.edit_tree
+                if self.isAddMode:
+                    #Просто добавить линки с первого сокета на второй. Aka объединение, добавление.
+                    if skIo0.is_output:
+                        for lk in skIo0.links:
+                            if lk.to_node!=skIo1.node: # T 1  Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
+                                tree.links.new(skIo1, lk.to_socket)
+                                if lk.to_socket.is_multi_input: #Без этого lk всё равно указывает на "добавленный" линк, от чего удаляется. Поэтому явная проверка для мультиинпутов.
                                     tree.links.remove(lk)
+                    else: #Добавлено ради мультиинпутов.
+                        for lk in skIo0.links:
+                            if lk.from_node!=skIo1.node: # F 1  ^
+                                tree.links.new(lk.from_socket, skIo1)
+                                tree.links.remove(lk)
+                else:
+                    #Поменять местами все соединения у первого и у второго сокета:
+                    list_memSks = []
+                    if skIo0.is_output: #Проверка одинаковости is_output -- забота для NextAssignment().
+                        for lk in skIo0.links:
+                            if lk.to_node!=skIo1.node: # T 1  Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
+                                list_memSks.append(lk.to_socket)
+                                tree.links.remove(lk)
+                        for lk in skIo1.links:
+                            if lk.to_node!=skIo0.node: # T 0  ^
+                                tree.links.new(skIo0, lk.to_socket)
+                                if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
+                                    tree.links.remove(lk)
+                        for li in list_memSks:
+                            tree.links.new(skIo1, li)
                     else:
-                        #Поменять местами все соединения у первого и у второго сокета:
-                        list_memSks = []
-                        if skIo0.is_output: #Проверка одинаковости is_output -- забота для NextAssignment.
-                            for lk in skIo0.links:
-                                if lk.to_node!=skIo1.node: # T 1  Чтобы линк от нода не создался сам в себя. Проверять нужно у всех и таковые не обрабатывать.
-                                    list_memSks.append(lk.to_socket)
-                                    tree.links.remove(lk)
-                            for lk in skIo1.links:
-                                if lk.to_node!=skIo0.node: # T 0  ^
-                                    tree.links.new(skIo0, lk.to_socket)
-                                    if lk.to_socket.is_multi_input: #Для мультиинпутов удалить.
-                                        tree.links.remove(lk)
-                            for li in list_memSks:
-                                tree.links.new(skIo1, li)
-                        else:
-                            for lk in skIo0.links:
-                                if lk.from_node!=skIo1.node: # F 1  ^
-                                    list_memSks.append(lk.from_socket)
-                                    tree.links.remove(lk)
-                            for lk in skIo1.links:
-                                if lk.from_node!=skIo0.node: # F 0  ^
-                                    tree.links.new(lk.from_socket, skIo0)
-                                    tree.links.remove(lk)
-                            for li in list_memSks:
-                                tree.links.new(li, skIo1)
-                    #VST VRT же без нужды, да?
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+                        for lk in skIo0.links:
+                            if lk.from_node!=skIo1.node: # F 1  ^
+                                list_memSks.append(lk.from_socket)
+                                tree.links.remove(lk)
+                        for lk in skIo1.links:
+                            if lk.from_node!=skIo0.node: # F 0  ^
+                                tree.links.new(lk.from_socket, skIo0)
+                                tree.links.remove(lk)
+                        for li in list_memSks:
+                            tree.links.new(li, skIo1)
+                #VST VRT же без нужды, да?
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalSkIo0 = None
         self.foundGoalSkIo1 = None
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiSwapper):
-            VoronoiSwapperTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiSwapper, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_Sca")
@@ -2141,7 +2162,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
     bl_label = "Voronoi Hider"
     isHideSocket: bpy.props.IntProperty(name="Hide mode", min=0, max=2)
     isTriggerOnCollapsedNodes: bpy.props.BoolProperty(name="Trigger on collapsed nodes", default=True)
-    def NextAssignment(self, context):
+    def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
             return
         self.foundGoalTg = None
@@ -2168,7 +2189,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                 else:
                     self.foundGoalTg = fgSkIn
                 if StencilUnCollapseNode(nd, self.foundGoalTg):
-                    StencilReNext(VoronoiHiderTool, self, context) #Для режима сокетов тоже нужно перерисовывать, ибо нод у присосавшегося сокета может быть свёрнут.
+                    StencilReNext(self, context) #Для режима сокетов тоже нужно перерисовывать, ибо нод у присосавшегося сокета может быть свёрнут.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
                 if self.vhIsToggleNodesOnDrag:
@@ -2181,62 +2202,47 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                         HideFromNode(self, nd, self.firstResult, True) #Заметка: изменить для нода (для проверки ниже), но не трогать 'self.firstResult'.
                         if list_visibleSks==[LGetVisSide(nd.inputs),LGetVisSide(nd.outputs)]:
                             self.firstResult = True
-                    if HideFromNode(self, nd, self.firstResult, True)and(self.vhReDrawAfterChange):
-                        #Ну наконец-то смог починить. С одной стороны нет проскальзывающего кадра, с другой стороны нет "визуального" контакта с только что изменённым нодом,
-                        # если после изменения ближайшим оказался другой нод. По крайней мере такие ситуации не частые.
-                        #Есть ещё вариант сделать изменение нода после отрисовки одного кадра, но наверное окажется тоже не очень.
-                        StencilReNext(VoronoiHiderTool, self, context)
+                    HideFromNode(self, nd, self.firstResult, True)
+                    #См. в вики, почему isReDrawAfterChange опция была удалена.
+                    #todo1 Единственное возможное решение, так это сделать изменение нода после отрисовки одного кадра.
+                    #Т.е. присосаться к новому ноду на один кадр, а потом уже обработать его сразу с поиском нового нода и рисовки к нему (как для примера в вики).
             break
     def modal(self, context, event):
         context.area.tag_redraw()
-        match event.type:
-            case 'MOUSEMOVE':
-                VoronoiHiderTool.NextAssignment(self, context)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if self.foundGoalTg:
-                    match self.isHideSocket:
-                        case 0: #Обработка нода.
-                            if not self.vhIsToggleNodesOnDrag:
-                                #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
-                                HideFromNode(self, self.foundGoalTg.tg, HideFromNode(self, self.foundGoalTg.tg, True), True)
-                        case 1: #Сокрытие сокета.
-                            self.foundGoalTg.tg.hide = True
-                        case 2: #Переключение видимости значения сокета.
-                            self.foundGoalTg.tg.hide_value = not self.foundGoalTg.tg.hide_value
-                return {'FINISHED'}
+        if StencilMouseNextAndReout(self, context, event):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if self.foundGoalTg:
+                match self.isHideSocket:
+                    case 0: #Обработка нода.
+                        if not self.vhIsToggleNodesOnDrag:
+                            #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
+                            HideFromNode(self, self.foundGoalTg.tg, HideFromNode(self, self.foundGoalTg.tg, True), True)
+                    case 1: #Сокрытие сокета.
+                        self.foundGoalTg.tg.hide = True
+                    case 2: #Переключение видимости значения сокета.
+                        self.foundGoalTg.tg.hide_value = not self.foundGoalTg.tg.hide_value
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalTg = []
         self.firstResult = None #Получить действие "свернуть" или "развернуть" у первого нода, а потом транслировать его на все остальные попавшиеся.
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiHider):
-            VoronoiHiderTool.NextAssignment(self, context)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiHider)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_Sca", {'isHideSocket':1})
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_scA", {'isHideSocket':2})
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_sCa", {'isHideSocket':0})
 
-#todo: учитывая, что есть моя хотелка для виртуальных в VLT, нужно ли вообще раскрывать последние виртуальные?
-def HideFromNode(self, nd, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
-    scoGeoSks = 0
+set_equestrianHideVirtual = {'GROUP_INPUT','SIMULATION_INPUT','SIMULATION_OUTPUT','REPEAT_INPUT','REPEAT_OUTPUT'} #Заметка: у VEST есть такое же, только полное и с bl_idname.
+
+#todo3 когда появится DoLinkHH, выключить раскрытие последних виртуальных для всадников.
+def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
+    scoGeoSks = 0 #Для CheckSkZeroDefaultValue().
     def CheckSkZeroDefaultValue(sk): #Shader и Virtual всегда True, Geometry от настроек аддона.
-        match sk.type:
-            case 'VALUE'|'INT':
-                if (sk.name in {'Alpha', 'Factor'})and(sk.default_value==1): #Для некоторых флоат сокетов тоже было бы неплохо иметь точечную проверку.
-                    return True #Возможно стоит сделать настраиваемый список точечных сокрытий. todo а пока добавить опцию.
-                return sk.default_value==0
-            case 'VECTOR':
-                if (sk.name=='Scale')and(sk.default_value[0]==1)and(sk.default_value[1]==1)and(sk.default_value[2]==1):
-                    return True #Меня переодически напрягал 'GeometryNodeTransform', и в один прекрасной момент накопилось...
-                return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
-            case 'RGBA': #Разделил из 'VECTOR'а из-за точечной проверки сокета с именем Scale.
-                return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0)
-            case 'STRING':
-                return sk.default_value==''
+        match sk.type: #Отсортированы в порядке убывания сложности.
             case 'GEOMETRY':
                 match self.vhNeverHideGeometry: #Задумывалось и для out тоже, но как-то леновато, а ещё `GeometryNodeBoundBox`, так что...
                     case 'FALSE': return True
@@ -2245,63 +2251,72 @@ def HideFromNode(self, nd, lastResult, isCanDo=False): #Изначально л�
                         nonlocal scoGeoSks
                         scoGeoSks += 1
                         return scoGeoSks!=1
-            case 'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE':
-                return not sk.default_value
+            case 'VALUE':
+                if (sk.name in {'Alpha', 'Factor'})and(sk.default_value==1): #Для некоторых флоат сокетов тоже было бы неплохо иметь точечную проверку.
+                    return True #todo1 изобрести как-то список настраиваемых точечных сокрытий.
+                return sk.default_value==0
+            case 'VECTOR':
+                if (sk.name=='Scale')and(sk.default_value[0]==1)and(sk.default_value[1]==1)and(sk.default_value[2]==1):
+                    return True #Меня переодически напрягал 'GeometryNodeTransform', и в один прекрасной момент накопилось..
+                return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0) #Заметка: `sk.default_value==(0,0,0)` не прокатит.
             case 'BOOLEAN':
                 if not sk.hide_value: #Лень паять, всё обрабатывается в прямом виде.
-                    match vhHideBoolSocket:
+                    match self.vhHideBoolSocket: #Заметка: `.self` всего один, но зато каждый NextAssignment() инструмента, причём по несколько за раз. Так что маршрут self'ов имеет смысл.
                         case 'ALWAYS': return True
                         case 'NEVER': return False
                         case 'IF_TRUE': return sk.default_value
                         case 'IF_FALSE': return not sk.default_value
                 else:
-                    match vhHideHiddenBoolSocket:
+                    match self.vhHideHiddenBoolSocket:
                         case 'ALWAYS': return True
                         case 'NEVER': return False
                         case 'IF_TRUE': return sk.default_value
                         case 'IF_FALSE': return not sk.default_value
+            case 'RGBA':
+                return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0) #4-й компонент игнорируются, может быть любым.
+            case 'INT':
+                return sk.default_value==0
+            case 'STRING'|'OBJECT'|'MATERIAL'|'COLLECTION'|'TEXTURE'|'IMAGE': #Заметка: STRING не такой же, как и остальные, но имеет одинаковую обработку.
+                return not sk.default_value
             case _:
                 return True
-    vhHideBoolSocket = self.vhHideBoolSocket #Ради этого пришлось проложить маршрут self'а. Чем-то мне не понравилось Prefs() здесь.
-    vhHideHiddenBoolSocket = self.vhHideHiddenBoolSocket
     if lastResult: #Результат предыдущего анализа, есть ли сокеты чьё состояние изменилось бы. Нужно для 'isCanDo'.
-        def CheckAndDoForIo(where, L):
+        def CheckAndDoForIo(ioputs, LMainCheck):
             success = False
-            for sk in where:
-                if (sk.enabled)and(not sk.links)and(L(sk)):
-                    success |= not sk.hide
+            for sk in ioputs:
+                if (sk.enabled)and(not sk.hide)and(not sk.links)and(LMainCheck(sk)): #Ядро сокрытия находится здесь, в первых двух проверках.
+                    success |= not sk.hide #Здесь success означает будет ли оно скрыто.
                     if isCanDo:
                         sk.hide = True
             return success
-        tgl = False
-        #todo: повторно осознать что здесь происходит (от сюда и до конца), и закоментить подробнее.
-        if nd.type=='GROUP_INPUT': #Эта проверка для эстетики оптимизации; строчка ниже нужна для LCheckOver.
-            tgl = length([nd for nd in nd.id_data.nodes if nd.type=='GROUP_INPUT'])>1
-        #Если виртуальные были созданы вручную, то у nd io групп не скрывать их. Потому что.
-        LCheckOver = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and
-                                     (not tgl)and #Но если nd i групп больше одного, то всё равно скрывать.
-                                     (nd.type in {'GROUP_INPUT','GROUP_OUTPUT'})and #Возможно стоило оставить `sk.node.type` эстетики ради.
-                                     (GetSkIndex(sk)!=length(sk.node.outputs if sk.is_output else sk.node.inputs)-1) )
-        success = CheckAndDoForIo(nd.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LCheckOver(sk)) )
-        if [sk for sk in nd.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне.
-            success |= CheckAndDoForIo(nd.outputs, lambda sk: LCheckOver(sk) ) #Здесь наоборот, чтобы функция гарантированно выполнилась. #todo: о чём наоборот?
+        #Если виртуальные были созданы вручную, то не скрывать их. Потому что. Но если входов групп больше одного, то всё равно скрывать.
+        #Изначальный смысл LVirtual -- "LCheckOver" -- проверка "над", точечные дополнительные условия. Но в ней скопились только для виртуальных, поэтому переназвал.
+        isMoreNgInputs = False if ndTarget.type!='GROUP_INPUT' else ( length([True for nd in ndTarget.id_data.nodes if nd.type=='GROUP_INPUT'])>1 )
+        LVirtual = lambda sk: not( (sk.bl_idname=='NodeSocketVirtual')and #Смысл этой Labmda -- точечное не-сокрытие для тех, которые виртуальные,
+                                   (sk.node.type in {'GROUP_INPUT','GROUP_OUTPUT'})and # у io-всадников,
+                                   (sk!=(sk.node.outputs if sk.is_output else sk.node.inputs)[-1])and # и не последние (то ради чего),
+                                   (not isMoreNgInputs) ) # и GROUP_INPUT в дереве всего один.
+        #Ядро в трёх строчках ниже:
+        success = CheckAndDoForIo(ndTarget.inputs, lambda sk: CheckSkZeroDefaultValue(sk)and(LVirtual(sk)) ) #Для входов мейнстримная проверка их значений, и дополнительно виртуальные.
+        if [True for sk in ndTarget.outputs if (sk.enabled)and(sk.links)]: #Если хотя бы один сокет подсоединён во вне
+            success |= CheckAndDoForIo(ndTarget.outputs, lambda sk: LVirtual(sk) ) #Для выводов актуально только проверка виртуальных, если это оказался всадник.
         else:
-            if nd.type in {'GROUP_INPUT','GROUP_OUTPUT','SIMULATION_INPUT','SIMULATION_OUTPUT'}: #Всё равно переключать последний виртуальный, даже если нет соединений во вне.
-                #todo Repeat zone и вообще вынести это^ во вне.
-                if nd.outputs:
-                    sk = nd.outputs[-1]
+            #Всё равно переключать последний виртуальный, даже если нет соединений во вне.
+            if ndTarget.type in set_equestrianHideVirtual: #Заметка: 'GROUP_OUTPUT' бесполезен, у него всё прячется по значению.
+                if ndTarget.outputs: #Вместо for, чтобы читать из последнего.
+                    sk = ndTarget.outputs[-1]
                     if sk.bl_idname=='NodeSocketVirtual':
-                        success |= not sk.hide
+                        success |= not sk.hide #Так же, как и в CheckAndDoForIo().
                         if isCanDo:
                             sk.hide = True
-        return success
+        return success #Урожай изнутри от двух CheckAndDoForIo().
     elif isCanDo: #Иначе раскрыть всё.
         success = False
-        for ndio in (nd.inputs, nd.outputs):
-            for sk in ndio:
-                success = success or sk.hide
+        for ioputs in {ndTarget.inputs, ndTarget.outputs}:
+            for sk in ioputs:
+                success |= sk.hide #Здесь success означает будет ли оно раскрыто.
                 sk.hide = False
-        return success #todo: вспомнить, зачем нужен успех при раскрытии. Наверное для Repick'а.
+        return success
 
 #"Массовый линкер" -- как линкер, только много за раз (ваш кэп). Наверное, самое редко-бесполезное что только можно было придумать здесь.
 #Этот инструмент -- "из пушки по редким птичкам", крупица удобного наслаждения один раз в сто лет.
@@ -2370,63 +2385,55 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
                 self.ndGoalIn = None #Здесь нод-вход обнуляется каждый раз в случае неудачи.
             #Заметка: первое нахождение ndGoalIn, list_equalFgSks == [].
             if StencilUnCollapseNode(nd, self.ndGoalIn):
-                StencilReNext(VoronoiMassLinkerTool, self, context, False)
+                StencilReNext(self, context, False)
             break
     def modal(self, context, event):
         context.area.tag_redraw()
-        isCanReOut = ProcCanMoveOut(self, event)
-        if isCanReOut:
-            #Заметка: ndGoalIn обнулится через самокопию в функции ниже.
-            VoronoiMassLinkerTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut:
-                    VoronoiMassLinkerTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if (self.ndGoalOut)and(self.ndGoalIn):
-                    tree = context.space_data.edit_tree
-                    #for li in self.list_equalFgSks: tree.links.new(li[0].tg, li[1].tg) #Соединить всех!
-                    #Если выходы нода и входы другого нода имеют в сумме 4 одинаковых сокета по названию, то происходит неожидаемое от инструмента поведение.
-                    #Поэтому соединяется только один линк на входной сокет (мультиинпуты не в счёт).
-                    set_alreadyDone = set()
-                    list_skipToEndEq = []
-                    list_skipToEndSk = []
-                    for li in self.list_equalFgSks:
-                        sko = li[0].tg
-                        ski = li[1].tg
-                        if ski in set_alreadyDone:
-                            continue
-                        if sko in list_skipToEndSk: #Заметка: достаточно и линейного чтения, но пока оставлю так, чтоб наверняка.
-                            list_skipToEndEq.append(li)
-                            continue
-                        tree.links.new(sko, ski) #Заметка: наверное лучше оставить безопасное "сырое" соединение, учитывая массовость соединения и неограниченность количества.
-                        RememberLastSockets(sko, ski) #Заметка: эта и далее -- "последнее всегда последнее", эффективно-ниже проверками уже не опуститься; ну или по крайней мере на моём уровне знаний.
-                        if not ski.is_multi_input: #Мультиинпуты бездонны!
-                            set_alreadyDone.add(ski)
-                        list_skipToEndSk.append(sko)
-                    #Мне лень описывать зачем нужны два цикла, вспомни сам, я из будущего.
-                    for li in list_skipToEndEq:
-                        sko = li[0].tg
-                        ski = li[1].tg
-                        if ski in set_alreadyDone:
-                            continue
+        #Заметка: ndGoalIn обнулится через самокопию если isCanReOut.
+        if StencilMouseNextAndReout(self, context, event, False, True):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if (self.ndGoalOut)and(self.ndGoalIn):
+                tree = context.space_data.edit_tree
+                #for li in self.list_equalFgSks: tree.links.new(li[0].tg, li[1].tg) #Соединить всех!
+                #Если выходы нода и входы другого нода имеют в сумме 4 одинаковых сокета по названию, то происходит неожидаемое от инструмента поведение.
+                #Поэтому соединяется только один линк на входной сокет (мультиинпуты не в счёт).
+                set_alreadyDone = set()
+                list_skipToEndEq = []
+                list_skipToEndSk = []
+                for li in self.list_equalFgSks:
+                    sko = li[0].tg
+                    ski = li[1].tg
+                    if ski in set_alreadyDone:
+                        continue
+                    if sko in list_skipToEndSk: #Заметка: достаточно и линейного чтения, но пока оставлю так, чтоб наверняка.
+                        list_skipToEndEq.append(li)
+                        continue
+                    tree.links.new(sko, ski) #Заметка: наверное лучше оставить безопасное "сырое" соединение, учитывая массовость соединения и неограниченность количества.
+                    RememberLastSockets(sko, ski) #Заметка: эта и далее -- "последнее всегда последнее", эффективно-ниже проверками уже не опуститься; ну или по крайней мере на моём уровне знаний.
+                    if not ski.is_multi_input: #Мультиинпуты бездонны!
                         set_alreadyDone.add(ski)
-                        tree.links.new(sko, ski)
-                        RememberLastSockets(sko, ski)
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+                    list_skipToEndSk.append(sko)
+                #Мне лень описывать зачем нужны два цикла, вспомни сам, я из будущего.
+                for li in list_skipToEndEq:
+                    sko = li[0].tg
+                    ski = li[1].tg
+                    if ski in set_alreadyDone:
+                        continue
+                    set_alreadyDone.add(ski)
+                    tree.links.new(sko, ski)
+                    RememberLastSockets(sko, ski)
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.ndGoalOut = None
         self.ndGoalIn = None
         self.list_equalFgSks = [] #Однажды необычным странным образом, modal() не смог найти этот атрибут в себе. Поэтому продублировал сюда.
         self.isDrawDoubleNone = True
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiMassLinker):
-            VoronoiMassLinkerTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiMassLinker, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA")
@@ -2444,7 +2451,7 @@ esData = EnumSelectorData()
 def GetListOfNdEnums(nd):
     return [li for li in nd.rna_type.properties if not(li.is_readonly or li.is_registered)and(li.type=='ENUM')]
 
-set_equestrianPortalBlids = {'NodeGroupInput', 'NodeGroupOutput', 'GeometryNodeSimulationInput', 'GeometryNodeSimulationOutput', 'GeometryNodeRepeatInput', 'GeometryNodeRepeatOutput'}
+set_equestrianPortalBlids = {'NodeGroupInput', 'NodeGroupOutput', 'GeometryNodeSimulationInput', 'GeometryNodeSimulationOutput', 'GeometryNodeRepeatInput', 'GeometryNodeRepeatOutput'} #Заметка: у VHT есть почти такое же.
 
 def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
@@ -2483,7 +2490,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
     isToggleOptions: bpy.props.BoolProperty(name="Toggle node options mode", default=False)
     isPieChoice:     bpy.props.BoolProperty(name="Pie choice",               default=False)
     isSelectNode:    bpy.props.BoolProperty(name="Select target node",       default=True)
-    def NextAssignment(self, context):
+    def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
             return
         self.foundGoalNd = None
@@ -2492,7 +2499,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
             nd = li.tg
             if nd.type=='REROUTE': #Для этого инструмента рероуты пропускаются, по очевидным причинам.
                 continue
-            if nd.bl_idname in set_equestrianPortalBlids: #Игнорировать "порталы" "трёх всадников".
+            if nd.bl_idname in set_equestrianPortalBlids: #Игнорировать всех всадников.
                 continue
             if nd.hide: #У свёрнутых нод результат переключения не увидеть, поэтому игнорировать.
                 continue
@@ -2502,8 +2509,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
                 if self.vesIsToggleNodesOnDrag:
                     if self.firstResult is None:
                         self.firstResult = ToggleOptionsFromNode(nd, True)
-                    if ToggleOptionsFromNode(nd, self.firstResult, True)and(self.vesReDrawAfterChange):
-                        StencilReNext(VoronoiEnumSelectorTool, self, context)
+                    ToggleOptionsFromNode(nd, self.firstResult, True)
                 break
             else:
                 #Почему бы не игнорировать ноды без енум свойств?.
@@ -2529,23 +2535,20 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
                 return True #Для modal(), чтобы вернуть успех.
     def modal(self, context, event):
         context.area.tag_redraw()
-        match event.type:
-            case 'MOUSEMOVE':
-                VoronoiEnumSelectorTool.NextAssignment(self, context)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if self.isToggleOptions:
-                    if not self.vesIsToggleNodesOnDrag: #И снова, так же как и в VHT.
-                        ToggleOptionsFromNode(self.foundGoalNd.tg, ToggleOptionsFromNode(self.foundGoalNd.tg, True), True)
+        if StencilMouseNextAndReout(self, context, event):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if self.isToggleOptions:
+                if not self.vesIsToggleNodesOnDrag: #И снова, так же как и в VHT.
+                    ToggleOptionsFromNode(self.foundGoalNd.tg, ToggleOptionsFromNode(self.foundGoalNd.tg, True), True)
+                return {'FINISHED'}
+            else:
+                if (not self.vesIsInstantActivation)and(VoronoiEnumSelectorTool.DoActivation(self)):
                     return {'FINISHED'}
-                else:
-                    if (not self.vesIsInstantActivation)and(VoronoiEnumSelectorTool.DoActivation(self)):
-                        return {'FINISHED'}
-                return {'CANCELLED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalNd = None
         if (self.vesIsInstantActivation)and(not self.isToggleOptions):
@@ -2562,8 +2565,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
             bpy.types.SpaceNodeEditor.draw_handler_remove(self.handleNode, 'WINDOW')
             return {'FINISHED'} #Рисуется, но не позволяет использовать пирог при отжатии. Поэтому не нужно активировать modal() далее. Так же см. vesIsInstantActivation в modal().
         self.firstResult = None #В идеале тоже перед выше, но не обязательно см. топологию isToggleOptions.
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiEnumSelector):
-            VoronoiEnumSelectorTool.NextAssignment(self, context)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiEnumSelector)
         return {'RUNNING_MODAL'}
 
 #Изначально хотел 'V_Sca', но слишком далеко тянуться пальцем до 'V'. И вообще, учитывая причину создания этого инструмента, нужно минимизировать сложность вызова.
@@ -2623,8 +2625,8 @@ class EnumSelectorBox(bpy.types.Menu):
             col.ui_units_x = 7*((esData.boxScale-1)/2+1)
             return col
         colDom = GetCol(pie, [True for li in esData.list_enumProps if li.identifier=='domain'])
-        colMain = GetCol(pie, [True for li in esData.list_enumProps if li.identifier!='domain'])
-        DrawEnumSelectorBox(colMain, colDom)
+        colAll = GetCol(pie, [True for li in esData.list_enumProps if li.identifier!='domain'])
+        DrawEnumSelectorBox(colAll, colDom)
 
 list_classes += [OpEnumSelectorBox, EnumSelectorBox]
 
@@ -2655,7 +2657,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
     bl_label = "Voronoi Repeating"
     isAutoRepeatMode: bpy.props.BoolProperty(name="Is auto repeat mode", default=False)
     isFromOut:        bpy.props.BoolProperty(name="From out",            default=False)
-    def NextAssignment(self, context):
+    def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
             return
         lSkO = rpData.lastSk1
@@ -2675,7 +2677,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
                     for sk in nd.inputs:
                         if CompareSkLabelName(sk, lSkO if self.isFromOut else lSkI):
                             if (sk.enabled)and(not sk.hide):
-                                context.space_data.edit_tree.links.new(lSkO, sk) #todo скорее всего тоже через высокоуровневое соединение.
+                                context.space_data.edit_tree.links.new(lSkO, sk) #todo3 DoLinkHH; скорее всего тоже через высокоуровневое соединение.
             else:
                 list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
                 if rpData.lastSk1:
@@ -2688,28 +2690,25 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
                             self.foundGoalTg = li
                             break
                 if StencilUnCollapseNode(nd, self.foundGoalTg):
-                    StencilReNext(VoronoiRepeatingTool, self, context)
+                    StencilReNext(self, context)
             break
     def modal(self, context, event):
         context.area.tag_redraw()
-        match event.type:
-            case 'MOUSEMOVE':
-                VoronoiRepeatingTool.NextAssignment(self, context)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if self.foundGoalTg:
-                    if not self.isAutoRepeatMode:
-                        #Здесь нет нужды проверять на одинаковость дерева сокетов, проверка на это уже есть в NextAssignment().
-                        #Так же нет нужды проверять существование lastSk1, см. его топологию в NextAssignment().
-                        # if (rpData.lastSk1)and(rpData.lastSk1.id_data!=self.foundGoalTg.tg.id_data): return {'CANCELLED'}
-                        #Нет нужды проверять существование дерева, потому что если присосавшийся сокет тут существует, то уже где-то.
-                        context.space_data.edit_tree.links.new(rpData.lastSk1, self.foundGoalTg.tg)
-                        RememberLastSockets(rpData.lastSk1, self.foundGoalTg.tg) #Потому что. И вообще.. "саморекурсия"?.
-                return {'FINISHED'}
+        if StencilMouseNextAndReout(self, context, event):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if self.foundGoalTg:
+                if not self.isAutoRepeatMode:
+                    #Здесь нет нужды проверять на одинаковость дерева сокетов, проверка на это уже есть в NextAssignment().
+                    #Так же нет нужды проверять существование lastSk1, см. его топологию в NextAssignment().
+                    # if (rpData.lastSk1)and(rpData.lastSk1.id_data!=self.foundGoalTg.tg.id_data): return {'CANCELLED'}
+                    #Нет нужды проверять существование дерева, потому что если присосавшийся сокет тут существует, то уже где-то.
+                    context.space_data.edit_tree.links.new(rpData.lastSk1, self.foundGoalTg.tg)
+                    RememberLastSockets(rpData.lastSk1, self.foundGoalTg.tg) #Потому что. И вообще.. "саморекурсия"?.
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalTg = None
         #Проверить актуальность сокетов:
@@ -2735,8 +2734,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
                 rpData.tree = None
                 #Остальные у rpData не удаляются, потому что топология rpData.tree перекрывает.
         ##
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiRepeating):
-            VoronoiRepeatingTool.NextAssignment(self, context)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiRepeating)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_sca")
@@ -2755,7 +2753,7 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
     bl_idname = 'node.voronoi_quick_dimensions'
     bl_label = "Voronoi Quick Dimensions"
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately", default=False)
-    def NextAssignment(self, context):
+    def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
             return
         self.foundGoalSkOut = None
@@ -2777,51 +2775,49 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
                 break
     def modal(self, context, event):
         context.area.tag_redraw()
-        match event.type:
-            case 'MOUSEMOVE':
-                VoronoiQuickDimensionsTool.NextAssignment(self, context)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if self.foundGoalSkOut:
-                    skOut = self.foundGoalSkOut.tg
-                    tree = context.space_data.edit_tree
-                    dict_qDM = dict_dictQuickDimensionsMain.get(tree.bl_idname, None)
-                    if not dict_qDM:
-                        return {'CANCELLED'}
-                    isOutNdCol = skOut.node.bl_idname==dict_qDM['RGBA'][0]
-                    txt_node = dict_qDM[skOut.type][isOutNdCol]
-                    ##
-                    bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not self.isPlaceImmediately)
-                    aNd = tree.nodes.active
-                    aNd.width = 140
-                    if aNd.bl_idname in {dict_qDM['RGBA'][0], dict_qDM['VALUE'][1]}:
-                        aNd.show_options = False #Слишком неэстетично прятать без разбору, поэтому проверка выше.
-                    if skOut.type in set_skTypeArrFields: #Зато экономия явных определений для каждого типа.
-                        aNd.inputs[0].hide_value = True
-                    ##
-                    skIn = aNd.inputs[0]
-                    for ski in aNd.inputs:
-                        if CompareSkLabelName(skOut, ski):
-                            skIn = ski
-                            break
-                    if not event.alt:
-                        NewLinkAndRemember(skOut, skIn)
+        if StencilMouseNextAndReout(self, context, event):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if self.foundGoalSkOut:
+                skOut = self.foundGoalSkOut.tg
+                tree = context.space_data.edit_tree
+                dict_qDM = dict_dictQuickDimensionsMain.get(tree.bl_idname, None)
+                if not dict_qDM:
+                    return {'CANCELLED'}
+                isOutNdCol = skOut.node.bl_idname==dict_qDM['RGBA'][0]
+                txt_node = dict_qDM[skOut.type][isOutNdCol]
+                ##
+                bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not self.isPlaceImmediately)
+                aNd = tree.nodes.active
+                aNd.width = 140
+                if aNd.bl_idname in {dict_qDM['RGBA'][0], dict_qDM['VALUE'][1]}:
+                    aNd.show_options = False #Слишком неэстетично прятать без разбору, поэтому проверка выше.
+                if skOut.type in set_skTypeArrFields: #Зато экономия явных определений для каждого типа.
+                    aNd.inputs[0].hide_value = True
+                ##
+                skIn = aNd.inputs[0]
+                for ski in aNd.inputs:
+                    if CompareSkLabelName(skOut, ski):
+                        skIn = ski
+                        break
+                if not event.alt:
+                    NewLinkAndRemember(skOut, skIn)
+                else:
+                    if skOut.node.bl_idname in {dict_qDM['VECTOR'][0], dict_qDM['RGBA'][0]}:
+                        for sk1, sk2 in zip(skOut.node.outputs, aNd.inputs):
+                            NewLinkAndRemember(sk1, sk2)
                     else:
-                        if skOut.node.bl_idname in {dict_qDM['VECTOR'][0], dict_qDM['RGBA'][0]}:
-                            for sk1, sk2 in zip(skOut.node.outputs, aNd.inputs):
-                                NewLinkAndRemember(sk1, sk2)
-                        else:
-                            for sk in aNd.inputs:
-                                NewLinkAndRemember(skOut, sk)
-                return {'FINISHED'}
+                        for sk in aNd.inputs:
+                            NewLinkAndRemember(skOut, sk)
+            return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=UselessForCustomUndefTrees(context):
+            return result
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalSkOut = None
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiQuickDimensions):
-            VoronoiQuickDimensionsTool.NextAssignment(self, context)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiQuickDimensions)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickDimensionsTool, "D_scA")
@@ -2866,7 +2862,7 @@ class VoronoiDummyTool(VoronoiToolSkNd):
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             if StencilUnCollapseNode(nd, isBoth):
-                StencilReNext(VoronoiDummyTool, self, context, False)
+                StencilReNext(self, context, True)
             if nd.type=='REROUTE':
                 continue
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
@@ -2874,34 +2870,26 @@ class VoronoiDummyTool(VoronoiToolSkNd):
             fgSkOut = list_fgSksOut[0] if list_fgSksOut else None
             self.foundGoalSk = MinFromFgs(fgSkOut, fgSkIn)
             break
-        if StencilUnCollapseNode(nd, self.foundGoalSk):
-            StencilReNext(VoronoiDummyTool, self, context, False)
+        if StencilUnCollapseNode(nd, self.foundGoalSk): #todo3 навести порядок и осознать повторно, и ниже тоже.
+            StencilReNext(self, context, True)
     def modal(self, context, event):
         context.area.tag_redraw()
-        isCanReOut = ProcCanMoveOut(self, event)
-        if isCanReOut:
-            VoronoiDummyTool.NextAssignment(self, context, True)
-        match event.type:
-            case 'MOUSEMOVE':
-                if not isCanReOut:
-                    VoronoiDummyTool.NextAssignment(self, context, False)
-            case self.keyType|'ESC':
-                if result:=StencilModalEsc(self, context, event):
-                    return result
-                if self.foundGoalSk:
-                    sk = self.foundGoalSk.tg
-                    sk.name = "hi. i am a vdt!"
-                    sk.node.label = "see source code"
-                    RememberLastSockets(sk if sk.is_output else None, sk if not sk.is_output else None)
-                    return {'FINISHED'}
-                return {'CANCELLED'}
+        if StencilMouseNextAndReout(self, context, event, False, True):
+            if result:=StencilModalEsc(self, context, event):
+                return result
+            if self.foundGoalSk:
+                sk = self.foundGoalSk.tg
+                sk.name = "hi. i am a vdt!"
+                sk.node.label = "see source code"
+                RememberLastSockets(sk if sk.is_output else None, sk if not sk.is_output else None)
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
-        if result:=StencilBeginToolInvoke(self, context):
+        if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalSk = None
-        if StencilToolWorkPrepare(self, context, event, CallbackDrawVoronoiDummy):
-            VoronoiDummyTool.NextAssignment(self, context, True)
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiDummy, True)
         return {'RUNNING_MODAL'}
 
 #SmartAddToRegAndAddToKmiDefs(VoronoiDummyTool, "D_sca", {'isPassThrough':False})
@@ -2943,7 +2931,7 @@ class VoronoiAddonTabs(bpy.types.Operator): #См. |11|
                                         case 'STRING': txt += f"prefs.{li.identifier} = \"{getattr(prefs, li.identifier)}\""+"\n"
                                         case 'ENUM':   txt += f"prefs.{li.identifier} = '{getattr(prefs, li.identifier)}'"+"\n"
                                         case _:        txt += f"prefs.{li.identifier} = {getattr(prefs, li.identifier)}"+"\n"
-                #todo придумать как сохранять хоткеи.
+                #todo4 придумать как сохранять хоткеи.
                 #Сохранение изменённых хоткеев -- накустарил по-быстрому, так что поаккуратнее, ибо колхоз. А ещё я не знаю, как обрабатывать удалённые записи.
                 if event.ctrl:
                     txt += "\n"
@@ -2987,7 +2975,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                           ('DRAW',    "Draw",    ""),
                                                                                           ('KEYMAP',  "Keymap",  "") ))
     vaShowAddonOptions: bpy.props.BoolProperty(name="VL Addon:", default=False)
-    vaShowAllToolsOptions: bpy.props.BoolProperty(name="All"+voronoiTextToolSettings, default=False) #todo потом поставить на True.
+    vaShowAllToolsOptions: bpy.props.BoolProperty(name="All"+voronoiTextToolSettings, default=True)
     vaInfoRestore: bpy.props.BoolProperty(name="", description="This list is just a copy from the \"Preferences > Keymap\".\nResrore will restore everything \"Node Editor\", not just addon")
     #Box disclosures:
     vlBoxDiscl: bpy.props.BoolProperty(name="", default=True)
@@ -3001,7 +2989,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vaKmiMainBoxDiscl:   bpy.props.BoolProperty(name="", default=True)
     vaKmiQqmBoxDiscl:    bpy.props.BoolProperty(name="", default=True)
     vaKmiCustomBoxDiscl: bpy.props.BoolProperty(name="", default=True)
-    #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в StencilBeginToolInvoke().
+    #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в SolderingAllPrefsToSelf().
     #Draw
     dsIsDrawText:   bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов.
     dsIsDrawMarker: bpy.props.BoolProperty(name="Markers",     default=True)
@@ -3015,7 +3003,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     ##
-    dsIsAlwaysLine: bpy.props.BoolProperty(name="Always draw line for VoronoiLinker Tool", default=False) #todo пришло время перенести это в инструмент, но это не точно. Скорее всего нет.
+    dsIsAlwaysLine: bpy.props.BoolProperty(name="Always draw line", default=False)
     dsSocketAreaAlpha: bpy.props.FloatProperty(name="Socket area alpha", default=0.075, min=0, max=1, subtype="FACTOR")
     dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform color", default=(0.632502, 0.408091, 0.174378, 0.9), min=0, max=1, size=4, subtype='COLOR') #(0.65, 0.65, 0.65, 1.0)
     dsNodeColor: bpy.props.FloatVectorProperty(name="To-Node draw color", default=(1.0, 1.0, 1.0, 0.9), min=0, max=1, size=4, subtype='COLOR')
@@ -3084,7 +3072,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                                  ('NEVER',   "Never",   ""),
                                                                                                                  ('IF_TRUE', "If true", "") ))
     vhIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
-    vhReDrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=False)
     vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
                                                                                                       ('NAME',     "Only name",     ""),
                                                                                                       ('LABEL',    "Only label",    ""),
@@ -3092,7 +3079,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vhLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side", default=3, min=1, max=4) #Настройка выше и так какая-то бесполезная, а эта прям ваще.
     #Enum selector:
     vesIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
-    vesReDrawAfterChange:   bpy.props.BoolProperty(name="Redraw after change",  default=False)
     vesIsInstantActivation: bpy.props.BoolProperty(name="Instant activation",   default=True)
     vesIsDrawEnumNames: bpy.props.BoolProperty(name="Draw enum names", default=False)
     vesDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
@@ -3111,7 +3097,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         row.prop(who, txt_prop, text=txt, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
         row.active = isActive
         return tgl
-    def AddHandSplitProp(self, where, txt_prop, tgl=True):
+    def AddHandSplitProp(self, where, txt_prop, tgl=True, isReturnLy=False):
         spl = where.row().split(factor=0.38, align=True)
         spl.active = tgl
         row = spl.row(align=True)
@@ -3125,7 +3111,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             box.scale_y = 0.5
             row.active = False
         else:
-            spl.prop(self, txt_prop, text="" if isNotBool else None)
+            if not isReturnLy:
+                spl.prop(self, txt_prop, text="" if isNotBool else None)
+            else:
+                return spl
     def DrawTabSettings(self, context, where):
         AddDisclosureProp = self.AddDisclosureProp
         AddHandSplitProp = self.AddHandSplitProp
@@ -3186,7 +3175,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 AddHandSplitProp(colTool,'vhNeverHideGeometry')
                 LeftProp(colTool, self,'vhIsToggleNodesOnDrag')
                 colProp = colTool.column(align=True)
-                LeftProp(colTool, self,'vhReDrawAfterChange')
                 colProp.active = self.vhIsToggleNodesOnDrag
                 colTool.separator()
                 AddHandSplitProp(colTool,'vhDrawNodeNameLabel')
@@ -3196,7 +3184,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             if colTool:=AddSelfBoxDiscl(colMaster,'vesBoxDiscl', VoronoiEnumSelectorTool):
                 LeftProp(colTool, self,'vesIsToggleNodesOnDrag')
                 colProp = colTool.column(align=True)
-                LeftProp(colTool, self,'vesReDrawAfterChange')
                 colProp.active = self.vesIsToggleNodesOnDrag
                 AddHandSplitProp(colTool,'vesBoxScale')
                 AddHandSplitProp(colTool,'vesDisplayLabels')
@@ -3273,8 +3260,10 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             AddHandSplitProp(colProps, 'dsIsAllowTextShadow')
             colShadow = colProps.column(align=True)
             AddHandSplitProp(colShadow, 'dsShadowCol', self.dsIsAllowTextShadow)
-            AddHandSplitProp(colShadow.row(), 'dsShadowOffset')
-            AddHandSplitProp(colShadow, 'dsShadowBlur')
+            AddHandSplitProp(colShadow, 'dsShadowBlur') #Размытие тени разделяет их, чтобы не сливались вместе по середине.
+            row = AddHandSplitProp(colShadow, 'dsShadowOffset', isReturnLy=True).row(align=True)
+            row.row().prop(self, 'dsShadowOffset', text="X  ", index=0, icon_only=True)
+            row.row().prop(self, 'dsShadowOffset', text="Y  ", index=1, icon_only=True)
             colShadow.active = self.dsIsAllowTextShadow
             AddHandSplitProp(colProps, 'dsIsDrawDebug')
         except Exception as ex:
@@ -3303,7 +3292,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                     if li.id<0:
                         set_kmiCustom.add(li)
                         list_sco[3] += 1
-                    elif any([getattr(li.properties, pr, None) for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie'}]):
+                    elif [True for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie'} if getattr(li.properties, pr, None)]:
                         set_kmiQqm.add(li)
                         list_sco[2] += 1
                     else:
@@ -3349,7 +3338,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
         rowTabs = colMain.row(align=True)
         #|11| Переключение вкладок через оператор создано, чтобы случайно не сменить вкладку при ведении зажатой мышки, кой есть особый соблазн с таким большим количеством "isColored".
         if True:
-            for li in [e for e in self.rna_type.properties['vaUiTabs'].enum_items]:
+            for li in [en for en in self.rna_type.properties['vaUiTabs'].enum_items]:
                 rowTabs.row().operator(VoronoiAddonTabs.bl_idname, text=TranslateIface(li.name), depress=self.vaUiTabs==li.identifier).opt = li.identifier
         else:
             rowTabs.prop(self,'vaUiTabs', expand=True)
@@ -3360,7 +3349,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
 
 list_classes += [VoronoiAddonTabs, VoronoiAddonPrefs]
 
-#todo теперь есть пара пар инструментов с одинаковыми по смыслу опциями. Нужно бы это как-то вылизать и/или зашаблонить.
+#todo4 теперь есть пара пар инструментов с одинаковыми по смыслу опциями. Нужно бы это как-то вылизать и/или зашаблонить.
 
 list_helpClasses = []
 
@@ -3405,7 +3394,17 @@ def GclToolSet(cls):
 def GetAnnotNameFromClass(pcls, txt, kw=0):
     return pcls.__annotations__[txt].keywords['name' if kw==0 else 'description'] #Так вот где они прятались, в аннотациях. А я то уж потерял надежду; думал, вручную придётся.
 
+#Наслучай модификации словаря с переводами при большом количестве языков. Наверное это плохая идея, но иначе все совсем будут лентями-пофигистами.
+#А так хоть на каждом новом тексте будет лепиться эта метка, которая своим визуальным наличием заставит пользователей языка перевода подсуетиться чуть больше и/или быстрее.
+dict_needTranslate = {}
+dict_needTranslate['ru_RU'] = '<требуется перевод>'
+dict_needTranslate['aa_AA'] = 'aaa!'
+
+##
 dict_translations = {}
+
+#todo0 когда настанет день X популярности, нужно будет переделать всю систему перевода VL, чтобы обслужить поток и повысить удобность.
+#Что-то вроде словарь{свойство: словарь{язык:перевод, язык:перевод, ..}, ..}.
 
 Gapn = GetAddonPropName
 Ganfc = GetAnnotNameFromClass
@@ -3449,7 +3448,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Gapn('dsShadowCol'):          "Цвет тени",
             Gapn('dsShadowOffset'):       "Смещение тени",
             Gapn('dsShadowBlur'):         "Размытие тени",
-            Gapn('dsIsAlwaysLine'):       "Всегда рисовать линию для Voronoi Linker Tool",
+            Gapn('dsIsAlwaysLine'):       "Всегда рисовать линию",
             Gapn('dsIsDrawDebug'):        "Отображать отладку",
             #Settings:
             Gapn('vtRepickTrigger'):                "Условие перевыбора",
@@ -3477,8 +3476,6 @@ def CollectTranslationDict(): #Превращено в функцию ради `
                 Gapn('vhHideBoolSocket',1):             "Если True",
                 Gapn('vhHideBoolSocket',3):             "Если False",
             Gapn('vhIsToggleNodesOnDrag'):          "Переключать ноды при ведении курсора",
-            Gapn('vhReDrawAfterChange'):            "Перерисовывать после изменения",
-#            Gapn('vhTriggerOnCollapsedNodes'):      "Триггериться на свёрнутые ноды",
             Gapn('vhDrawNodeNameLabel'):            "Показывать текст для нода",
                 Gapn('vhDrawNodeNameLabel',1):          "Только имя",
                 Gapn('vhDrawNodeNameLabel',2):          "Только заголовок",
@@ -3496,11 +3493,19 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiToolDblSk,'isCanBetweenFields',1):       "Инструменты могут соединяться между различными типами полей",
             Ganfc(VoronoiPreviewTool,'isSelectingPreviewedNode'): "Выделять предпросматриваемый нод",
             Ganfc(VoronoiPreviewTool,'isTriggerOnlyOnLink'):      "Триггериться только на связанные",
+            Ganfc(VoronoiMixerTool,'isCanFromOne'):               "Может от одного сокета",
+            Ganfc(VoronoiMixerTool,'isPlaceImmediately'):         "Размещать моментально",
             Ganfc(VoronoiQuickMathTool,'isHideOptions'):          "Скрывать опции нода",
+            Ganfc(VoronoiQuickMathTool,'justCallPie'):            "Просто вызвать пирог",
+            Ganfc(VoronoiQuickMathTool,'quickOprFloat'):          "Скаляр (быстро)",
+            Ganfc(VoronoiQuickMathTool,'quickOprVector'):         "Вектор (быстро)",
+            Ganfc(VoronoiQuickMathTool,'quickOprBool'):           "Булевый (быстро)",
+            Ganfc(VoronoiQuickMathTool,'quickOprColor'):          "Цвет (быстро)",
             Ganfc(VoronoiSwapperTool,'isAddMode'):                "Режим добавления",
             Ganfc(VoronoiSwapperTool,'isIgnoreLinked'):           "Игнорировать связанные сокеты",
             Ganfc(VoronoiSwapperTool,'isCanAnyType'):             "Может меняться с любым типом",
             Ganfc(VoronoiHiderTool,'isHideSocket'):               "Режим сокрытия",
+            Ganfc(VoronoiHiderTool,'isTriggerOnCollapsedNodes'):  "Триггериться на свёрнутые ноды",
             Ganfc(VoronoiMassLinkerTool,'isIgnoreExistingLinks'): "Игнорировать существующие связи",
             Ganfc(VoronoiEnumSelectorTool,'isToggleOptions'):     "Режим переключения опций нода",
             Ganfc(VoronoiEnumSelectorTool,'isPieChoice'):         "Выбор пирогом",
@@ -3509,7 +3514,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiRepeatingTool,'isFromOut'):              "Из выхода",
             }
     return
-    dict_translations['aa_AA'] = { #Ждёт своего часа.
+    dict_translations['aa_AA'] = { #Ждёт своего часа. Кто же будет первым?
             bl_info['description']:                     "",
             "Virtual":                                  "",
             "Restore":                                  "",
@@ -3534,8 +3539,8 @@ def register():
             for di in dict_props:
                 setattr(kmi.properties, di, dict_props[di])
     ##
-#    CollectTranslationDict()
-#    RegisterTranslations()
+    CollectTranslationDict()
+    RegisterTranslations()
 def unregister():
     for li in reversed(list_classes):
         bpy.utils.unregister_class(li)
