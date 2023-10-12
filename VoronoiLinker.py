@@ -125,7 +125,7 @@ def NdSelectAndActive(ndTar):
 # VEST  Да(?)
 # VRT   Да
 # VQDT  Нет
-# todo2 будущие:
+#todo2 будущие:
 # VICT  Нет
 # VTT   Да
 
@@ -483,7 +483,7 @@ def StencilReNext(self, context, *naArgs):
     #Заметка: осторожно с вызозом StencilReNext() в NextAssignment(), чтобы не уйти в вечный цикл!
     self.NextAssignment(context, *naArgs) #Заметка: не забывать разворачивать нарезку.
 
-#Мейнстримные шаблоны, отсортированы в порядке по нахождению в коде:
+#Мейнстримные шаблоны, отсортированые в порядке по нахождению в коде:
 
 def StencilMouseNextAndReout(self, context, event, *naArgsDouble): #Заметка: аккуратнее с naDoubleArgs, должен быть всегда чётным.
     #Заметка: первым в naArgsDouble -- для False (as отсутствие isBoth), ибо оно первичнее.
@@ -788,7 +788,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
             self.foundGoalSkOut.tg.node.outputs[-1].hide = False
     def modal(self, context, event):
         context.area.tag_redraw() #Неожиданно, но кажется теперь оно перерисовывается само по себе. Но только при каких-то обстоятельствах. Ибо для некоторых инструментов
-        # в кастомных деревьях если у нодов нет сокетов.. что-то не работает. #todo0 выяснить подробнее.
+        # в кастомных деревьях если у нодов нет сокетов.. что-то не работает. #todo1 выяснить подробнее.
         #foundGoalSkIn и foundGoalSkOut как минимум гарантированно обнуляются в шаблоне с isBoth=True
         if StencilMouseNextAndReout(self, context, event, False, True): #Здесь упакован `match event.type:`. Возвращает true, если завершение инструмента.
             if result:=StencilModalEsc(self, context, event):
@@ -1584,7 +1584,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_quick_math'
     bl_label = "Voronoi Quick Math"
     quickOprFloat:  bpy.props.StringProperty(name="Float (quick)",  default="") #Они в начале, чтобы в kmi отображалось выровненным.
-    quickOprVector: bpy.props.StringProperty(name="Vector (quick)", default="") #quick вторым, чтобы при нехватке места отображалось первое слово.
+    quickOprVector: bpy.props.StringProperty(name="Vector (quick)", default="") #quick вторым, чтобы при нехватке места отображалось первое слово, от чего пришлось заключить в скобки.
     isCanFromOne:       bpy.props.BoolProperty(name="Can from one socket", default=True)
     isHideOptions:      bpy.props.BoolProperty(name="Hide node options",   default=False)
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
@@ -1699,7 +1699,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Осталось на правой, чтобы не охреневать от тройного клика левой при 'Speed Pie' типе пирога.
 #Список быстрых операций для быстрой математики, "x2 комбо".
-#Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае 4-й буль скорее всего придётся делать пустым.
+#Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае булеан на 4 скорее всего придётся делать никаким.
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'     , 'isHideOptions':True})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY', 'isHideOptions':True})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT', 'isHideOptions':True})
@@ -1709,6 +1709,7 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3})
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4})
+#todo4 придумать что-то для типов редакторов, в которых нет некоторых из ^ типов.
 
 #Быстрая математика.
 #Заполучить нод с нужной операцией и автоматическим соединением в сокеты, благодаря мощностям VL'а.
@@ -1815,7 +1816,8 @@ def DoQuickMath(event, tree, opr, isQqo=False):
     if qmData.qmSkType!='RGBA': #Ох уж этот цвет.
         aNd.operation = opr
     else:
-        aNd.data_type = 'RGBA'
+        if aNd.bl_idname=='ShaderNodeMix':
+            aNd.data_type = 'RGBA'
         aNd.blend_type = opr
         aNd.inputs[0].default_value = 1.0
         aNd.inputs[0].hide = opr in {'ADD','SUBTRACT','DIVIDE','MULTIPLY','DIFFERENCE','EXCLUSION','VALUE','SATURATION','HUE','COLOR'}
@@ -2261,7 +2263,7 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
                 return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0) #Заметка: `sk.default_value==(0,0,0)` не прокатит.
             case 'BOOLEAN':
                 if not sk.hide_value: #Лень паять, всё обрабатывается в прямом виде.
-                    match self.vhHideBoolSocket: #Заметка: `.self` всего один, но зато каждый NextAssignment() инструмента, причём по несколько за раз. Так что маршрут self'ов имеет смысл.
+                    match self.vhHideBoolSocket: #Заметка: `.self` всего один, но зато каждый NextAssignment() инструмента, причём по несколько за раз. Так что маршрут self'ов имел смысл.
                         case 'ALWAYS': return True
                         case 'NEVER': return False
                         case 'IF_TRUE': return sk.default_value
@@ -2309,7 +2311,7 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
                         success |= not sk.hide #Так же, как и в CheckAndDoForIo().
                         if isCanDo:
                             sk.hide = True
-        return success #Урожай изнутри от двух CheckAndDoForIo().
+        return success #Урожай от двух CheckAndDoForIo() изнутри.
     elif isCanDo: #Иначе раскрыть всё.
         success = False
         for ioputs in {ndTarget.inputs, ndTarget.outputs}:
@@ -2414,7 +2416,7 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
                     if not ski.is_multi_input: #Мультиинпуты бездонны!
                         set_alreadyDone.add(ski)
                     list_skipToEndSk.append(sko)
-                #Мне лень описывать зачем нужны два цикла, вспомни сам, я из будущего.
+                #Далее орабатываются пропущенные на предыдущем цикле.
                 for li in list_skipToEndEq:
                     sko = li[0].tg
                     ski = li[1].tg
@@ -2741,6 +2743,26 @@ SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_sca")
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_Sca", {'isAutoRepeatMode':True })
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_scA", {'isAutoRepeatMode':True, 'isFromOut':True })
 
+dict_dictQuickDimensionsMain = {
+        'ShaderNodeTree':    {'VECTOR':  ('ShaderNodeSeparateXYZ',),
+                              'RGBA':    ('ShaderNodeSeparateColor',),
+                              'VALUE':   ('ShaderNodeCombineXYZ','ShaderNodeCombineColor'),
+                              'INT':     ('ShaderNodeCombineXYZ',)},
+        'GeometryNodeTree':  {'VECTOR':  ('ShaderNodeSeparateXYZ',),
+                              'RGBA':    ('FunctionNodeSeparateColor',),
+                              'VALUE':   ('ShaderNodeCombineXYZ','FunctionNodeCombineColor'),
+                              'INT':     ('ShaderNodeCombineXYZ',),
+                              'BOOLEAN': ('ShaderNodeCombineXYZ',),
+                              'GEOMETRY':('GeometryNodeSeparateComponents',)}, #Зато одинаковый по смыслу. Воспринимать как мини-рофл.
+        'CompositorNodeTree':{'VECTOR':  ('CompositorNodeSeparateXYZ',),
+                              'RGBA':    ('CompositorNodeSeparateColor',),
+                              'VALUE':   ('CompositorNodeCombineXYZ','CompositorNodeCombineColor'),
+                              'INT':     ('CompositorNodeCombineXYZ',)},
+        'TextureNodeTree':   {'VECTOR':  ('TextureNodeSeparateColor',),
+                              'RGBA':    ('TextureNodeSeparateColor',),
+                              'VALUE':   ('TextureNodeCombineColor','TextureNodeCombineColor'), #Нет обработок отсутствия второго, поэтому два одинаковых.
+                              'INT':     ('TextureNodeCombineColor',)}}
+
 def CallbackDrawVoronoiQuickDimensions(self, context):
     if StencilStartDrawCallback(self, context):
         return
@@ -2821,26 +2843,6 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickDimensionsTool, "D_scA")
-
-dict_dictQuickDimensionsMain = {
-        'ShaderNodeTree':    {'VECTOR':  ('ShaderNodeSeparateXYZ',),
-                              'RGBA':    ('ShaderNodeSeparateColor',),
-                              'VALUE':   ('ShaderNodeCombineXYZ','ShaderNodeCombineColor'),
-                              'INT':     ('ShaderNodeCombineXYZ',)},
-        'GeometryNodeTree':  {'VECTOR':  ('ShaderNodeSeparateXYZ',),
-                              'RGBA':    ('FunctionNodeSeparateColor',),
-                              'VALUE':   ('ShaderNodeCombineXYZ','FunctionNodeCombineColor'),
-                              'INT':     ('ShaderNodeCombineXYZ',),
-                              'BOOLEAN': ('ShaderNodeCombineXYZ',),
-                              'GEOMETRY':('GeometryNodeSeparateComponents',)}, #Зато одинаковый по смыслу. Воспринимать как мини-рофл.
-        'CompositorNodeTree':{'VECTOR':  ('CompositorNodeSeparateXYZ',),
-                              'RGBA':    ('CompositorNodeSeparateColor',),
-                              'VALUE':   ('CompositorNodeCombineXYZ','CompositorNodeCombineColor'),
-                              'INT':     ('CompositorNodeCombineXYZ',)},
-        'TextureNodeTree':   {'VECTOR':  ('TextureNodeSeparateColor',),
-                              'RGBA':    ('TextureNodeSeparateColor',),
-                              'VALUE':   ('TextureNodeCombineColor','TextureNodeCombineColor'), #Нет обработок отсутствия второго, поэтому два одинаковых.
-                              'INT':     ('TextureNodeCombineColor',)}}
 
 #Шаблон для быстрого и удобного добавления нового инструмента:
 def CallbackDrawVoronoiDummy(self, context):
@@ -3552,6 +3554,11 @@ def unregister():
     ##
     UnregisterTranslations()
 
+
+#Мой гит в bl_info, это конечно же, круто, однако было бы не плохо иметь ещё и явно указанные способы связи.
+#  coaltangle@gmail.com
+#  ^ Моя почта. Если вдруг случится апокалипсис, или эта VL-археологическая-находка сможет решить не полиномиальную задачу, то писать туда.
+#  Для более реалтаймового общения (предпочтительно) и по вопросам об аддоне и его коде пишите в мой дискорд 'ugorek#6434'.
 
 def DisableKmis(): #Для повторных запусков скрипта. Работает до первого "Restore".
     kmNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
