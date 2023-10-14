@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,3,0), 'blender':(3,6,4), #2023.10.12
+           'version':(3,3,1), 'blender':(3,6,4), #2023.10.14
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -1610,12 +1610,12 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             if (isBoth)and(isBothSucessSwitch):
                 tgl = True
                 for li in list_fgSksOut:
-                    if not self.isQuickQuickOpr:
+                    if not self.isQuickQuickMath:
                         if li.tg.type in set_skTypeFields:
                             self.foundGoalSkOut0 = li
                             tgl = False
                             break
-                    else: #Для isQuickQuickOpr присасываться только к типам сокетов от явно указанных операций.
+                    else: #Для isQuickQuickMath присасываться только к типам сокетов от явно указанных операций.
                         match li.tg.type:
                             case 'VALUE'|'INT': tgl = not self.quickOprFloat
                             case 'VECTOR': tgl = not self.quickOprVector
@@ -1634,7 +1634,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             if skOut0:
                 tgl = True
                 for li in list_fgSksOut:
-                    if SkBetweenFieldsCheck(self, skOut0, li.tg)and(not self.isQuickQuickOpr)or(skOut0.type==li.tg.type):
+                    if SkBetweenFieldsCheck(self, skOut0, li.tg):
                         self.foundGoalSkOut1 = li
                         tgl = False
                         break
@@ -1657,7 +1657,12 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                 qmData.qmSkType = qmData.sk0.type #Заметка: наличие только сокетов поля -- забота на уровень выше.
                 match qmData.sk0.type:
                     case 'INT': qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
-                if self.isQuickQuickOpr:
+                match context.space_data.tree_type:
+                    case 'ShaderNodeTree':     qmData.qmSkType = {'BOOLEAN':'VALUE'}.get(qmData.qmSkType, qmData.qmSkType)
+                    case 'GeometryNodeTree':   pass
+                    case 'CompositorNodeTree': qmData.qmSkType = {'BOOLEAN':'VALUE', 'VECTOR':'RGBA'}.get(qmData.qmSkType, qmData.qmSkType)
+                    case 'TextureNodeTree':    qmData.qmSkType = {'BOOLEAN':'VALUE', 'VECTOR':'RGBA'}.get(qmData.qmSkType, qmData.qmSkType)
+                if self.isQuickQuickMath:
                     match qmData.qmSkType:
                         case 'VALUE':   txt_opr = self.quickOprFloat
                         case 'VECTOR':  txt_opr = self.quickOprVector
@@ -1693,7 +1698,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             return {'FINISHED'}
         self.foundGoalSkOut0 = None
         self.foundGoalSkOut1 = None
-        self.isQuickQuickOpr = not not( (self.quickOprFloat)or(self.quickOprVector)or(self.quickOprBool)or(self.quickOprColor) )
+        self.isQuickQuickMath = not not( (self.quickOprFloat)or(self.quickOprVector)or(self.quickOprBool)or(self.quickOprColor) )
         StencilToolWorkPrepare(self, context, CallbackDrawVoronoiMixer, True)
         return {'RUNNING_MODAL'}
 
@@ -3555,10 +3560,10 @@ def unregister():
     UnregisterTranslations()
 
 
-#Мой гит в bl_info, это конечно же, круто, однако было бы не плохо иметь ещё и явно указанные способы связи.
+#Мой гит в bl_info, это конечно же, круто, однако было бы не плохо иметь ещё и явно указанные способы связи:
 #  coaltangle@gmail.com
 #  ^ Моя почта. Если вдруг случится апокалипсис, или эта VL-археологическая-находка сможет решить не полиномиальную задачу, то писать туда.
-#  Для более реалтаймового общения (предпочтительно) и по вопросам об аддоне и его коде пишите в мой дискорд 'ugorek#6434'.
+# Для более реалтаймового общения (предпочтительно) и по вопросам об аддоне и его коде пишите на мой дискорд 'ugorek#6434'.
 
 def DisableKmis(): #Для повторных запусков скрипта. Работает до первого "Restore".
     kmNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
