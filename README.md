@@ -26,6 +26,8 @@ Full refactoring v2.0.0 done: 2023.04.22 [[bf328ac](https://github.com/ugorek000
 Complete refactoring v3.0.0 done: 2023.09.09 [[ba8483e](https://github.com/ugorek000/VoronoiLinker/commit/ba8483e33abe948e6453f6e6f4d286dad2d394fb)]  
 **Latest version 3.4.1 created: 2023.10.15**
 
+![](https://github.com/ugorek000/VoronoiLinker/assets/120259754/3dc18017-feb4-49ce-a5fa-2062c5b49d9f)
+
 ----------------------
 Reach to autor (Russia):  
 coaltangle@gmail.com  
