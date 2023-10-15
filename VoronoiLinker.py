@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,4,0), 'blender':(4,0,0), #2023.10.15
+           'version':(3,4,1), 'blender':(4,0,0), #2023.10.15
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -24,9 +24,8 @@ isBlender4 = bpy.app.version[0]==4 #Для поддержки работы в п
 # и получится дополнительной порции эндорфинов от возможности работы в разных версиях с разными api.
 #todo1 опуститься с поддержкой как можно ниже по версиям. Сейчас с гарантией: 3.6 и 4.0
 
-#def Vector(*data): return mathutils.Vector(data[0] if length(data)<2 else data)
+#def Vector(*data): return mathutils.Vector(data[0] if len(data)<2 else data)
 def Vector(*args): return mathutils.Vector((args)) #Очень долго я охреневал от двойных скобок 'Vector((a,b))', и только сейчас допёр так сделать. Ну наконец-то настанет наслаждение.
-#def Vectorq(seq): return mathutils.Vector(seq)
 
 voronoiAddonName = bl_info['name'].replace(" ","") #todo1 узнать разницу между названием аддона, именем аддона, именем файла, именем модуля; и ещё в установленных посмотреть.
 
@@ -39,6 +38,7 @@ voronoiPreviewResultNdName = "SavePreviewResult"
 
 list_classes = []
 list_kmiDefs = []
+dict_setKmiCats = {'ms':set(), 'o':set(), 's':set(), 'qqm':set(), 'c':set()}
 
 def TranslateIface(txt):
     return bpy.app.translations.pgettext_iface(txt)
@@ -594,6 +594,64 @@ def ViaVerSkfRemove(tree, side, name):
     else:
         (tree.inputs if side==-1 else tree.outputs).remove(name)
 
+import ctypes
+
+#Аааа, я просто сделалъ на досуге VLT на 157 строчки; чёрт возьми, что происходит??
+class BNodeSocketRuntimeHandle(ctypes.Structure):
+    _fields_ = (
+        ('_pad0',        ctypes.c_char*8  ),
+        ('declaration',  ctypes.c_void_p  ),
+        ('changed_flag', ctypes.c_uint32  ),
+        ('total_inputs', ctypes.c_short   ),
+        ('location',     ctypes.c_float*2 ) )
+#../source/blender/makesdna/DNA_node_types.h:
+class BNodeStack(ctypes.Structure):
+    _fields_ = (
+        ('vec',        ctypes.c_float*4 ),
+        ('max',        ctypes.c_float   ),
+        ('data',       ctypes.c_void_p  ),
+        ('sockettype', ctypes.c_short   ),
+        ('is_copy',    ctypes.c_short   ),
+        ('external',   ctypes.c_short   ),
+        ('_pad',       ctypes.c_char*4  ) )
+class BNodeSocket(ctypes.Structure):
+    pass
+BNodeSocket._fields_ = ( #Заметка: понятия не имею как работает эта магия, но она работает. Наличие всех записей важно (у всех).
+        ('next',                   ctypes.POINTER(BNodeSocket)              ),
+        ('prev',                   ctypes.POINTER(BNodeSocket)              ),
+        ('prop',                   ctypes.c_void_p                          ),
+        ('identifier',             ctypes.c_char*64                         ),
+        ('name',                   ctypes.c_char*64                         ),
+        ('storage',                ctypes.c_void_p                          ),
+        ('in_out',                 ctypes.c_short                           ),
+        ('typeinfo',               ctypes.c_void_p                          ),
+        ('idname',                 ctypes.c_char*64                         ),
+        ('default_value',          ctypes.c_void_p                          ),
+        ('_pad',                   ctypes.c_char*4                          ),
+        ('label',                  ctypes.c_char*64                         ),
+        ('description',            ctypes.c_char*64                         ),
+        ('default_attribute_name', ctypes.POINTER(ctypes.c_char)            ),
+        ('to_index',               ctypes.c_int                             ),
+        ('link',                   ctypes.c_void_p                          ),
+        ('ns',                     BNodeStack                               ),
+        ('runtime',                ctypes.POINTER(BNodeSocketRuntimeHandle) ) )
+class NodeSocket:
+    def __init__(self, tsk: bpy.types.NodeSocket):
+        self.ptr = tsk.as_pointer() 
+        self.c_ptr = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket))
+    @property
+    def location(self):
+        return self.c_ptr.contents.runtime.contents.location[:]
+#Спасибо пользователю с ником "oxicid", за этот кусок кода с ctypes. "А что, так можно было?".
+#Ох уж эти разрабы; пришлось самому добавлять возможность получать позиции сокетов. Месево от Blender 4.0 прижало к стенке и вынудило.
+#Это получилось сделать аш на питоне, неужели так сложно пронести api?
+
+def GetSkLocVec(sk):
+    return mathutils.Vector(NodeSocket(sk).location)
+#Что ж, самое сложное пройдено. До технической возможности поддерживать свёрнутые ноды осталось всего ничего.
+#Жаждущие это припрутся сюда по-быстрому на покерфейсе, возьмут что нужно, и модифицируют себе.
+#Тот первый, кто это сделает, моё тебе послание: "Что ж, молодец. Теперь ты можешь сосаться к сокетам свёрнутого нода. Надеюсь у тебя счастья полные штаны".
+
 #Обеспечивает поддержку свёрнутых нодов:
 #Дождались таки. Конечно же не "честную поддержку". Я презираю свёрнутые ноды, и у меня нет желания шататься с округлостью, и соответствующе изменённым рисованием.
 #Так что до введения api на позицию сокета, это лучшее что есть. Ждём и надеемся.
@@ -602,11 +660,11 @@ def SaveCollapsedNodes(nodes):
     dict_collapsedNodes.clear()
     for nd in nodes:
         dict_collapsedNodes[nd] = nd.hide
-#Я не стал показывать развёрнутым только ближайший нод, а сделал этакий "след"
-#Чтобы всё это не превращалось в хаос с постоянным "дёрганьем", и чтобы можно было провести, раскрыть, успокоиться, увидеть "местную картинку" и спокойно соединить что нужно.
+#Я не стал показывать развёрнутым только ближайший нод, а сделал этакий "след".
+#Чтобы всё это не превращалось в хаос с постоянным "дёрганьем", и чтобы можно было провести, раскрыть, успокоиться, увидеть "местную картину", и спокойно соединить что нужно.
 def RestoreCollapsedNodes(nodes):
     for nd in nodes:
-        if dict_collapsedNodes.get(nd, False): #Инструменты могут создавать ноды в процессе; например сохранение результата в Preview'е.
+        if dict_collapsedNodes.get(nd, False): #Инструменты могут создавать ноды в процессе; например, сохранение результата в Preview'е.
             nd.hide = dict_collapsedNodes[nd]
 
 def StencilUnCollapseNode(nd, tar=True):
@@ -640,6 +698,7 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
     #Почти честное. Скруглённые уголки не высчитываются. Их отсутствие не мешает, а вычисление требует больше телодвижений. Поэтому выпендриваться нет нужды.
     #С другой стороны скруглённость актуальна для свёрнутых нод, но я их презираю, так что...
     list_foundNodes = [] #todo0 париться с питоновскими и вообще ускорениями буду ещё не скоро.
+    uiScale = UiScale()
     for nd in nodes:
         if nd.type=='FRAME': #Рамки пропускаются, ибо ни одному инструменту они не нужны.
             continue
@@ -648,8 +707,8 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
         ndLoс = RecrGetNodeFinalLoc(nd) #Расчехлить иерархию родителей и получить итоговую позицию нода. Проклятые рамки, чтоб их.
         isReroute = nd.bl_idname=='NodeReroute'
         #Технический размер рероута явно перезаписан в 4 раза меньше, чем он есть.
-        #Насколько я смог выяснить, рероут в отличие от остальных нодов свои размеры при изменении UiScale() не меняет. Так что ему не нужно делиться на 'UiScale()'.
-        ndSize = Vector(4,4) if isReroute else nd.dimensions/UiScale()
+        #Насколько я смог выяснить, рероут в отличие от остальных нодов свои размеры при изменении uiScale не меняет. Так что ему не нужно делиться на 'uiScale'.
+        ndSize = Vector(4,4) if isReroute else nd.dimensions/uiScale
         #Для нода позицию в центр нода. Для рероута позиция уже в его визуальном центре
         ndCenter = ndLoс.copy() if isReroute else ndLoс+ndSize/2*Vector(1,-1)
         if nd.hide: #Для VHT, "шустрый костыль" из имеющихся возможностей.
@@ -667,44 +726,31 @@ def GetNearestNodes(nodes, callPos, skipPoorNodes=True): #Выдаёт спис�
 #А ещё нужно учитывать свёрнутые ноды, пропади они пропадом, которые могут раскрыться в процессе, наворачивая всю прелесть кеширования.
 
 def GetFromIoPuts(nd, side, callPos): #Вынесено для Preview Tool его опции 'vpRvEeSksHighlighting'.
-    def SkIsLinkedVisible(sk): #'is_linked' может быть выключенным линком, поэтому нужно заглядывать в содержимое.
+    def SkIsLinkedVisible(sk):
         if not sk.is_linked:
             return True
-        #Заметка: здесь только сокеты вектора.
         return (sk.links)and(sk.links[0].is_muted)
     list_result = []
     ndLoc = RecrGetNodeFinalLoc(nd)
     #"nd.dimensions" уже содержат в себе корректировку на масштаб интерфейса, поэтому вернуть его обратно в мир делением
-    ndDim = mathutils.Vector(nd.dimensions/UiScale())
-    #Установить "каретку" в первый сокет своей стороны. Верхний если выход, нижний если вход
-    skLocCarriage = Vector(ndLoc.x+ndDim.x, ndLoc.y-35) if side==1 else Vector(ndLoc.x, ndLoc.y-ndDim.y+16)
+    uiScale = UiScale()
+    ndDim = mathutils.Vector(nd.dimensions/uiScale)
     for sk in nd.outputs if side==1 else reversed(nd.inputs):
         #Игнорировать выключенные и спрятанные
         if (sk.enabled)and(not sk.hide):
-            muv = 0 #Для высоты варпа от векторов-сокетов-не-в-одну-строчку.
-            #Если текущий сокет -- входящий вектор, и он же свободный и не спрятан в одну строчку
+            posSk = GetSkLocVec(sk)/uiScale #Чорт возьми, это офигенно. Долой велосипедный кринж прошлых версий.
+            #todo4 найти то свойство, отвечающая за высоту сокета у нода (и аннигилировать SkIsLinkedVisible). А пока остатками от велосипеда:
+            muv = 0
             if (side==-1)and(sk.type=='VECTOR')and(SkIsLinkedVisible(sk))and(not sk.hide_value):
-                #Ручками вычисляем занимаемую высоту сокета. Да да. Api на позицию сокета?. Размечтались.
-                #Для сферы направления у ShaderNodeNormal и таких же у групп
                 if str(sk.rna_type).find("VectorDirection")!=-1:
-                    skLocCarriage.y += 20*2
                     muv = 2
-                #И для особо-отличившихся нод с векторами, которые могут быть в одну строчку. Существует всего два нода, у которых к сокету в исходниках применён `.compact()`
-                #Создавать такое через api никак, но и доступа к этому через api тоже нет. Поэтому обрабатываем по именам явным образом
                 elif ( not(nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING')) )or( not(sk.name in ("Subsurface Radius","Radius"))):
-                    skLocCarriage.y += 30*2
                     muv = 3
-            goalPos = skLocCarriage.copy()
-            #Высота Box-Socket-Area так же учитывает текущую высоту мульти-инпута подсчётом количества соединений, но только для входов (чтобы у выходов не рисовалось словно они мультиинпуты).
             list_result.append(FoundTarget( sk,
-                                            (callPos-skLocCarriage).length,
-                                            goalPos,
-                                            (goalPos.y-11-muv*20, goalPos.y+11+max(length(sk.links)-2,0)*5*(side==-1)),
+                                            (callPos-posSk).length,
+                                            posSk,
+                                            (posSk.y-11-muv*20, posSk.y+11+max(length(sk.links)-2,0)*5*(side==-1)),
                                             TranslateIface(sk.label if sk.label else sk.name) ))
-            #Сдвинуть до следующего на своё направление
-            fix = bpy.context.preferences.view.ui_scale
-            fix = -math.sin(math.pi*fix)**2 #Что-то тут не чисто. Замаскировал кривым костылём. У меня нет идей.
-            skLocCarriage.y -= 22*side-fix*1.35
     return list_result
 def GetNearestSockets(nd, callPos): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного. Да, да, аддон назван именно из-за этого.
     list_fgSksIn = []
@@ -866,6 +912,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiLinkerTool, "RIGHTMOUSE_scA")
+dict_setKmiCats['ms'].add(VoronoiLinkerTool.bl_idname)
 
 set_skTypeFields = {'VALUE', 'RGBA', 'VECTOR', 'INT', 'BOOLEAN', 'ROTATION'} #Так же используют VQMT и VQDT.
 
@@ -1124,6 +1171,8 @@ class VoronoiPreviewAnchorTool(VoronoiTool):
 
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewTool,       "LEFTMOUSE_SCa")
 SmartAddToRegAndAddToKmiDefs(VoronoiPreviewAnchorTool, "RIGHTMOUSE_SCa")
+dict_setKmiCats['ms'].add(VoronoiPreviewTool.bl_idname)
+dict_setKmiCats['ms'].add(VoronoiPreviewAnchorTool.bl_idname)
 
 class WayTree:
     def __init__(self, tree=None, nd=None):
@@ -1483,6 +1532,7 @@ class VoronoiMixerTool(VoronoiToolDblSk):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiMixerTool, "LEFTMOUSE_ScA") #Миксер перенесён на левую, чтобы освободить нагрузку для VQMT.
+dict_setKmiCats['ms'].add(VoronoiMixerTool.bl_idname)
 
 vmtSep = 'MixerItemsSeparator'
 dict_dictTupleMixerMain = { #Порядок важен; самые частые(в этом списке) идут первее (кроме MixRGB).
@@ -1785,6 +1835,12 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
         if result:=StencilBeginToolInvoke(self, context, event):
             return result
         if self.justCallPie:
+            match context.space_data.tree_type:
+                case 'ShaderNodeTree': can = self.justCallPie in {1,2,4}
+                case 'GeometryNodeTree': can = True
+                case 'CompositorNodeTree'|'TextureNodeTree': can = self.justCallPie in {1,4}
+            if not can:
+                return {'CANCELLED'}
             qmData.sk0 = None #Обнулять для полноты картины и для GetSkCol().
             qmData.sk1 = None
             qmData.isHideOptions = self.isHideOptions
@@ -1806,16 +1862,17 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Осталось на правой, чтобы не охреневать от тройного клика левой при 'Speed Pie' типе пирога.
 #Список быстрых операций для быстрой математики, "x2 комбо".
 #Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае булеан на 4 скорее всего придётся делать никаким.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'     , 'isHideOptions':True})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY', 'isHideOptions':True})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT', 'isHideOptions':True})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_scA",  {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'  , 'isHideOptions':True})
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'      })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_scA",  {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'   })
 #Хотел я реализовать это для QuickMathMain, но оказалось слишком лажа превращать технический оператор в пользовательский. Основная проблема -- qmData настроек пирога.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3})
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4})
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1}) #Неожиданно, но такой хоткей весьма приятный.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2}) # Из-за двух модификаторв приходится держать нажатым,
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3}) # от чего приходится выбирать позицией курсора, а не кликом.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4}) # Я думал это будет неудобно, а оказалось даже приятно.
 #todo4 придумать что-то для типов редакторов, в которых нет некоторых из ^ типов.
+dict_setKmiCats['ms'].add(VoronoiQuickMathTool.bl_idname)
 
 #Быстрая математика.
 #Заполучить нод с нужной операцией и автоматическим соединением в сокеты, благодаря мощностям VL'а.
@@ -1931,7 +1988,8 @@ def DoQuickMath(event, tree, opr, isQqo=False):
     if qmData.qmSkType=='VECTOR':
         aNd.inputs[0].hide_value = True
     #Идея с event.shift гениальна. Изначально ради одиночного линка во второй сокет, но благодаря визуальному поиску ниже, может и менять местами два линка.
-    skInx = aNd.inputs[0] if qmData.qmSkType!='RGBA' else aNd.inputs[-4 if isBlender4 else -2] #"Inx", потому что пародия на int "index", но потом понял, что можно сразу в сокет для линковки далее.
+    bl4ofs = 2*isBlender4*(tree.bl_idname in {'ShaderNodeTree','GeometryNodeTree'})
+    skInx = aNd.inputs[0] if qmData.qmSkType!='RGBA' else aNd.inputs[-2-bl4ofs] #"Inx", потому что пародия на int "index", но потом понял, что можно сразу в сокет для линковки далее.
     if event.shift:
         for sk in aNd.inputs:
             if (sk!=skInx)and(sk.enabled)and(not sk.links):
@@ -1959,8 +2017,8 @@ def DoQuickMath(event, tree, opr, isQqo=False):
             sk.default_value = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)[cyc]
     else: #Оптимизация для экономии в dict_dictDefaultValueOperation.
         tuple_col = dict_dictDefaultValueOperation[qmData.qmSkType].get(opr, tuple_default)
-        aNd.inputs[-4 if isBlender4 else -2].default_value = tuple_col[0]
-        aNd.inputs[-3 if isBlender4 else -1].default_value = tuple_col[1]
+        aNd.inputs[-2-bl4ofs].default_value = tuple_col[0]
+        aNd.inputs[-1-bl4ofs].default_value = tuple_col[1]
     #Скрыть все сокеты по запросу. На покерфейсе, ибо залинкованные сокеты всё равно не скроются; и даже без проверки 'sk.enabled'.
     if event.ctrl:
         for sk in aNd.inputs:
@@ -2251,6 +2309,7 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_Sca")
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_scA", {'isAddMode':True })
 SmartAddToRegAndAddToKmiDefs(VoronoiSwapperTool, "S_sCA", {'isAddMode':False, 'isIgnoreLinked':True })
+dict_setKmiCats['o'].add(VoronoiSwapperTool.bl_idname)
 
 #Нужен только для наведения порядка и эстетики в дереве.
 #Для тех, кого (например меня) напрягают "торчащие без дела" пустые сокеты выхода, или нулевые (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
@@ -2343,6 +2402,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_Sca", {'isHideSocket':1})
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_scA", {'isHideSocket':2})
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "E_sCa", {'isHideSocket':0})
+dict_setKmiCats['o'].add(VoronoiHiderTool.bl_idname)
 
 #todo3 когда появится DoLinkHH, выключить раскрытие последних виртуальных для всадников.
 def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначально лично моя утилита, была создана ещё до VL.
@@ -2545,6 +2605,7 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
 
 SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "LEFTMOUSE_SCA")
 SmartAddToRegAndAddToKmiDefs(VoronoiMassLinkerTool, "RIGHTMOUSE_SCA", {'isIgnoreExistingLinks':True})
+dict_setKmiCats['o'].add(VoronoiMassLinkerTool.bl_idname)
 
 class EnumSelectorData:
     list_enumProps = [] #Для пайки, и проверка перед вызовом, есть ли вообще что.
@@ -2677,6 +2738,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
 SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_sca", {'isPieChoice':True     })
 SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_Sca", {                       })
 SmartAddToRegAndAddToKmiDefs(VoronoiEnumSelectorTool, "F_scA", {'isToggleOptions':True })
+dict_setKmiCats['o'].add(VoronoiEnumSelectorTool.bl_idname)
 
 def DrawEnumSelectorBox(where, lyDomain=None):
     colMaster = where.column()
@@ -2845,6 +2907,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_sca")
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_Sca", {'isAutoRepeatMode':True })
 SmartAddToRegAndAddToKmiDefs(VoronoiRepeatingTool, "V_scA", {'isAutoRepeatMode':True, 'isFromOut':True })
+dict_setKmiCats['o'].add(VoronoiRepeatingTool.bl_idname)
 
 dict_dictQuickDimensionsMain = {
         'ShaderNodeTree':    {'VECTOR':   ('ShaderNodeSeparateXYZ',),
@@ -2949,6 +3012,7 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickDimensionsTool, "D_scA")
+dict_setKmiCats['s'].add(VoronoiQuickDimensionsTool.bl_idname)
 
 #Шаблон для быстрого и удобного добавления нового инструмента:
 def CallbackDrawVoronoiDummy(self, context):
@@ -2987,6 +3051,7 @@ class VoronoiDummyTool(VoronoiToolSkNd):
                 return result
             if self.foundGoalSk:
                 sk = self.foundGoalSk.tg
+                #print(GetSkLocVec(sk))
                 sk.name = "hi. i am a vdt!"
                 sk.node.label = "see source code"
                 RememberLastSockets(sk if sk.is_output else None, sk if not sk.is_output else None)
@@ -3001,6 +3066,7 @@ class VoronoiDummyTool(VoronoiToolSkNd):
         return {'RUNNING_MODAL'}
 
 #SmartAddToRegAndAddToKmiDefs(VoronoiDummyTool, "D_sca", {'isPassThrough':False})
+dict_setKmiCats['ms'].add(VoronoiDummyTool.bl_idname)
 
 def Prefs():
     return bpy.context.preferences.addons[voronoiAddonName].preferences
@@ -3009,6 +3075,8 @@ voronoiTextToolSettings = " Tool settings:"
 txt_onlyFontFormat = "Only .ttf or .otf format"
 txt_copySettAsPyScript = "Copy addon settings as .py script"
 
+set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'vaShowAddonOptions', 'vaShowAllToolsOptions',
+                                      'vaKmiMainstreamBoxDiscl', 'vaKmiOtjersBoxDiscl', 'vaKmiSpecialBoxDiscl', 'vaKmiQqmBoxDiscl', 'vaKmiCustomBoxDiscl'}
 class VoronoiAddonTabs(bpy.types.Operator):
     bl_idname = 'node.voronoi_addon_tabs'
     bl_label = "Addon Tabs"
@@ -3022,7 +3090,7 @@ class VoronoiAddonTabs(bpy.types.Operator):
                     if not li.is_readonly:
                         #'vaUiTabs' нужно для `event.shift`
                         #'_BoxDiscl'ы не стал игнорировать, пусть будут; для эстетики.
-                        if li.identifier not in {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'vaShowAddonOptions', 'vaShowAllToolsOptions'}:
+                        if li.identifier not in set_ignoredAddonPrefs:
                             isArray = getattr(li,'is_array', False)
                             if isArray:
                                 isDiff = not not [li for li in zip(li.default_array, getattr(prefs, li.identifier)) if li[0]!=li[1]]
@@ -3076,6 +3144,15 @@ class VoronoiAddonTabs(bpy.types.Operator):
             case _:
                 Prefs().vaUiTabs = self.opt
         return {'FINISHED'}
+class KmiCat:
+    def __init__(self, txt_prop='', label="", set_kmis=set(), sco=0, set_idn=set()):
+        self.txt_prop = txt_prop
+        self.set_kmis = set_kmis
+        self.set_idn = set_idn
+        self.label = label
+        self.sco = sco
+class KmiCats:
+    pass
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     bl_idname = voronoiAddonName if __name__=="__main__" else __name__
     #AddonPrefs
@@ -3094,9 +3171,11 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vhBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     vesBoxDiscl: bpy.props.BoolProperty(name="", default=True)
     ##
-    vaKmiMainBoxDiscl:   bpy.props.BoolProperty(name="", default=True)
-    vaKmiQqmBoxDiscl:    bpy.props.BoolProperty(name="", default=True)
-    vaKmiCustomBoxDiscl: bpy.props.BoolProperty(name="", default=True)
+    vaKmiMainstreamBoxDiscl: bpy.props.BoolProperty(name="", default=True)
+    vaKmiOtjersBoxDiscl:     bpy.props.BoolProperty(name="", default=True)
+    vaKmiSpecialBoxDiscl:    bpy.props.BoolProperty(name="", default=True)
+    vaKmiQqmBoxDiscl:        bpy.props.BoolProperty(name="", default=True)
+    vaKmiCustomBoxDiscl:     bpy.props.BoolProperty(name="", default=True)
     #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в SolderingAllPrefsToSelf().
     #Draw
     dsIsDrawText:   bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов.
@@ -3198,11 +3277,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
     vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
-    def AddDisclosureProp(self, where, who, txt_prop, txt=None, isActive=False): #Не может на всю ширину, если where -- row().
+    def AddDisclosureProp(self, where, who, txt_prop, txt_text=None, isActive=False, txt_suffIfActive=""): #Не может на всю ширину, если where -- row().
         tgl = getattr(who, txt_prop)
         row = where.row(align=True)
         row.alignment = 'LEFT'
-        row.prop(who, txt_prop, text=txt, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
+        txt_text = txt_text+txt_suffIfActive*tgl if txt_text else None
+        row.prop(who, txt_prop, text=txt_text, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
         row.active = isActive
         return tgl
     def AddHandSplitProp(self, where, txt_prop, tgl=True, isReturnLy=False):
@@ -3230,7 +3310,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             return where.box().column(align=True)
         def AddSelfBoxDiscl(where, txt_prop, cls=None):
             colBox = FastBox(where)
-            if AddDisclosureProp(colBox, self, txt_prop, txt=(cls.bl_label+voronoiTextToolSettings) if cls else None):
+            if AddDisclosureProp(colBox, self, txt_prop, txt_text=(cls.bl_label+voronoiTextToolSettings) if cls else None):
                 rowTool = colBox.row()
                 rowTool.separator()
                 colTool = rowTool.column(align=True)
@@ -3386,27 +3466,38 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowLabel.label(icon='DOT')
             rowLabel.label(text=TranslateIface("Node Editor"))
             rowLabelPost = rowLabelMain.row(align=True)
-            rowLabelPost.active = False
+            #rowLabelPost.active = False
             colList = colMaster.column(align=True)
             kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
-            set_kmiMain = set()
-            set_kmiQqm = set()
-            set_kmiCustom = set()
+            ##
+            kmiCats = KmiCats()
+            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Mainstream",       set(), 0, dict_setKmiCats['ms']  )
+            kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
+            kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Special",          set(), 0, dict_setKmiCats['s']   )
+            kmiCats.qqm = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['qqm'] )
+            kmiCats.c =   KmiCat('vaKmiCustomBoxDiscl',     "Custom",           set(), 0)
             #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
-            #Теперь сделал так. Как работал предыдущий -- метод для меня загадка.
-            list_sco = [0, 0, 0, 0] #Хоткеев теперь стало тааак много, что неплохо было бы узнать их количество.
+            #Теперь сделал так. Как работал предыдущий метод -- для меня загадка.
+            scoAll = 0
             for li in kmUNe.keymap_items:
                 if li.idname.startswith("node.voronoi_"):
-                    if li.id<0:
-                        set_kmiCustom.add(li)
-                        list_sco[3] += 1
+                    #todo3 мб стоит выпендриться, и упоковать всё это через lambda. И переназвать всех на 3 буквы.
+                    if li.id<0: #Отрицательный ид для кастомных? Ну ладно. Пусть будет идентифицирующим критерием.
+                        kmiCats.c.set_kmis.add(li)
+                        kmiCats.c.sco += 1
                     elif [True for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie'} if getattr(li.properties, pr, None)]:
-                        set_kmiQqm.add(li)
-                        list_sco[2] += 1
+                        kmiCats.qqm.set_kmis.add(li)
+                        kmiCats.qqm.sco += 1
+                    elif li.idname in kmiCats.ms.set_idn:
+                        kmiCats.ms.set_kmis.add(li)
+                        kmiCats.ms.sco += 1
+                    elif li.idname in kmiCats.o.set_idn:
+                        kmiCats.o.set_kmis.add(li)
+                        kmiCats.o.sco += 1
                     else:
-                        set_kmiMain.add(li)
-                        list_sco[1] += 1
-                    list_sco[0] += 1 #..количество по факту префикса.
+                        kmiCats.s.set_kmis.add(li)
+                        kmiCats.s.sco += 1
+                    scoAll += 1 #Хоткеев теперь стало тааак много, что неплохо было бы узнать их количество.
             if kmUNe.is_user_modified:
                 rowRestore = rowLabelMain.row(align=True)
                 rowInfo = rowRestore.row()
@@ -3421,23 +3512,24 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowAddNew.separator()
             rowAddNew.operator(VoronoiAddonTabs.bl_idname, text="Add New", icon='ADD').opt = 'AddNewKmi' # NONE  ADD
             import rna_keymap_ui
-            tuple_cats = (('vaKmiMainBoxDiscl',"Main"), ('vaKmiQqmBoxDiscl',"Quick quick math"), ('vaKmiCustomBoxDiscl',"Custom"))
-            def AddKmisCategory(where, set_of, inx):
-                if not set_of:
+            def AddKmisCategory(where, cat):
+                if not cat.set_kmis:
                     return
                 colListCat = where.row().column(align=True)
                 rowDiscl = colListCat.row(align=True)
                 rowDiscl.active = False
-                tgl = self.AddDisclosureProp(rowDiscl, self, tuple_cats[inx][0], tuple_cats[inx][1]+f" ({list_sco[inx+1]}):")
+                tgl = self.AddDisclosureProp(rowDiscl, self, cat.txt_prop, cat.label+f" ({cat.sco})")#, txt_suffIfActive=":")
                 if not tgl:
                     return
-                for li in sorted(set_of, key=lambda a: a.id):
+                for li in sorted(cat.set_kmis, key=lambda a: a.id):
                     colListCat.context_pointer_set('keymap', kmUNe)
                     rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, kmUNe, li, colListCat, 0) #Заметка: если colListCat будет не colListCat, то возможность удалоения kmi станет недоступной.
-            AddKmisCategory(colList, set_kmiCustom, 2)
-            AddKmisCategory(colList, set_kmiMain, 0)
-            AddKmisCategory(colList, set_kmiQqm, 1)
-            rowLabelPost.label(text=f"({list_sco[0]})")
+            AddKmisCategory(colList, kmiCats.c)
+            AddKmisCategory(colList, kmiCats.ms)
+            AddKmisCategory(colList, kmiCats.o)
+            AddKmisCategory(colList, kmiCats.s)
+            AddKmisCategory(colList, kmiCats.qqm)
+            rowLabelPost.label(text=f"({scoAll})")
         except Exception as ex:
             colMaster.label(text=str(ex), icon='ERROR')
     def draw(self, context):
