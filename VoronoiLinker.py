@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,4,4), 'blender':(4,0,0), #2023.10.17
+           'version':(3,4,4), 'blender':(4,1,0), #2023.10.17
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -1001,10 +1001,12 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
     if sko.node==ski.node: #Для одного и того же нода всё очевидно бессмысленно, пусть и возможно. Более актуально для интерфейсов.
         return
     isSkoField = sko.type in set_skTypeFields
-    isSkoVirtual = sko.bl_idname=='NodeSocketVirtual' #Заметка: virtual type и аддонские сокеты одинаковы.
-    isSkiVirtual = ski.bl_idname=='NodeSocketVirtual'
+    isSkoNdReroute = sko.node.type=='REROUTE'
+    isSkiNdReroute = ski.node.type=='REROUTE'
+    isSkoVirtual = (sko.bl_idname=='NodeSocketVirtual')and(not isSkoNdReroute) #Виртуальный актуален только для интерфейсов, нужно исключить "рероута-самозванца".
+    isSkiVirtual = (ski.bl_idname=='NodeSocketVirtual')and(not isSkiNdReroute) #Заметка: virtual type и аддонские сокеты одинаковы.
     #Можно, если
-    if not( (isReroutesToAnyType)and( (sko.node.type=='REROUTE')or(ski.node.type=='REROUTE') ) ): #Хотя бы один из них рероут
+    if not( (isReroutesToAnyType)and( (isSkoNdReroute)or(isSkiNdReroute) ) ): #Хотя бы один из них рероут
         if not( (sko.type==ski.type)or( (isCanBetweenField)and(isSkoField)and(ski.type in set_skTypeFields) ) ): #Одинаковый по типу или между полями
             if not( (isCanFieldToShader)and(isSkoField)and(ski.type=='SHADER') ): #Поле в шейдер
                 if not( isSkoVirtual or isSkiVirtual ): #Кто-то из них виртуальный (для интерфейсов).
@@ -1021,7 +1023,7 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
         procIface = False
     elif not( (ndo.bl_idname in set_equestrianPortalBlids)or(ndi.bl_idname in set_equestrianPortalBlids) ): #Хотя бы один из нодов должен быть всадником.
         procIface = False
-    if procIface: #Пошла жара.
+    if procIface: #Что ж, бурая оказалось не такой уж и бурей. Я ожидал больший спагетти-код.
         #Получить нод всадника виртуального сокета
         ndEq = ndo if isSkoVirtual else ndi #Исходим из того, что всадник вывода равновероятен со своим компаньоном.
         #Коллапсируем рамочных всадников сразу же
