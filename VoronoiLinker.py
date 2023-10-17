@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,4,3), 'blender':(4,0,0), #2023.10.17
+           'version':(3,4,4), 'blender':(4,0,0), #2023.10.17
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -578,8 +578,6 @@ def StencilToolWorkPrepare(self, context, Func, *naArgs):
     self.NextAssignment(context, naArgs)
     #return not not tree #Теперь в этом нет нужды.
 
-isBlender40 = (isBlender4)and(bpy.app.version[0]==0)
-
 dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor' и 'NodeSocketVectorDirection', чтобы коллапсировать их в гарантированные.
     'SHADER':    'NodeSocketShader',
     'RGBA':      'NodeSocketColor',
@@ -597,22 +595,28 @@ dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor' и 'NodeSock
     'IMAGE':     'NodeSocketImage',
     'CUSTOM':    'NodeSocketVirtual'}
 
+skf4sucess = -1
+
 def ViaVerNewSkf(tree, side, sktype, name):
     isSk = type(sktype)!=str
     if isBlender4:
-        if isBlender40:
-            skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
-        else:
-            skf = tree.interface.new_socket(name, in_out='INPUT' if side==-1 else 'OUTPUT', socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
+        global skf4sucess
+        if skf4sucess==-1:
+            skf4sucess = 1+hasattr(tree.interface,'items_tree')
+        match skf4sucess:
+            case 1: skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
+            case 2: skf = tree.interface.new_socket(name, in_out='INPUT' if side==-1 else 'OUTPUT', socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
     else:
         skf = (tree.inputs if side==-1 else tree.outputs).new(sktype.bl_idname if isSk else sktype, name)
     return skf
 def ViaVerGetSkf(tree, side, name):
     if isBlender4:
-        if isBlender40:
-            return tree.interface.ui_items.get(name)
-        else:
-            return tree.interface.items_tree.get(name)
+        global skf4sucess
+        if skf4sucess==-1:
+            skf4sucess = 1+hasattr(tree.interface,'items_tree')
+        match skf4sucess:
+            case 1: return tree.interface.ui_items.get(name)
+            case 2: return tree.interface.items_tree.get(name)
     else:
         return (tree.inputs if side==-1 else tree.outputs).get(name)
 def ViaVerSkfRemove(tree, side, name):
@@ -1313,101 +1317,103 @@ def DoPreview(context, targetSk):
     list_way[higWay].nd = targetSk.node #Подразумеваемым гарантией-конвеером глубин заходов целевой не обрабатывается, поэтому указывать явно. (Незабыть перевести с эльфийского на русский)
     ##
     previewSkType = "RGBA" #Цвет, а не шейдер -- потому что иногда есть нужда вставить нод куда-то в пути превиева.
+    #Но если линки шейдерные -- готовьтесь к разочарованию. Поэтому цвет (кой и был изначально у NW).
     if list_way[0].tree.bl_idname=='GeometryNodeTree':
         previewSkType = "GEOMETRY"
     elif targetSk.type=='SHADER':
         previewSkType = "SHADER"
-    #Но если линки шейдерные -- готовьтесь к разочарованию. Поэтому цвет (кой и был изначально у NW).
     idLastSkEx = '' #Для featureUsingExistingPath.
+    def GetBridgeSk(ioputs):
+        sk = ioputs.get(voronoiSkPreviewName)
+        if (sk)and(sk.type!=previewSkType):
+            ViaVerSkfRemove(tree, 1, ViaVerGetSkf(tree, 1, voronoiSkPreviewName))
+            return None
+        return sk
+    def GetTypeSkfBridge():
+        match previewSkType:
+            case 'GEOMETRY': return "NodeSocketGeometry"
+            case 'SHADER':   return "NodeSocketShader"
+            case 'RGBA':     return "NodeSocketColor"
     for cyc in reversed(range(higWay+1)):
-        def GetBridgeSk(ioputs):
-            sk = ioputs.get(voronoiSkPreviewName)
-            if (sk)and(sk.type!=previewSkType):
-                ViaVerSkfRemove(tree, 1, ViaVerGetSkf(tree, 1, voronoiSkPreviewName))
-                return None
-            return sk
-        def GetTypeSkfBridge():
-            match previewSkType:
-                case 'GEOMETRY': return "NodeSocketGeometry"
-                case 'SHADER':   return "NodeSocketShader"
-                case 'RGBA':     return "NodeSocketColor"
         curWay = list_way[cyc]
         tree = curWay.tree
         #Определить отправляющий нод:
-        portalFromNd = curWay.nd #targetSk.node уже включён в путь для cyc==higWay.
+        portalNdFrom = curWay.nd #targetSk.node уже включён в путь для cyc==higWay.
         isCreatedNgOut = False
-        if not portalFromNd:
-            portalFromNd = tree.nodes.new(tree.bl_idname.replace("Tree","Group"))
-            portalFromNd.node_tree = list_way[cyc+1].tree
+        if not portalNdFrom:
+            portalNdFrom = tree.nodes.new(tree.bl_idname.replace("Tree","Group"))
+            portalNdFrom.node_tree = list_way[cyc+1].tree
             isCreatedNgOut = True #Чтобы установить позицию нода от принимающего нода, который сейчас неизвестен.
         #Определить принимающий нод:
-        portalToNd = None
+        portalNdTo = None
         if not cyc: #Корень.
-            portalToNd = GetRootNd(tree)
-            if not portalToNd:
+            portalNdTo = GetRootNd(tree)
+            if not portalNdTo:
                 #"Визуальное оповещение", что соединяться некуда. Можно было бы и вручную добавить, но лень шататься с принимающими нодами ShaderNodeTree'а.
-                portalToNd = NewLostNode('NodeReroute', portalFromNd)
+                portalNdTo = NewLostNode('NodeReroute', portalNdFrom)
         else: #Очередная глубина.
             for nd in tree.nodes:
                 if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
-                    portalToNd = nd
+                    portalNdTo = nd
                     break
-            if not portalToNd:
+            if not portalNdTo:
                 #Создать вывод группы самостоятельно, вместо того чтобы остановиться и не знать что делать.
-                portalToNd = NewLostNode('NodeGroupOutput', portalFromNd)
+                portalNdTo = NewLostNode('NodeGroupOutput', portalNdFrom)
         if isCreatedNgOut:
-            portalFromNd.location = portalToNd.location-Vector(portalFromNd.width+40, 0)
+            portalNdFrom.location = portalNdTo.location-Vector(portalNdFrom.width+40, 0)
         #Определить отправляющий сокет:
-        portalFromSk = None
+        portalSkFrom = None
         if (featureUsingExistingPath)and(idLastSkEx):
-            portalFromSk = GetSkFromIdf(portalFromNd.outputs, idLastSkEx)
+            portalSkFrom = GetSkFromIdf(portalNdFrom.outputs, idLastSkEx)
             idLastSkEx = '' #Важно обнулять. Выбранный сокет может не иметь линков или связи до следующего портала, отчего на следующей глубине будут несоответствия.
-        if not portalFromSk:
-            portalFromSk = targetSk if cyc==higWay else GetBridgeSk(portalFromNd.outputs)
+        if not portalSkFrom:
+            portalSkFrom = targetSk if cyc==higWay else GetBridgeSk(portalNdFrom.outputs)
         #Определить принимающий сокет:
-        portalToSk = None
+        portalSkTo = None
         if (featureUsingExistingPath)and(cyc): #Имеет смысл записывать для не-корня.
             #Моё улучшающее изобретение -- если соединение уже имеется, то зачем создавать рядом такое же?.
             #Это эстетически комфортно, а так же помогает отчистить последствия предпросмотра не выходя из целевой глубины (добавлены условия, см. чистку).
-            for lk in portalFromSk.links:
+            for lk in portalSkFrom.links:
                 #Поскольку интерфейсы не удаляются, вместо мейнстрима ниже он заполучится отсюда (и результат будет таким же), поэтому вторая проверка для isUseExtAndSkPr.
-                if (lk.to_node==portalToNd)and(lk.to_socket.name!=voronoiSkPreviewName):
-                    portalToSk = lk.to_socket
-                    idLastSkEx = portalToSk.identifier #Выходы нода нодгруппы и входы выхода группы совпадают. Сохранить информацию для следующей глубины продолжения.
-                    curWay.isUseExtAndSkPr = GetBridgeSk(portalToNd.inputs) #Для чистки. Если будет без линков, то удалять. При чистке они не ищутся по факту, потому что Big(O).
-        if not portalToSk: #Основной мейнстрим получения.
-            portalToSk = GetRootSk(tree, portalToNd, targetSk) if not cyc else GetBridgeSk(portalToNd.inputs)
-        if (not portalToSk)and(cyc): #Очередные глубины -- всегда группы, для них и нужно генерировать skf. Проверка на cyc не обязательна, сокет с корнем (из-за рероута) всегда будет.
+                if (lk.to_node==portalNdTo)and(lk.to_socket.name!=voronoiSkPreviewName):
+                    portalSkTo = lk.to_socket
+                    idLastSkEx = portalSkTo.identifier #Выходы нода нодгруппы и входы выхода группы совпадают. Сохранить информацию для следующей глубины продолжения.
+                    curWay.isUseExtAndSkPr = GetBridgeSk(portalNdTo.inputs) #Для чистки. Если будет без линков, то удалять. При чистке они не ищутся по факту, потому что Big(O).
+        if not portalSkTo: #Основной мейнстрим получения.
+            portalSkTo = GetRootSk(tree, portalNdTo, targetSk) if not cyc else GetBridgeSk(portalNdTo.inputs)
+        if (not portalSkTo)and(cyc): #Очередные глубины -- всегда группы, для них и нужно генерировать skf. Проверка на cyc не обязательна, сокет с корнем (из-за рероута) всегда будет.
             #Если выше не смог получить сокет от входов нода нод группы, то и интерфейса-то тоже нет. Поэтому проверка `not tree.outputs.get(voronoiSkPreviewName)` без нужды.
             ViaVerNewSkf(tree, 1, GetTypeSkfBridge(), voronoiSkPreviewName).hide_value = True
-            portalToSk = GetBridgeSk(portalToNd.inputs) #Перевыбрать новосозданный.
+            portalSkTo = GetBridgeSk(portalNdTo.inputs) #Перевыбрать новосозданный.
         #Соединить:
         ndAnchor = tree.nodes.get(voronoiAnchorName)
         if ndAnchor: #Якорь делает "планы изменились", и пересасывает поток на себя.
-            lk = tree.links.new(portalFromSk, ndAnchor.inputs[0])
-            #tree.links.new(ndAnchor.outputs[0], portalToSk) #todo3 посмотреть, что из этого можно сделать.
+            lk = tree.links.new(portalSkFrom, ndAnchor.inputs[0])
+            #tree.links.new(ndAnchor.outputs[0], portalSkTo) #todo3 посмотреть, что из этого можно сделать.
             break #Завершение после напарывания повышает возможности использования якоря, делая его ещё круче. Если у вас течка от Voronoi_Anchor, то я вас понимаю. У меня тоже.
             #Завершение позволяет иметь пользовательское соединение от глубины с якорем и до корня, не разрушая их.
-        elif (portalFromSk)and(portalToSk): #Иначе обычное соединение маршрута.
-            lk = tree.links.new(portalFromSk, portalToSk)
+        elif (portalSkFrom)and(portalSkTo): #Иначе обычное соединение маршрута.
+            lk = tree.links.new(portalSkFrom, portalSkTo)
         curWay.prLink = lk
     return list_way
 def PreviewFromSk(self, context, targetSk):
     if (not targetSk)or(not targetSk.is_output):
         return
     list_way = DoPreview(context, targetSk)
-    dict_treeNExt = dict({(wy.tree, wy.isUseExtAndSkPr) for wy in list_way})
     #Гениально я придумал удалять интерфейсы после предпросмотра; стало возможным благодаря не-удалению в контекстных путях. Теперь ими можно будет пользоваться более свободно.
     tree = context.space_data.edit_tree
-    if (True)or(not tree.nodes.get(voronoiAnchorName)):
+    if (True)or(not tree.nodes.get(voronoiAnchorName)): #'True' см. ниже.
         #Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента.
         #Должно было стать логическим продолжением после "завершение после напарывания", но допёр до этого только сейчас.
         #P.s. Я забыл нахрен какое. А теперь они не удаляются от контекстных путей, так что информация уже утеряна D:
-        for ng in bpy.data.node_groups: #Удалить все свои следы предыдущего использования инструмента для всех нод-групп,
-            if ng.bl_idname==tree.bl_idname: # чей тип текущего редактора такой же.
+        dict_treeNExt = dict({(wy.tree, wy.isUseExtAndSkPr) for wy in list_way})
+        dict_treeOrder = dict({(wy.tree, cyc) for cyc, wy in enumerate(reversed(list_way))}) #Путь имеет линки, середине не узнать о хвосте, поэтому из текущей глубины до корня, чтобы "каскадом" корректно обработалось.
+        for ng in sorted(bpy.data.node_groups, key=lambda a: dict_treeOrder.get(a,-1)):
+            #Удалить все свои следы предыдущего использования инструмента для всех нод-групп, чей тип текущего редактора такой же.
+            if ng.bl_idname==tree.bl_idname:
                 #Но не удалять мосты для деревьев контекстного пути (удалять, если их сокеты пустые).
                 sk = dict_treeNExt.get(ng, None) #Для Ctrl-F: isUseExtAndSkPr используется здесь.
-                if (ng not in dict_treeNExt)or((not sk.links) if sk else None):
+                if (ng not in dict_treeNExt)or((not sk.links) if sk else None)or( (ng==tree)and(sk) ):
                     sk = True
                     while sk: #Ищется по имени. Пользователь может сделать дубликат, от чего без while они будут исчезать по одному каждую активацию предпросмотра.
                         sk = ViaVerGetSkf(ng, 1, voronoiSkPreviewName)
@@ -1436,7 +1442,7 @@ def PreviewFromSk(self, context, targetSk):
                 ndReSave = None
         if not ndReSave:
             match idSkSave:
-                case 0: txt = "MixRGB" #"MixRGB" потому что он есть во всех редакторах, а ещё Shift+G > Type.
+                case 0: txt = "MixRGB" #"MixRGB" потому что он есть во всех редакторах; а ещё Shift+G > Type.
                 case 1: txt = "AddShader"
                 case 2: txt = "SeparateGeometry"
             ndReSave = tree.nodes.new(tree.bl_idname.replace("Tree","")+txt)
