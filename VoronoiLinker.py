@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,4,2), 'blender':(4,0,0), #2023.10.16
+           'version':(3,4,3), 'blender':(4,0,0), #2023.10.17
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -578,8 +578,9 @@ def StencilToolWorkPrepare(self, context, Func, *naArgs):
     self.NextAssignment(context, naArgs)
     #return not not tree #Теперь в этом нет нужды.
 
-#P.s. не знаю, что значит "ViaVer", просто прикольный набор букф.
-dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor', чтобы коллапсировать их в гарантированный.
+isBlender40 = (isBlender4)and(bpy.app.version[0]==0)
+
+dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor' и 'NodeSocketVectorDirection', чтобы коллапсировать их в гарантированные.
     'SHADER':    'NodeSocketShader',
     'RGBA':      'NodeSocketColor',
     'VECTOR':    'NodeSocketVector',
@@ -595,16 +596,23 @@ dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor', чтобы 
     'TEXTURE':   'NodeSocketTexture',
     'IMAGE':     'NodeSocketImage',
     'CUSTOM':    'NodeSocketVirtual'}
+
 def ViaVerNewSkf(tree, side, sktype, name):
     isSk = type(sktype)!=str
     if isBlender4:
-        skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
+        if isBlender40:
+            skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
+        else:
+            skf = tree.interface.new_socket(name, in_out='INPUT' if side==-1 else 'OUTPUT', socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
     else:
         skf = (tree.inputs if side==-1 else tree.outputs).new(sktype.bl_idname if isSk else sktype, name)
     return skf
 def ViaVerGetSkf(tree, side, name):
     if isBlender4:
-        return tree.interface.ui_items.get(name)
+        if isBlender40:
+            return tree.interface.ui_items.get(name)
+        else:
+            return tree.interface.items_tree.get(name)
     else:
         return (tree.inputs if side==-1 else tree.outputs).get(name)
 def ViaVerSkfRemove(tree, side, name):
@@ -613,11 +621,13 @@ def ViaVerSkfRemove(tree, side, name):
     else:
         (tree.inputs if side==-1 else tree.outputs).remove(name)
 
+#P.s. не знаю, что значит "ViaVer", просто прикольный набор букф.
+
 import ctypes
 
 #Аааа, я просто сделалъ на досуге VLT на 157 строчки; чёрт возьми, что происходит??
 class BNodeSocketRuntimeHandle(ctypes.Structure):
-    _fields_ = (
+    _fields_ = ( #Заметка: понятия не имею как работает эта магия, но она работает. Наличие всех записей важно (у всех).
         ('_pad0',        ctypes.c_char*8  ),
         ('declaration',  ctypes.c_void_p  ),
         ('changed_flag', ctypes.c_uint32  ),
@@ -633,11 +643,11 @@ class BNodeStack(ctypes.Structure):
         ('is_copy',    ctypes.c_short   ),
         ('external',   ctypes.c_short   ),
         ('_pad',       ctypes.c_char*4  ) )
-class BNodeSocket(ctypes.Structure):
+class BNodeSocket1(ctypes.Structure):
     pass
-BNodeSocket._fields_ = ( #Заметка: понятия не имею как работает эта магия, но она работает. Наличие всех записей важно (у всех).
-        ('next',                   ctypes.POINTER(BNodeSocket)              ),
-        ('prev',                   ctypes.POINTER(BNodeSocket)              ),
+BNodeSocket1._fields_ = (
+        ('next',                   ctypes.POINTER(BNodeSocket1)             ),
+        ('prev',                   ctypes.POINTER(BNodeSocket1)             ),
         ('prop',                   ctypes.c_void_p                          ),
         ('identifier',             ctypes.c_char*64                         ),
         ('name',                   ctypes.c_char*64                         ),
@@ -654,16 +664,60 @@ BNodeSocket._fields_ = ( #Заметка: понятия не имею как р
         ('link',                   ctypes.c_void_p                          ),
         ('ns',                     BNodeStack                               ),
         ('runtime',                ctypes.POINTER(BNodeSocketRuntimeHandle) ) )
-class NodeSocket:
-    def __init__(self, tsk: bpy.types.NodeSocket):
-        self.ptr = tsk.as_pointer()
-        self.c_ptr = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket))
-    @property
-    def location(self):
-        return self.c_ptr.contents.runtime.contents.location[:]
 #Спасибо пользователю с ником "oxicid", за этот кусок кода с ctypes. "А что, так можно было?".
 #Ох уж эти разрабы; пришлось самому добавлять возможность получать позиции сокетов. Месево от Blender 4.0 прижало к стенке и вынудило.
 #Это получилось сделать аш на питоне, неужели так сложно пронести api?
+class BNodeSocket2(ctypes.Structure):
+    pass
+BNodeSocket2._fields_ = (
+        ('next',                   ctypes.POINTER(BNodeSocket2)             ),
+        ('prev',                   ctypes.POINTER(BNodeSocket2)             ),
+        ('prop',                   ctypes.c_void_p                          ),
+        ('identifier',             ctypes.c_char*64                         ),
+        ('name',                   ctypes.c_char*64                         ),
+        ('storage',                ctypes.c_void_p                          ),
+        ('in_out',                 ctypes.c_short                           ),
+        ('typeinfo',               ctypes.c_void_p                          ),
+        ('idname',                 ctypes.c_char*64                         ),
+        ('default_value',          ctypes.c_void_p                          ),
+        ('_pad',                   ctypes.c_char*4                          ),
+        ('label',                  ctypes.c_char*64                         ),
+        ('short_label',            ctypes.c_char*64                         ),
+        ('description',            ctypes.c_char*64                         ),
+        ('default_attribute_name', ctypes.POINTER(ctypes.c_char)            ),
+        ('to_index',               ctypes.c_int                             ),
+        ('link',                   ctypes.c_void_p                          ),
+        ('ns',                     BNodeStack                               ),
+        ('runtime',                ctypes.POINTER(BNodeSocketRuntimeHandle) ) )
+csucess = -1 #Костыль-алерт. Я не придумал ничего лучше. Потому что слишком дебри, навыков не хватает.
+class NodeSocket:
+    def __init__(self, tsk: bpy.types.NodeSocket):
+        self.ptr = tsk.as_pointer()
+        global csucess
+        if csucess==-1:
+            self.c_ptr1 = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket1))
+            self.c_ptr2 = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket2))
+        else:
+            match csucess:
+                case 1: self.c_ptr1 = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket1))
+                case 2: self.c_ptr2 = ctypes.cast(self.ptr, ctypes.POINTER(BNodeSocket2))
+    @property
+    def location(self):
+        global csucess
+        if csucess==-1:
+            try:
+                self.c_ptr1.contents.runtime.contents.location[:]
+                csucess = 1
+            except:
+                try:
+                    self.c_ptr2.contents.runtime.contents.location[:]
+                    csucess = 2
+                except:
+                    csucess = 0
+        match csucess:
+            case 0: return (0,0)
+            case 1: return self.c_ptr1.contents.runtime.contents.location[:]
+            case 2: return self.c_ptr2.contents.runtime.contents.location[:]
 
 def GetSkLocVec(sk):
     return mathutils.Vector(NodeSocket(sk).location)
@@ -911,7 +965,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
             #К тусовке обработки свёрнутости добавляется моя личная хотелка; ибо виртуальные сокеты я всегда держу скрытыми.
             if nd.type=='GROUP_INPUT':
                 self.dict_hideVirtualGpInNodes[nd] = nd.outputs[-1].hide
-                nd.outputs[-1].hide = False #Раскрывается у всех сразу, чтобы не страдать головной большую в NA().
+                nd.outputs[-1].hide = False #Раскрывается у всех сразу, чтобы не страдать головной большую в NA(). #todo1 как-то это не очень. Неплохо было бы придумать что-то по приятнее.
             if nd.type=='GROUP_OUTPUT':
                 self.dict_hideVirtualGpOutNodes[nd] = nd.inputs[-1].hide
                 nd.inputs[-1].hide = False
