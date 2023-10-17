@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,4,4), 'blender':(4,1,0), #2023.10.17
+           'version':(3,4,5), 'blender':(4,1,0), #2023.10.17
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -492,6 +492,7 @@ def StencilReNext(self, context, *naArgs):
 
 def StencilMouseNextAndReout(self, context, event, *naArgsDouble): #Заметка: аккуратнее с naDoubleArgs, должен быть всегда чётным.
     #Заметка: первым в naArgsDouble -- для False (as отсутствие isBoth), ибо оно первичнее.
+    context.area.tag_redraw()
     half = length(naArgsDouble)//2
     #ProcCanMoveOut за пределами match event.type, потому что должно обрабатываться не только от движения курсора, а сразу после нажатия модификатора.
     isCanReOut = ProcCanMoveOut(self, event) if naArgsDouble else False
@@ -597,17 +598,23 @@ dict_typeToSkfBlid = { #Для всяких 'NodeSocketFloatFactor' и 'NodeSock
 
 skf4sucess = -1
 
-def ViaVerNewSkf(tree, side, sktype, name):
-    isSk = type(sktype)!=str
+def ViaVerNewSkf(tree, side, skType, name):
+    isSk = type(skType)!=str
     if isBlender4:
         global skf4sucess
         if skf4sucess==-1:
             skf4sucess = 1+hasattr(tree.interface,'items_tree')
         match skf4sucess:
-            case 1: skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
-            case 2: skf = tree.interface.new_socket(name, in_out='INPUT' if side==-1 else 'OUTPUT', socket_type=dict_typeToSkfBlid[sktype.type] if isSk else sktype)
+            case 1: skf = tree.interface.new_socket(name, in_out={'INPUT' if side==-1 else 'OUTPUT'}, socket_type=dict_typeToSkfBlid[skType.type] if isSk else skType)
+            case 2: skf = tree.interface.new_socket(name, in_out='INPUT' if side==-1 else 'OUTPUT', socket_type=dict_typeToSkfBlid[skType.type] if isSk else skType)
     else:
-        skf = (tree.inputs if side==-1 else tree.outputs).new(sktype.bl_idname if isSk else sktype, name)
+        skf = (tree.inputs if side==-1 else tree.outputs).new(skType.bl_idname if isSk else skType, name)
+    return skf
+def NewSkfFromSk(tree, side, sk):
+    skf = ViaVerNewSkf(tree, side, sk, sk.name)
+    skf.hide_value = sk.hide_value
+    if hasattr(skf,'default_value'):
+        skf.default_value = sk.default_value #todo1 нужно придумать как внедриться до создания, чтобы у всех групп появился сокет со значением сразу от sfk default.
     return skf
 def ViaVerGetSkf(tree, side, name):
     if isBlender4:
@@ -822,7 +829,7 @@ def GetFromIoPuts(nd, side, callPos): #Вынесено для Preview Tool ег
             if (side==-1)and(sk.type=='VECTOR')and(SkIsLinkedVisible(sk))and(not sk.hide_value):
                 if str(sk.rna_type).find("VectorDirection")!=-1:
                     muv = 2
-                elif ( not(nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING')) )or( not(sk.name in ("Subsurface Radius","Radius"))):
+                elif ( not( (nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))and(not isBlender4) ) )or( not(sk.name in ("Subsurface Radius","Radius"))):
                     muv = 3
             list_result.append(FoundTarget( sk,
                                             (callPos-posSk).length,
@@ -920,7 +927,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                         StencilReNext(self, context, False)
             break #Обработать нужно только первый ближайший, удовлетворяющий условиям. Иначе результатом будет самый дальний.
     def modal(self, context, event):
-        context.area.tag_redraw() #Неожиданно, но кажется теперь оно перерисовывается само по себе. Но только при каких-то обстоятельствах. Ибо для некоторых инструментов
+        #context.area.tag_redraw() Неожиданно, но кажется теперь оно перерисовывается само по себе. Но только при каких-то обстоятельствах. Ибо для некоторых инструментов
         # в кастомных деревьях если у нодов нет сокетов.. что-то не работает. #todo1 выяснить подробнее.
         #foundGoalSkIn и foundGoalSkOut как минимум гарантированно обнуляются в шаблоне с isBoth=True
         if StencilMouseNextAndReout(self, context, event, False, True): #Здесь упакован `match event.type:`. Возвращает true, если завершение инструмента.
@@ -1023,7 +1030,7 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
         procIface = False
     elif not( (ndo.bl_idname in set_equestrianPortalBlids)or(ndi.bl_idname in set_equestrianPortalBlids) ): #Хотя бы один из нодов должен быть всадником.
         procIface = False
-    if procIface: #Что ж, бурая оказалось не такой уж и бурей. Я ожидал больший спагетти-код.
+    if procIface: #Что ж, бурая оказалось не такой уж и бурей. Я ожидал больший спагетти-код. Как всё легко и ясно получается, если мозги-то включить.
         #Получить нод всадника виртуального сокета
         ndEq = ndo if isSkoVirtual else ndi #Исходим из того, что всадник вывода равновероятен со своим компаньоном.
         #Коллапсируем рамочных всадников сразу же
@@ -1045,7 +1052,7 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
         #Создать интерфейс
         match typeEq:
             case 0|1:
-                ViaVerNewSkf(tree, 1-typeEq*2, skTar, skTar.name)
+                NewSkfFromSk(tree, 1-typeEq*2, skTar)
             case 2|3:
                 ( ndEq.state_items if typeEq==2 else ndEq.repeat_items ).new({'VALUE':'FLOAT'}.get(skTar.type,skTar.type), skTar.name)
         #Перевыбрать для нового появившегося сокета
@@ -1055,7 +1062,7 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
             sko = sko.node.outputs[-2]
     #Путешествие успешно выполнено. Наконец-то переходим к самому главному:
     def DoLinkLL(tree, sko, ski):
-        return tree.links.new(sko, ski) #Hi.
+        return tree.links.new(sko, ski) #hi.
     return DoLinkLL(tree, sko, ski)
     #Заметка: С версии Blender 3.5 виртуальные инпуты теперь можут принимать в себя прям как мультиинпуты.
     # Они даже могут между собой по нескольку раз соединяться, офигеть. Разрабы "отпустили", так сказать, в свободное плаванье.
@@ -1162,7 +1169,6 @@ class VoronoiPreviewTool(VoronoiToolSk):
                         nd.hide = False #А так же раскрывать их.
             StencilUnCollapseNode(nd)
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -1558,7 +1564,6 @@ class VoronoiMixerTool(VoronoiToolDblSk):
             if self.foundGoalSkOut0: #Особенно заметно с активным isCanReOut, без этого результат будет выбираться успешно/не-успешно в зависимости от положения курсора.
                 break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -1788,12 +1793,14 @@ class QuickMathData:
     sk1 = None
     depth = 0
     qmSkType = ''
+    qmTrueSkType = ''
     isHideOptions = False
     isPlaceImmediately = False
     isSpeedPie = False
     pieScale = 0
     pieDisplaySocketTypeInfo = 0
     pieAlignment = 0
+    dict_lastOperation = {}
 qmData = QuickMathData()
 
 #Используется CallbackDraw от Миксера! Потому что одинаковы.
@@ -1808,7 +1815,8 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
     quickOprBool:   bpy.props.StringProperty(name="Bool (quick)",   default="")
     quickOprColor:  bpy.props.StringProperty(name="Color (quick)",  default="")
-    justCallPie: bpy.props.IntProperty(name="Just call pie", default=0, min=0, max=4)
+    justCallPie:           bpy.props.IntProperty(name="Just call pie", default=0, min=0, max=4)
+    isRepeatLastOperation: bpy.props.BoolProperty(name="Repeat last operation", default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
@@ -1826,23 +1834,29 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                 continue
             #Этот инструмент триггерится только на выходы поля.
             if (isBoth)and(isBothSucessSwitch):
-                tgl = True
+                isSucessOut = False
                 for li in list_fgSksOut:
-                    if not self.isQuickQuickMath:
-                        if li.tg.type in set_skTypeFields:
+                    if not self.isRepeatLastOperation:
+                        if not self.isQuickQuickMath:
+                            if li.tg.type in set_skTypeFields:
+                                self.foundGoalSkOut0 = li
+                                isSucessOut = True
+                                break
+                        else: #Для isQuickQuickMath присасываться только к типам сокетов от явно указанных операций.
+                            match li.tg.type:
+                                case 'VALUE'|'INT':     isSucessOut = self.quickOprFloat
+                                case 'VECTOR':          isSucessOut = self.quickOprVector
+                                case 'BOOLEAN':         isSucessOut = self.quickOprBool
+                                case 'RGBA'|'ROTATION': isSucessOut = self.quickOprColor
+                            if isSucessOut:
+                                self.foundGoalSkOut0 = li
+                                break
+                    else:
+                        isSucessOut = qmData.dict_lastOperation.get(li.tg.type, '')
+                        if isSucessOut:
                             self.foundGoalSkOut0 = li
-                            tgl = False
                             break
-                    else: #Для isQuickQuickMath присасываться только к типам сокетов от явно указанных операций.
-                        match li.tg.type:
-                            case 'VALUE'|'INT': tgl = not self.quickOprFloat
-                            case 'VECTOR': tgl = not self.quickOprVector
-                            case 'BOOLEAN': tgl = not self.quickOprBool
-                            case 'RGBA': tgl = not self.quickOprColor
-                        if not tgl:
-                            self.foundGoalSkOut0 = li
-                            break
-                if tgl:
+                if not isSucessOut:
                     continue #Искать нод, у которого попадёт на сокет поля.
                     #Если так ничего и не найдёт, то мб isBothSucessSwitch стоит равным как в VMT; слишком дебри, моих навыков не хватает.
                 nd.hide = False #После чего в любом случае развернуть его.
@@ -1850,20 +1864,19 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             #Для второго по условиям:
             skOut0 = self.foundGoalSkOut0.tg if self.foundGoalSkOut0 else None
             if skOut0:
-                tgl = True
+                isSucessIn = False
                 for li in list_fgSksOut:
                     if SkBetweenFieldsCheck(self, skOut0, li.tg):
                         self.foundGoalSkOut1 = li
-                        tgl = False
+                        isSucessIn = True
                         break
-                if tgl:
+                if not isSucessIn:
                     continue
                 if (self.foundGoalSkOut1)and(skOut0==self.foundGoalSkOut1.tg): #Проверка на самокопию.
                     self.foundGoalSkOut1 = None
                 StencilUnCollapseNode(nd, self.foundGoalSkOut1) #Заметка: нод isBoth'а разворачивается здесь.
             break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -1873,28 +1886,33 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                 qmData.isHideOptions = self.isHideOptions
                 qmData.isPlaceImmediately = self.isPlaceImmediately
                 qmData.qmSkType = qmData.sk0.type #Заметка: наличие только сокетов поля -- забота на уровень выше.
+                qmData.qmTrueSkType = qmData.qmSkType #Эта информация нужна для "последней операции".
                 match qmData.sk0.type:
-                    case 'INT': qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
+                    case 'INT':      qmData.qmSkType = 'VALUE' #И только целочисленный обделён своим нодом математики. Может его добавят когда-нибудь?.
+                    case 'ROTATION': qmData.qmSkType = 'RGBA' #Больше шансов, что для математика для кватерниона будет первее.
+                    #case 'ROTATION': return {'FINISHED'} #Однако странно, почему с RGBA линки отмечаются не корректными, ведь оба Arr4... Зачем тогда цвету альфа?
                 match context.space_data.tree_type:
                     case 'ShaderNodeTree':     qmData.qmSkType = {'BOOLEAN':'VALUE'}.get(qmData.qmSkType, qmData.qmSkType)
                     case 'GeometryNodeTree':   pass
                     case 'CompositorNodeTree': qmData.qmSkType = {'BOOLEAN':'VALUE', 'VECTOR':'RGBA'}.get(qmData.qmSkType, qmData.qmSkType)
                     case 'TextureNodeTree':    qmData.qmSkType = {'BOOLEAN':'VALUE', 'VECTOR':'RGBA'}.get(qmData.qmSkType, qmData.qmSkType)
+                if self.isRepeatLastOperation:
+                    return DoQuickMath(event, context.space_data.edit_tree, qmData.dict_lastOperation[qmData.qmTrueSkType], True)
                 if self.isQuickQuickMath:
                     match qmData.qmSkType:
                         case 'VALUE':   txt_opr = self.quickOprFloat
                         case 'VECTOR':  txt_opr = self.quickOprVector
                         case 'BOOLEAN': txt_opr = self.quickOprBool
                         case 'RGBA':    txt_opr = self.quickOprColor
-                    DoQuickMath(event, context.space_data.edit_tree, txt_opr, True)
-                    return {'FINISHED'}
+                    return DoQuickMath(event, context.space_data.edit_tree, txt_opr, True)
                 qmData.depth = 0
                 qmData.isSpeedPie = self.vqmPieType=='SPEED'
                 qmData.pieScale = self.vqmPieScale
                 qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
                 qmData.pieAlignment = self.vqmPieAlignment
                 bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
-            return {'FINISHED'}
+                return {'FINISHED'}
+            return {'CANCELLED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
         if result:=UselessForCustomUndefTrees(context):
@@ -1927,7 +1945,8 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Осталось на правой, чтобы не охреневать от тройного клика левой при 'Speed Pie' типе пирога.
-#Список быстрых операций для быстрой математики, "x2 комбо".
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ACCENT_GRAVE_scA", {'isRepeatLastOperation':True})
+#Список быстрых операций для быстрой математики ("x2 комбо"):
 #Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае булеан на 4 скорее всего придётся делать никаким.
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'      })
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
@@ -2050,6 +2069,7 @@ def DoQuickMath(event, tree, opr, isQqo=False):
         aNd.blend_type = opr
         aNd.inputs[0].default_value = 1.0
         aNd.inputs[0].hide = opr in {'ADD','SUBTRACT','DIVIDE','MULTIPLY','DIFFERENCE','EXCLUSION','VALUE','SATURATION','HUE','COLOR'}
+    qmData.dict_lastOperation[qmData.qmTrueSkType] = opr
     #Теперь существует justCallPie, а значит пришло время скрывать значение первого сокета (но нужда в этом только для вектора).
     if qmData.qmSkType=='VECTOR':
         aNd.inputs[0].hide_value = True
@@ -2091,6 +2111,7 @@ def DoQuickMath(event, tree, opr, isQqo=False):
             sk.hide = True
     if qmData.isHideOptions:
         aNd.show_options = False
+    return {'FINISHED'}
 class QuickMathMain(VoronoiOp):
     bl_idname = 'node.voronoi_quick_math_main'
     bl_label = "Quick Math"
@@ -2113,8 +2134,7 @@ class QuickMathMain(VoronoiOp):
                 if qmData.isSpeedPie:
                     qmData.list_displayItems = [ti[1] for ti in dict_quickMathMain[qmData.qmSkType] if ti[0]==self.operation][0] #Заметка: вычленяется кортеж из генератора.
             case 2:
-                DoQuickMath(event, tree, self.operation, False)
-                return {'FINISHED'}
+                return DoQuickMath(event, tree, self.operation, False)
         qmData.depth += 1
         bpy.ops.wm.call_menu_pie(name=QuickMathPie.bl_idname)
         return {'RUNNING_MODAL'}
@@ -2313,7 +2333,6 @@ class VoronoiSwapperTool(VoronoiToolDblSk):
                 StencilUnCollapseNode(nd, self.foundGoalSkIo1)
             break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -2441,7 +2460,6 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                     # Т.е. присосаться к новому ноду на один кадр, а потом уже обработать его сразу с поиском нового нода и рисовки к нему (как для примера в вики).
             break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -2620,7 +2638,6 @@ class VoronoiMassLinkerTool(VoronoiTool): #"Малыш котопёс", не н�
                 StencilReNext(self, context, False)
             break
     def modal(self, context, event):
-        context.area.tag_redraw()
         #Заметка: ndGoalIn обнулится через самокопию если isCanReOut.
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
@@ -2765,7 +2782,6 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
                     bpy.ops.node.voronoi_enum_selector_box('INVOKE_DEFAULT')
                 return True #Для modal(), чтобы вернуть успех.
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -2925,7 +2941,6 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
                     StencilReNext(self, context)
             break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -3026,7 +3041,6 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
             if self.foundGoalSkOut:
                 break
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -3108,7 +3122,6 @@ class VoronoiDummyTool(VoronoiToolSkNd):
         if StencilUnCollapseNode(nd, self.foundGoalSk): #todo3 навести порядок и осознать повторно, и ниже тоже.
             StencilReNext(self, context, True)
     def modal(self, context, event):
-        context.area.tag_redraw()
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
@@ -3548,7 +3561,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                     if li.id<0: #Отрицательный ид для кастомных? Ну ладно. Пусть будет идентифицирующим критерием.
                         kmiCats.c.set_kmis.add(li)
                         kmiCats.c.sco += 1
-                    elif [True for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie'} if getattr(li.properties, pr, None)]:
+                    elif [True for pr in {'quickOprFloat','quickOprVector','quickOprBool','quickOprColor','justCallPie','isRepeatLastOperation'} if getattr(li.properties, pr, None)]:
                         kmiCats.qqm.set_kmis.add(li)
                         kmiCats.qqm.sco += 1
                     elif li.idname in kmiCats.ms.set_idn:
@@ -3760,6 +3773,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiMixerTool,'isPlaceImmediately'):         "Размещать моментально",
             Ganfc(VoronoiQuickMathTool,'isHideOptions'):          "Скрывать опции нода",
             Ganfc(VoronoiQuickMathTool,'justCallPie'):            "Просто вызвать пирог",
+            Ganfc(VoronoiQuickMathTool,'isRepeatLastOperation'):  "Повторить последнюю операцию",
             Ganfc(VoronoiQuickMathTool,'quickOprFloat'):          "Скаляр (быстро)",
             Ganfc(VoronoiQuickMathTool,'quickOprVector'):         "Вектор (быстро)",
             Ganfc(VoronoiQuickMathTool,'quickOprBool'):           "Булевый (быстро)",
