@@ -901,9 +901,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                 #Шаблон находится здесь, чтобы нод без выходов не разворачивался.
                 if StencilUnCollapseNode(nd, isBoth): #Заметка: isBoth нужен, чтобы нод для SkIn не развернулся раньше, чем задумывалось.
                     #Нужно перерисовывать, если соединилось во вход свёрнутого нода.
-                    #StencilReNext(self, context, False)
-                    #todo2 нужно было, а теперь оно само работает. Чёрная магия. Нужно понять почему.
-                    pass
+                    StencilReNext(self, context, True)
                 #На этом этапе условия для отрицания просто найдут другой результат. "Присосётся не к этому, так к другому".
                 for li in list_fgSksIn:
                     #Заметка: оператор |= всё равно заставляет вычисляться правый операнд.
@@ -930,7 +928,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                                 self.foundGoalSkIn = None
                                 #Используемый в проверке выше "self.foundGoalSkIn" обнуляется, поэтому нужно выходить, иначе будет попытка чтения из несуществующего элемента следующей итерацией.
                                 break
-                    if StencilUnCollapseNode(self.foundGoalSkIn.tg.node): #"Мейнстримная" обработка свёрнутости.
+                    if StencilUnCollapseNode(nd): #"Мейнстримная" обработка свёрнутости.
                         StencilReNext(self, context, False)
             break #Обработать нужно только первый ближайший, удовлетворяющий условиям. Иначе результатом будет самый дальний.
     def modal(self, context, event):
@@ -3117,12 +3115,12 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            if StencilUnCollapseNode(nd, isBoth):
-                StencilReNext(self, context, True)
             if nd.type=='REROUTE':
                 continue
             if (not txt_victName)and(nd.bl_idname in set_equestrianPortalBlids): #Игнорировать всадников, если имени ещё нет; а так же #113860.
                 continue
+            if StencilUnCollapseNode(nd, isBoth):
+                StencilReNext(self, context, True)
             #Далее облегчённый паттерн от VST, без sk.links и isBoth'а:
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
             fgSkOut, fgSkIn = None, None
