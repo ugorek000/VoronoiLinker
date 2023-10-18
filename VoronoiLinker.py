@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,1), 'blender':(4,1,0), #2023.10.19
+           'version':(3,5,2), 'blender':(4,1,0), #2023.10.19
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -2074,7 +2074,6 @@ def DoQuickMath(event, tree, opr, isQqo=False):
         aNd.blend_type = opr
         aNd.inputs[0].default_value = 1.0
         aNd.inputs[0].hide = opr in {'ADD','SUBTRACT','DIVIDE','MULTIPLY','DIFFERENCE','EXCLUSION','VALUE','SATURATION','HUE','COLOR'}
-    qmData.dict_lastOperation[qmData.qmTrueSkType] = opr
     #Теперь существует justCallPie, а значит пришло время скрывать значение первого сокета (но нужда в этом только для вектора).
     if qmData.qmSkType=='VECTOR':
         aNd.inputs[0].hide_value = True
@@ -2139,6 +2138,7 @@ class QuickMathMain(VoronoiOp):
                 if qmData.isSpeedPie:
                     qmData.list_displayItems = [ti[1] for ti in dict_quickMathMain[qmData.qmSkType] if ti[0]==self.operation][0] #Заметка: вычленяется кортеж из генератора.
             case 2:
+                qmData.dict_lastOperation[qmData.qmTrueSkType] = self.operation
                 return DoQuickMath(event, tree, self.operation, False)
         qmData.depth += 1
         bpy.ops.wm.call_menu_pie(name=QuickMathPie.bl_idname)
@@ -3108,16 +3108,19 @@ def CallbackDrawVoronoiInterfaceCopier(self, context):
 class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_interface_copier'
     bl_label = "Voronoi Interface Copier"
+    isPaste: bpy.props.BoolProperty(name="Paste", default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
         self.foundGoalSk = None
+        if (not txt_victName)and(self.isPaste): #Ожидаемо; а ещё #113860.
+            return
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             if nd.type=='REROUTE':
                 continue
-            if (not txt_victName)and(nd.bl_idname in set_equestrianPortalBlids): #Игнорировать всадников, если имени ещё нет; а так же #113860.
+            if (self.isPaste)and(nd.bl_idname not in set_equestrianPortalBlids): 
                 continue
             if StencilUnCollapseNode(nd, isBoth):
                 StencilReNext(self, context, True)
@@ -3146,7 +3149,7 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
             if self.foundGoalSk:
                 global txt_victName
                 sk = self.foundGoalSk.tg
-                if sk.node.bl_idname in set_equestrianPortalBlids:
+                if self.isPaste:
                     #Такой же паттерн, как и в DoLinkHH.
                     ndEq = getattr(sk.node,'paired_output', sk.node)
                     match ndEq.bl_idname:
@@ -3176,7 +3179,8 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
         StencilToolWorkPrepare(self, context, CallbackDrawVoronoiInterfaceCopier, True)
         return {'RUNNING_MODAL'}
 
-SmartAddToRegAndAddToKmiDefs(VoronoiInterfaceCopierTool, "C_SCa")
+SmartAddToRegAndAddToKmiDefs(VoronoiInterfaceCopierTool, "C_ScA")
+SmartAddToRegAndAddToKmiDefs(VoronoiInterfaceCopierTool, "V_ScA", {'isPaste':True})
 dict_setKmiCats['s'].add(VoronoiInterfaceCopierTool.bl_idname)
 
 def CallbackDrawVoronoiLinksTransfer(self, context):
@@ -3528,13 +3532,16 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
     vesDarkStyle:        bpy.props.BoolProperty(name="Dark style",         default=False)
     ##
-    def AddDisclosureProp(self, where, who, txt_prop, txt_text=None, isActive=False, txt_suffIfActive=""): #Не может на всю ширину, если where -- row().
+    def AddDisclosureProp(self, where, who, txt_prop, txt_text=None, isActive=False, txt_suffIfActive="", isWide=False): #Не может на всю ширину, если where -- row().
         tgl = getattr(who, txt_prop)
         row = where.row(align=True)
         row.alignment = 'LEFT'
         txt_text = txt_text+txt_suffIfActive*tgl if txt_text else None
         row.prop(who, txt_prop, text=txt_text, icon='DISCLOSURE_TRI_DOWN' if tgl else 'DISCLOSURE_TRI_RIGHT', emboss=False)
         row.active = isActive
+        if isWide:
+            row = row.row(align=True)
+            row.prop(who, txt_prop, text=" ", emboss=False)
         return tgl
     def AddHandSplitProp(self, where, txt_prop, tgl=True, isReturnLy=False):
         spl = where.row().split(factor=0.38, align=True)
@@ -3555,13 +3562,12 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             else:
                 return spl
     def DrawTabSettings(self, context, where):
-        AddDisclosureProp = self.AddDisclosureProp
         AddHandSplitProp = self.AddHandSplitProp
         def FastBox(where):
             return where.box().column(align=True)
         def AddSelfBoxDiscl(where, txt_prop, cls=None):
             colBox = FastBox(where)
-            if AddDisclosureProp(colBox, self, txt_prop, txt_text=(cls.bl_label+voronoiTextToolSettings) if cls else None):
+            if self.AddDisclosureProp(colBox, self, txt_prop, (cls.bl_label+voronoiTextToolSettings) if cls else None):
                 rowTool = colBox.row()
                 rowTool.separator()
                 colTool = rowTool.column(align=True)
@@ -3769,7 +3775,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colListCat = where.row().column(align=True)
                 rowDiscl = colListCat.row(align=True)
                 rowDiscl.active = False
-                tgl = self.AddDisclosureProp(rowDiscl, self, cat.txt_prop, cat.label+f" ({cat.sco})")#, txt_suffIfActive=":")
+                tgl = self.AddDisclosureProp(rowDiscl, self, cat.txt_prop, cat.label+f" ({cat.sco})", isWide=True)#, txt_suffIfActive=":")
                 if not tgl:
                     return
                 for li in sorted(cat.set_kmis, key=lambda a: a.id):
@@ -3965,6 +3971,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiRepeatingTool,'isAutoRepeatMode'):       "Режим авто-повторения",
             Ganfc(VoronoiRepeatingTool,'isFromOut'):              "Из выхода",
             Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "Переносить по порядку",
+            Ganfc(VoronoiInterfaceCopierTool,'isPaste'):          "Вставить",
             }
     return
     dict_translations['aa_AA'] = { #Ждёт своего часа. Кто же будет первым?
