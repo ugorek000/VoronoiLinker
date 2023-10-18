@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,0), 'blender':(4,1,0), #2023.10.18
+           'version':(3,5,1), 'blender':(4,1,0), #2023.10.19
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -930,7 +930,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                                 self.foundGoalSkIn = None
                                 #Используемый в проверке выше "self.foundGoalSkIn" обнуляется, поэтому нужно выходить, иначе будет попытка чтения из несуществующего элемента следующей итерацией.
                                 break
-                    if StencilUnCollapseNode(nd): #"Мейнстримная" обработка свёрнутости.
+                    if StencilUnCollapseNode(self.foundGoalSkIn.tg.node): #"Мейнстримная" обработка свёрнутости.
                         StencilReNext(self, context, False)
             break #Обработать нужно только первый ближайший, удовлетворяющий условиям. Иначе результатом будет самый дальний.
     def modal(self, context, event):
@@ -1174,7 +1174,7 @@ class VoronoiPreviewTool(VoronoiToolSk):
                         if nd.name!=voronoiPreviewResultNdName: #Нод для сохранения результата не перекрашивать
                             nd.color = (0.188, 0.188, 0.5)
                         nd.hide = False #А так же раскрывать их.
-            StencilUnCollapseNode(nd)
+            StencilUnCollapseNode(self.foundGoalSkOut.tg.node)
     def modal(self, context, event):
         if StencilMouseNextAndReout(self, context, event):
             if result:=StencilModalEsc(self, context, event):
@@ -3138,9 +3138,9 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
             self.foundGoalSk = MinFromFgs(fgSkOut, fgSkIn)
             if self.foundGoalSk.tg.bl_idname=='NodeSocketVirtual':
                 continue
+            if StencilUnCollapseNode(nd, self.foundGoalSk):
+                StencilReNext(self, context, True)
             break
-        if StencilUnCollapseNode(nd, self.foundGoalSk):
-            StencilReNext(self, context, True)
     def modal(self, context, event):
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
@@ -3294,8 +3294,10 @@ class VoronoiDummyTool(VoronoiToolSkNd):
             fgSkOut = list_fgSksOut[0] if list_fgSksOut else None
             self.foundGoalSk = MinFromFgs(fgSkOut, fgSkIn)
             break
-        if StencilUnCollapseNode(nd, self.foundGoalSk): #todo3 навести порядок и осознать повторно, и ниже тоже.
-            StencilReNext(self, context, True)
+        #todo3 навести здесь порядок и осознать всё повторно.
+        if self.foundGoalSk:
+            if StencilUnCollapseNode(self.foundGoalSk.tg.node):
+                StencilReNext(self, context, True)
     def modal(self, context, event):
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
