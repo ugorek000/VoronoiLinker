@@ -2138,6 +2138,7 @@ class QuickMathMain(VoronoiOp):
                 if qmData.isSpeedPie:
                     qmData.list_displayItems = [ti[1] for ti in dict_quickMathMain[qmData.qmSkType] if ti[0]==self.operation][0] #Заметка: вычленяется кортеж из генератора.
             case 2:
+                #Запоминать нужно только и очевидно только здесь. В Tool только qqm и rlo. Для qqm не запоминается для удобства, и следованию логики rlo.
                 qmData.dict_lastOperation[qmData.qmTrueSkType] = self.operation
                 return DoQuickMath(event, tree, self.operation, False)
         qmData.depth += 1
@@ -3728,7 +3729,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
             ##
             kmiCats = KmiCats()
-            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Mainstream",       set(), 0, dict_setKmiCats['ms']  )
+            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Great trio",       set(), 0, dict_setKmiCats['ms']  )
             kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
             kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Special",          set(), 0, dict_setKmiCats['s']   )
             kmiCats.qqm = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['qqm'] )
