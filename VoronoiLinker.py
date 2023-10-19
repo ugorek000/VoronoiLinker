@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,3), 'blender':(4,1,0), #2023.10.19
+           'version':(3,5,4), 'blender':(4,1,0), #2023.10.20
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -104,8 +104,10 @@ def NewLinkAndRemember(sko, ski):
     DoLinkHH(sko, ski) #sko.id_data.links.new(sko, ski)
     RememberLastSockets(sko, ski)
 
+def GetSkLabelName(sk):
+    return sk.label if sk.label else sk.name
 def CompareSkLabelName(sk1, sk2): #Для VMLT и VRT.
-    return (sk1.label if sk1.label else sk1.name)==(sk2.label if sk2.label else sk2.name)
+    return GetSkLabelName(sk1)==GetSkLabelName(sk2)
 
 def NdSelectAndActive(ndTar):
     for nd in ndTar.id_data.nodes:
@@ -612,10 +614,24 @@ def ViaVerNewSkf(tree, side, skType, name):
         skf = (tree.inputs if side==-1 else tree.outputs).new(skType.bl_idname if isSk else skType, name)
     return skf
 def NewSkfFromSk(tree, side, sk):
-    skf = ViaVerNewSkf(tree, side, sk, sk.name)
+    def FixDefaultSkf(tree, idf, val):
+        def FixTree(tr):
+            for nd in tr.nodes:
+                if (nd.type=='GROUP')and(nd.node_tree==tree):
+                    for sk in nd.inputs:
+                        if sk.identifier==idf:
+                            sk.default_value = val
+        for ng in bpy.data.node_groups:
+            FixTree(ng)
+        for mt in bpy.data.materials:
+            FixTree(mt.node_tree)
+        #Остальные (например свет или композитинг) обделены. Ибо костыль.
+    skf = ViaVerNewSkf(tree, side, sk, GetSkLabelName(sk))
     skf.hide_value = sk.hide_value
     if hasattr(skf,'default_value'):
-        skf.default_value = sk.default_value #todo1 нужно придумать как внедриться до создания, чтобы у всех групп появился сокет со значением сразу от sfk default.
+        skf.default_value = sk.default_value
+        #todo1 нужно придумать как внедриться до создания, чтобы у всех групп появился сокет со значением сразу от sfk default.
+        FixDefaultSkf(tree, skf.identifier, sk.default_value)
     return skf
 def ViaVerGetSkfi(tree, side):
     if isBlender4:
@@ -842,7 +858,7 @@ def GetFromIoPuts(nd, side, callPos): #Вынесено для Preview Tool ег
                                             (callPos-posSk).length,
                                             posSk,
                                             (posSk.y-11-muv*20, posSk.y+11+max(length(sk.links)-2,0)*5*(side==-1)),
-                                            TranslateIface(sk.label if sk.label else sk.name) ))
+                                            TranslateIface(GetSkLabelName(sk)) ))
     return list_result
 def GetNearestSockets(nd, callPos): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного. Да, да, аддон назван именно из-за этого.
     list_fgSksIn = []
@@ -1059,7 +1075,7 @@ def DoLinkHH(sko, ski, isReroutesToAnyType=True, isCanBetweenField=True, isCanFi
             case 0|1:
                 NewSkfFromSk(tree, 1-typeEq*2, skTar)
             case 2|3:
-                ( ndEq.state_items if typeEq==2 else ndEq.repeat_items ).new({'VALUE':'FLOAT'}.get(skTar.type,skTar.type), skTar.name)
+                ( ndEq.state_items if typeEq==2 else ndEq.repeat_items ).new({'VALUE':'FLOAT'}.get(skTar.type,skTar.type), GetSkLabelName(skTar))
         #Перевыбрать для нового появившегося сокета
         if isSkiVirtual:
             ski = ski.node.inputs[-2]
@@ -2508,11 +2524,11 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
                         scoGeoSks += 1
                         return scoGeoSks!=1
             case 'VALUE':
-                if (sk.name in {'Alpha', 'Factor'})and(sk.default_value==1): #Для некоторых флоат сокетов тоже было бы неплохо иметь точечную проверку.
+                if (GetSkLabelName(sk) in {'Alpha', 'Factor'})and(sk.default_value==1): #Для некоторых флоат сокетов тоже было бы неплохо иметь точечную проверку.
                     return True #todo1 изобрести как-то список настраиваемых точечных сокрытий.
                 return sk.default_value==0
             case 'VECTOR':
-                if (sk.name=='Scale')and(sk.default_value[0]==1)and(sk.default_value[1]==1)and(sk.default_value[2]==1):
+                if (GetSkLabelName(sk)=='Scale')and(sk.default_value[0]==1)and(sk.default_value[1]==1)and(sk.default_value[2]==1):
                     return True #Меня переодически напрягал 'GeometryNodeTransform', и в один прекрасной момент накопилось..
                 return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0) #Заметка: `sk.default_value==(0,0,0)` не прокатит.
             case 'BOOLEAN':
@@ -3020,7 +3036,6 @@ def CallbackDrawVoronoiQuickDimensions(self, context):
         return
     cusorPos = context.space_data.cursor_location
     if self.foundGoalSkOut0:
-#        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut0], isLineToCursor=True, textSideFlip=True )
         #От VST. #todo2 CallbackDraw'ы тоже нужно стандартизировать и зашаблонить, причём более актуально.
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut0], isLineToCursor=True, isDrawText=False )
         tgl = not not self.foundGoalSkOut1
@@ -3093,7 +3108,7 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
                 ##
                 skIn = aNd.inputs[0]
                 for ski in aNd.inputs:
-                    if CompareSkLabelName(skOut0, ski):
+                    if skOut0.name==ski.name:
                         skIn = ski
                         break
                 NewLinkAndRemember(skOut0, skIn)
@@ -3156,7 +3171,7 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
                     break
             ##
             self.foundGoalSk = MinFromFgs(fgSkOut, fgSkIn)
-            if self.foundGoalSk.tg.bl_idname=='NodeSocketVirtual':
+            if self.foundGoalSk.tg.bl_idname=='NodeSocketVirtual': #todo2 ситуация, когда foundGoalSk == None
                 continue
             if StencilUnCollapseNode(nd, self.foundGoalSk):
                 StencilReNext(self, context, True)
@@ -3183,9 +3198,11 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
                             skfi = ndEq.state_items
                         case 3:
                             skfi = ndEq.repeat_items
-                    skf = skfi.get(sk.name)
-                    if skf:
-                        skf.name = txt_victName
+                    #Искать не по имени, а по identifier; ожидаемо почему.
+                    for skf in skfi:
+                        if skf.identifier==sk.identifier:
+                            skf.name = txt_victName
+                            break
                 else:
                     txt_victName = sk.name
                 return {'FINISHED'}
@@ -3258,7 +3275,7 @@ class VoronoiLinksTransferTool(VoronoiToolDblSk):
                     for sk in LGetSide(ndFrom):
                         for lk in sk.links: #Для мультиинпутов. #todo3 проверить корректность для всех ситуаций.
                             if not lk.is_muted:
-                                skTar = LGetSide(ndTo).get(sk.name)
+                                skTar = LGetSide(ndTo).get(GetSkLabelName(sk))
                                 if skTar:
                                     tree.links.new(lk.from_socket, skTar) if isFromInp else tree.links.new(skTar, lk.to_socket)
                                     if isFromInp: #todo3 Мультиинпуты! И придумать как это починить.
