@@ -1969,15 +1969,15 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "RIGHTMOUSE_ScA") #Остал
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ACCENT_GRAVE_scA", {'isRepeatLastOperation':True})
 #Список быстрых операций для быстрой математики ("x2 комбо"):
 #Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае булеан на 4 скорее всего придётся делать никаким.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_scA",   {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'      })
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_scA",   {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT' })
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_scA",  {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'   })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "1_scA", {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'      })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "2_scA", {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "3_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "4_scA", {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'   })
 #Хотел я реализовать это для QuickMathMain, но оказалось слишком лажа превращать технический оператор в пользовательский. Основная проблема -- qmData настроек пирога.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ONE_ScA",   {'justCallPie':1}) #Неожиданно, но такой хоткей весьма приятный.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "TWO_ScA",   {'justCallPie':2}) # Из-за двух модификаторв приходится держать нажатым,
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "THREE_ScA", {'justCallPie':3}) # от чего приходится выбирать позицией курсора, а не кликом.
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "FOUR_ScA",  {'justCallPie':4}) # Я думал это будет неудобно, а оказалось даже приятно.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "1_ScA", {'justCallPie':1}) #Неожиданно, но такой хоткей весьма приятный.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "2_ScA", {'justCallPie':2}) # Из-за двух модификаторв приходится держать нажатым,
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "3_ScA", {'justCallPie':3}) # от чего приходится выбирать позицией курсора, а не кликом.
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "4_ScA", {'justCallPie':4}) # Я думал это будет неудобно, а оказалось даже приятно.
 dict_setKmiCats['ms'].add(VoronoiQuickMathTool.bl_idname)
 
 #Быстрая математика.
