@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,2), 'blender':(4,1,0), #2023.10.19
+           'version':(3,5,3), 'blender':(4,1,0), #2023.10.19
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -3019,69 +3019,86 @@ def CallbackDrawVoronoiQuickDimensions(self, context):
     if StencilStartDrawCallback(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if self.foundGoalSkOut:
-        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=True, textSideFlip=True )
+    if self.foundGoalSkOut0:
+#        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut0], isLineToCursor=True, textSideFlip=True )
+        #От VST. #todo2 CallbackDraw'ы тоже нужно стандартизировать и зашаблонить, причём более актуально.
+        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut0], isLineToCursor=True, isDrawText=False )
+        tgl = not not self.foundGoalSkOut1
+        DrawMixerSkText(self, cusorPos, self.foundGoalSkOut0, -0.5+0.75*tgl, int(tgl))
+        if tgl:
+            DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut1], isLineToCursor=True, isDrawText=False )
+            DrawMixerSkText(self, cusorPos, self.foundGoalSkOut1, -1.25, -1)
     elif self.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiQuickDimensionsTool(VoronoiToolSk):
     bl_idname = 'node.voronoi_quick_dimensions'
     bl_label = "Voronoi Quick Dimensions"
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately", default=False)
-    def NextAssignment(self, context, *naArgs):
+    def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
-        self.foundGoalSkOut = None
+        if isBoth:
+            self.foundGoalSkOut0 = None
+        self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             list_fgSksOut = GetNearestSockets(nd, callPos)[1]
             if not list_fgSksOut:
                 continue
-            for li in list_fgSksOut:
-                skOut = li.tg
-                if (skOut.type in set_skTypeFields)or(skOut.type=='GEOMETRY'):
-                    self.foundGoalSkOut = li
+            if isBoth:
+                for li in list_fgSksOut:
+                    if (li.tg.type in set_skTypeFields)or(li.tg.type=='GEOMETRY'):
+                        self.foundGoalSkOut0 = li
+                        break
+                StencilUnCollapseNode(nd, self.foundGoalSkOut0)
+                break
+            StencilUnCollapseNode(nd, self.foundGoalSkOut1) #todo1 ^ и v; кажется пришло время стандартизировать конвеер для всех инструментов!
+            skOut0 = self.foundGoalSkOut0.tg if self.foundGoalSkOut0 else None
+            if skOut0:
+                if skOut0.type not in {'VALUE','INT','BOOLEAN'}:
                     break
-            StencilUnCollapseNode(nd, self.foundGoalSkOut)
-            if self.foundGoalSkOut:
+                for li in list_fgSksOut:
+                    if skOut0.type==li.tg.type:
+                            self.foundGoalSkOut1 = li
+                    if self.foundGoalSkOut1:
+                        break
+                if (self.foundGoalSkOut1)and(skOut0==self.foundGoalSkOut1.tg):
+                    self.foundGoalSkOut1 = None
+                    break
+            if self.foundGoalSkOut1:
                 break
     def modal(self, context, event):
-        if StencilMouseNextAndReout(self, context, event):
+        if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
-            if self.foundGoalSkOut:
-                skOut = self.foundGoalSkOut.tg
+            if self.foundGoalSkOut0:
+                skOut0 = self.foundGoalSkOut0.tg
                 tree = context.space_data.edit_tree
                 dict_qDM = dict_dictQuickDimensionsMain.get(tree.bl_idname, None)
                 if not dict_qDM:
                     return {'CANCELLED'}
-                isOutNdCol = skOut.node.bl_idname==dict_qDM['RGBA'][0] #Заметка: нод разделения, на выходе всегда флоаты.
+                isOutNdCol = skOut0.node.bl_idname==dict_qDM['RGBA'][0] #Заметка: нод разделения, на выходе всегда флоаты.
                 isGeoTree = tree.bl_idname=='GeometryNodeTree'
-                isOutNdQuat = (isGeoTree)and(skOut.node.bl_idname==dict_qDM['ROTATION'][0])
-                txt_node = dict_qDM[skOut.type][isOutNdCol if not isOutNdQuat else 2]
+                isOutNdQuat = (isGeoTree)and(skOut0.node.bl_idname==dict_qDM['ROTATION'][0])
+                txt_node = dict_qDM[skOut0.type][isOutNdCol if not isOutNdQuat else 2]
                 ##
                 bpy.ops.node.add_node('INVOKE_DEFAULT', type=txt_node, use_transform=not self.isPlaceImmediately)
                 aNd = tree.nodes.active
                 aNd.width = 140
-                if aNd.bl_idname in {dict_qDM['RGBA'][0], dict_qDM['VALUE'][1]}: #|5|
+                if aNd.bl_idname in {dict_qDM['RGBA'][0], dict_qDM['VALUE'][1]}: #|5|.
                     aNd.show_options = False #Слишком неэстетично прятать без разбору, поэтому проверка выше.
-                if skOut.type in set_skTypeArrFields: #Зато экономия явных определений для каждого типа.
+                if skOut0.type in set_skTypeArrFields: #Зато экономия явных определений для каждого типа.
                     aNd.inputs[0].hide_value = True
                 ##
                 skIn = aNd.inputs[0]
                 for ski in aNd.inputs:
-                    if CompareSkLabelName(skOut, ski):
+                    if CompareSkLabelName(skOut0, ski):
                         skIn = ski
                         break
-                if not event.alt:
-                    NewLinkAndRemember(skOut, skIn)
-                else:
-                    if skOut.node.bl_idname in {dict_qDM['VECTOR'][0], dict_qDM['RGBA'][0], dict_qDM['ROTATION'][0] if isGeoTree else ''}:
-                        for sk1, sk2 in zip(skOut.node.outputs, aNd.inputs):
-                            NewLinkAndRemember(sk1, sk2)
-                    else:
-                        for sk in aNd.inputs:
-                            NewLinkAndRemember(skOut, sk)
+                NewLinkAndRemember(skOut0, skIn)
+                if self.foundGoalSkOut1:
+                    NewLinkAndRemember(self.foundGoalSkOut1.tg, aNd.inputs[1])
             return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
@@ -3089,8 +3106,9 @@ class VoronoiQuickDimensionsTool(VoronoiToolSk):
             return result
         if result:=StencilBeginToolInvoke(self, context, event):
             return result
-        self.foundGoalSkOut = None
-        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiQuickDimensions)
+        self.foundGoalSkOut0 = None
+        self.foundGoalSkOut1 = None
+        StencilToolWorkPrepare(self, context, CallbackDrawVoronoiQuickDimensions, True)
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickDimensionsTool, "D_scA")
@@ -3476,8 +3494,8 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     #А ещё см. |4|, реализация "только сокеты" грозит потенциальной кроличьей норой.
     vtSearchMethod: bpy.props.EnumProperty(name="Search method", default='SOCKET', items=( ('NODE_SOCKET', "Nearest node > nearest socket", ""), #Нигде не используется.
                                                                                            ('SOCKET',      "Only nearest socket",           "") )) #И кажется, никогда не будет.
-    vtRepickTrigger: bpy.props.EnumProperty(name="Repick trigger", default='ONE', items=( ('FULL', "Сomplete match of call modifiers", ""),
-                                                                                          ('ONE',  "At least one of modifiers",        "") ))
+    vtRepickTrigger: bpy.props.EnumProperty(name="Repick trigger", default='ANY', items=( ('FULL', "Сomplete match of call modifiers", ""),
+                                                                                          ('ANY',  "At least one of modifiers",        "") ))
     #Linker:
     vlReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be connected to any type",  default=True)
     vlDeselectAllNodes:     bpy.props.BoolProperty(name="Deselect all nodes on activate",         default=False)
@@ -3486,7 +3504,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vpAllowClassicGeoViewer:        bpy.props.BoolProperty(name="Allow classic GeoNodes Viewer",   default=True)
     vpIsLivePreview: bpy.props.BoolProperty(name="Live preview", default=True)
     vpRvEeIsColorOnionNodes:    bpy.props.BoolProperty(name="Node onion colors",               default=False)
-    vpRvEeSksHighlighting:      bpy.props.BoolProperty(name="Topology connected highlighting", default=False)
+    vpRvEeSksHighlighting:      bpy.props.BoolProperty(name="Topology connected highlighting", default=False) #Ну и словечко. Три трио комбо. Выглядит как случайные удары по клавиатуре.
     vpRvEeIsSavePreviewResults: bpy.props.BoolProperty(name="Save preview results",            default=False)
     #Mixer:
     vmReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be mixed to any type", default=True)
@@ -3728,7 +3746,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             colList = colMaster.column(align=True)
             kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
             ##
-            kmiCats = KmiCats()
+            kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
             kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Great trio",       set(), 0, dict_setKmiCats['ms']  )
             kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
             kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Special",          set(), 0, dict_setKmiCats['s']   )
