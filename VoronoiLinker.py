@@ -429,6 +429,8 @@ def GetOpKmi(self, tuple_tar): #todo0 есть ли концепция или с
                 #Заметка: могут быть и два идентичных хоткеев вызова, но Blender будет выполнять только один из них (по крайней мере для VL), тот, который будет первее в списке.
                 return li # Эта функция тоже выдаёт первого в списке.
 def ForseSetSelfNonePropToDefault(kmi, self):
+    if not kmi:
+        return
     #Если в keymap в вызове оператора не указаны его свойства, они читаются от последнего вызова. Эта функция призвана устанавливать их обратно по умолчанию.
     for li in self.rna_type.properties:
         if li.identifier!='rna_type':
@@ -1295,11 +1297,14 @@ def GetRootNd(tree):
                 if (nd.type in {'OUTPUT_MATERIAL','OUTPUT_WORLD','OUTPUT_LIGHT','OUTPUT_LINESTYLE','OUTPUT'})and(nd.is_active_output):
                     return nd
         case 'GeometryNodeTree':
-            for nd in reversed(tree.nodes): #Активный виевер будет в конце списка, так что искать с конца.
-                if nd.type=='VIEWER':
-                    if [True for sk in nd.inputs[1:] if sk.links]: #Выбирать виевер только если у него есть линк для просмотра поля.
-                        return nd
-                    break #Обрабатывать только первый попавшийся виевер, он же активный. Потому что иначе будет некомфортное поведение для нескольких виеверов.
+            if False:
+                #Для очередных глубин тоже актуально получать пересасывание сразу в ввиевер, но см. |6|; текущий конвеер логически не приспособлен для этого.
+                #Поэтому больше не поддерживается, ибо "решено" только на половину. Так что старый добрый якорь в помощь.
+                for nd in reversed(tree.nodes): #Активный виевер будет в конце списка, так что искать с конца.
+                    if nd.type=='VIEWER':
+                        if [True for sk in nd.inputs[1:] if sk.links]: #Выбирать виевер только если у него есть линк для просмотра поля.
+                            return nd
+                        break #Обрабатывать только первый попавшийся ! виевер; он же активный. Потому что иначе будет некомфортное поведение для нескольких виеверов.
             for nd in tree.nodes:
                 if (nd.type=='GROUP_OUTPUT')and(nd.is_active_output):
                     for sk in nd.inputs:
@@ -1409,7 +1414,7 @@ def DoPreview(context, targetSk):
                     idLastSkEx = portalSkTo.identifier #Выходы нода нодгруппы и входы выхода группы совпадают. Сохранить информацию для следующей глубины продолжения.
                     curWay.isUseExtAndSkPr = GetBridgeSk(portalNdTo.inputs) #Для чистки. Если будет без линков, то удалять. При чистке они не ищутся по факту, потому что Big(O).
         if not portalSkTo: #Основной мейнстрим получения.
-            portalSkTo = GetRootSk(tree, portalNdTo, targetSk) if not cyc else GetBridgeSk(portalNdTo.inputs)
+            portalSkTo = GetRootSk(tree, portalNdTo, targetSk) if not cyc else GetBridgeSk(portalNdTo.inputs) #|6|.
         if (not portalSkTo)and(cyc): #Очередные глубины -- всегда группы, для них и нужно генерировать skf. Проверка на cyc не обязательна, сокет с корнем (из-за рероута) всегда будет.
             #Если выше не смог получить сокет от входов нода нод группы, то и интерфейса-то тоже нет. Поэтому проверка `not tree.outputs.get(voronoiSkPreviewName)` без нужды.
             ViaVerNewSkf(tree, 1, GetTypeSkfBridge(), voronoiSkPreviewName).hide_value = True
