@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,4), 'blender':(4,1,0), #2023.10.20
+           'version':(3,5,4), 'blender':(4,1,0), #2023.10.22
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -1975,8 +1975,8 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "ACCENT_GRAVE_scA", {'isRepea
 #Список быстрых операций для быстрой математики ("x2 комбо"):
 #Дилемма с логическим на "3", там может быть вычитание, как все на этой клавише, или отрицание, как логическое продолжение первых двух. Во втором случае булеан на 4 скорее всего придётся делать никаким.
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "1_scA", {'quickOprFloat':'ADD',      'quickOprVector':'ADD',      'quickOprBool':'OR',     'quickOprColor':'ADD'      })
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "2_scA", {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
-SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "3_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "2_scA", {'quickOprFloat':'SUBTRACT', 'quickOprVector':'SUBTRACT', 'quickOprBool':'NIMPLY', 'quickOprColor':'SUBTRACT' })
+SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "3_scA", {'quickOprFloat':'MULTIPLY', 'quickOprVector':'MULTIPLY', 'quickOprBool':'AND',    'quickOprColor':'MULTIPLY' })
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "4_scA", {'quickOprFloat':'DIVIDE',   'quickOprVector':'DIVIDE',   'quickOprBool':'NOT',    'quickOprColor':'DIVIDE'   })
 #Хотел я реализовать это для QuickMathMain, но оказалось слишком лажа превращать технический оператор в пользовательский. Основная проблема -- qmData настроек пирога.
 SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "1_ScA", {'justCallPie':1}) #Неожиданно, но такой хоткей весьма приятный.
@@ -3486,21 +3486,21 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     dsIsColoredLine:   bpy.props.BoolProperty(name="Line",        default=True)
     dsIsColoredSkArea: bpy.props.BoolProperty(name="Socket area", default=True)
     ##
-    dsIsAlwaysLine: bpy.props.BoolProperty(name="Always draw line", default=False)
-    dsSocketAreaAlpha: bpy.props.FloatProperty(name="Socket area alpha", default=0.075, min=0, max=1, subtype="FACTOR")
-    dsUniformColor: bpy.props.FloatVectorProperty(name="Alternative uniform color", default=(0.632502, 0.408091, 0.174378, 0.9), min=0, max=1, size=4, subtype='COLOR') #(0.65, 0.65, 0.65, 1.0)
-    dsNodeColor: bpy.props.FloatVectorProperty(name="To-Node draw color", default=(1.0, 1.0, 1.0, 0.9), min=0, max=1, size=4, subtype='COLOR')
+    dsIsAlwaysLine:    bpy.props.BoolProperty(       name="Always draw line",          default=False)
+    dsSocketAreaAlpha: bpy.props.FloatProperty(      name="Socket area alpha",         default=0.075,                               min=0, max=1,         subtype="FACTOR")
+    dsUniformColor:    bpy.props.FloatVectorProperty(name="Alternative uniform color", default=(0.632502, 0.408091, 0.174378, 0.9), min=0, max=1, size=4, subtype='COLOR') #(0.65, 0.65, 0.65, 1.0)
+    dsNodeColor:       bpy.props.FloatVectorProperty(name="To-Node draw color",        default=(1.0, 1.0, 1.0, 0.9),                min=0, max=1, size=4, subtype='COLOR')
     ##
     dsDisplayStyle: bpy.props.EnumProperty(name="Display frame style", default='CLASSIC', items=( ('CLASSIC',   "Classic",   "1"), #Если существует способ указать порядок
                                                                                                   ('SIMPLIFIED',"Simplified","2"), # и чтобы работало -- дайте знать.
                                                                                                   ('ONLYTEXT',  "Only text", "3") ))
-    dsFontFile: bpy.props.StringProperty(name="Font file", default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
-    dsLineWidth:   bpy.props.FloatProperty(  name="Line Width", default=1.25,  min=0.5,  max=16, subtype="FACTOR")
-    dsPointRadius: bpy.props.FloatProperty(name="Point size", default=1,  min=0,  max=3)
-    dsFontSize:    bpy.props.IntProperty(name=  "Font size",  default=28, min=10, max=48)
+    dsFontFile:    bpy.props.StringProperty(name="Font file",  default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH')
+    dsLineWidth:   bpy.props.FloatProperty( name="Line Width", default=1.25, min=0.5, max=16, subtype="FACTOR")
+    dsPointRadius: bpy.props.FloatProperty( name="Point size", default=1,    min=0,   max=3)
+    dsFontSize:    bpy.props.IntProperty(   name="Font size",  default=28,   min=10,  max=48)
     ##
     dsPointOffsetX:   bpy.props.FloatProperty(name="Point offset X axis",       default=20, min=-50, max=50)
-    dsFrameOffset:    bpy.props.IntProperty(name=  "Frame size",                default=0,  min=0,   max=24, subtype='FACTOR')
+    dsFrameOffset:    bpy.props.IntProperty(  name="Frame size",                default=0,  min=0,   max=24, subtype='FACTOR')
     dsDistFromCursor: bpy.props.FloatProperty(name="Text distance from cursor", default=25, min=5,   max=50)
     ##
     dsIsAllowTextShadow: bpy.props.BoolProperty(       name="Enable text shadow", default=True)
@@ -3532,15 +3532,15 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vmReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be mixed to any type", default=True)
     vmPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
                                                                                   ('CONTROL',"Control","") ))
-    vmPieScale: bpy.props.FloatProperty(name="Pie scale", default=1.5, min=1, max=2, subtype="FACTOR")
-    vmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1, min=-1, max=1)
-    vmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=1, min=0, max=2)
+    vmPieScale:             bpy.props.FloatProperty(name="Pie scale",                  default=1.5, min=1, max=2, subtype="FACTOR")
+    vmPieSocketDisplayType: bpy.props.IntProperty(  name="Display socket type info",   default=1,   min=-1, max=1)
+    vmPieAlignment:         bpy.props.IntProperty(  name="Alignment between elements", default=1,   min=0, max=2)
     #Quick math:
     vqmPieType: bpy.props.EnumProperty(name="Pie Type", default='CONTROL', items=( ('SPEED',  "Speed",  ""),
                                                                                    ('CONTROL',"Control","") ))
-    vqmPieScale:             bpy.props.FloatProperty(name="Pie scale",              default=1.5, min=1, max=2, subtype="FACTOR")
-    vqmPieSocketDisplayType: bpy.props.IntProperty(name="Display socket type info", default=1,   min=0, max=2)
-    vqmPieAlignment: bpy.props.IntProperty(name="Alignment between elements", default=1, min=0, max=2)
+    vqmPieScale:             bpy.props.FloatProperty(name="Pie scale",                  default=1.5, min=1, max=2, subtype="FACTOR")
+    vqmPieSocketDisplayType: bpy.props.IntProperty(  name="Display socket type info",   default=1,   min=0, max=2)
+    vqmPieAlignment:         bpy.props.IntProperty(  name="Alignment between elements", default=1,   min=0, max=2)
     #Hider:
     vhNeverHideGeometry: bpy.props.EnumProperty(name="Never hide input geometry socket", default='FALSE', items=( ('FALSE',     "False",     ""),
                                                                                                                   ('ONLY_FIRST',"Only first",""),
@@ -3553,21 +3553,21 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                                                  ('IF_FALSE',"If false",""),
                                                                                                                  ('NEVER',   "Never",   ""),
                                                                                                                  ('IF_TRUE', "If true", "") ))
-    vhIsUnhideVirtual: bpy.props.BoolProperty(name="Unhide virtual", default=False)
+    vhIsUnhideVirtual:     bpy.props.BoolProperty(name="Unhide virtual",       default=False)
     vhIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
-    vhDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
-                                                                                                      ('NAME',     "Only name",     ""),
-                                                                                                      ('LABEL',    "Only label",    ""),
-                                                                                                      ('LABELNAME',"Name and label","") ))
+    vhDrawNodeNameLabel:   bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
+                                                                                                        ('NAME',     "Only name",     ""),
+                                                                                                        ('LABEL',    "Only label",    ""),
+                                                                                                        ('LABELNAME',"Name and label","") ))
     vhLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side", default=3, min=1, max=4) #Настройка выше и так какая-то бесполезная, а эта прям ваще.
     #Enum selector:
     vesIsToggleNodesOnDrag: bpy.props.BoolProperty(name="Toggle nodes on drag", default=True)
     vesIsInstantActivation: bpy.props.BoolProperty(name="Instant activation",   default=True)
-    vesIsDrawEnumNames: bpy.props.BoolProperty(name="Draw enum names", default=False)
-    vesDrawNodeNameLabel: bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
-                                                                                                       ('NAME',     "Only name",     ""),
-                                                                                                       ('LABEL',    "Only label",    ""),
-                                                                                                       ('LABELNAME',"Name and label","") ))
+    vesIsDrawEnumNames:     bpy.props.BoolProperty(name="Draw enum names",      default=False)
+    vesDrawNodeNameLabel:   bpy.props.EnumProperty(name="Display text for node", default='NONE', items=( ('NONE',     "None",          ""),
+                                                                                                         ('NAME',     "Only name",     ""),
+                                                                                                         ('LABEL',    "Only label",    ""),
+                                                                                                         ('LABELNAME',"Name and label","") ))
     vesLabelDispalySide: bpy.props.IntProperty(name="Label Dispaly Side",  default=3,   min=1, max=4) #Так же, как и для VHT.
     vesBoxScale:         bpy.props.FloatProperty(name="Box scale",         default=1.5, min=1, max=2, subtype="FACTOR")
     vesDisplayLabels:    bpy.props.BoolProperty(name="Display enum names", default=True)
@@ -3766,7 +3766,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowLabelPost = rowLabelMain.row(align=True)
             #rowLabelPost.active = False
             colList = colMaster.column(align=True)
-            kmUNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
+            kmUNe = context.window_manager.keyconfigs.user.keymaps['Node Editor']
             ##
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
             kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Great trio",       set(), 0, dict_setKmiCats['ms']  )
