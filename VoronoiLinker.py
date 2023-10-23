@@ -9,7 +9,7 @@
 #P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,4), 'blender':(4,1,0), #2023.10.22
+           'version':(3,5,5), 'blender':(4,1,0), #2023.10.23
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -58,7 +58,7 @@ def PowerArr4ToVec(arr, pw):
 def GetSkColPowVec(sk, pw):
     return PowerArr4ToVec(GetSkCol(sk), pw)
 def GetUniformColVec(self):
-    return PowerArr4ToVec(self.dsUniformColor, 1/2.2)
+    return PowerArr4ToVec(self.prefs.dsUniformColor, 1/2.2)
 
 def VecWorldToRegScale(vec, self):
     vec = vec.copy()*self.uiScale
@@ -154,7 +154,7 @@ def DrawAreaFan(self, vpos, col):
 def DrawLine(self, pos1, pos2, siz=1, col1=(1.0, 1.0, 1.0, 0.75), col2=(1.0, 1.0, 1.0, 0.75)):
     DrawWay(self, (pos1,pos2), (col1,col2), siz)
 def DrawStick(self, pos1, pos2, col1, col2):
-    DrawLine(self, VecWorldToRegScale(pos1, self), VecWorldToRegScale(pos2, self), self.dsLineWidth, col1, col2)
+    DrawLine(self, VecWorldToRegScale(pos1, self), VecWorldToRegScale(pos2, self), self.prefs.dsLineWidth, col1, col2)
 def DrawRing(self, pos, rd, siz=1, col=(1.0, 1.0, 1.0, 0.75), rotation=0.0, resolution=16):
     vpos = [];  vcol = []
     for cyc in range(resolution+1):
@@ -173,12 +173,12 @@ def DrawSocketArea(self, sk, list_boxHeiBou, colfac=Vector(1.0, 1.0, 1.0, 1.0)):
     loc = RecrGetNodeFinalLoc(sk.node)
     pos1 = VecWorldToRegScale( Vector(loc.x, list_boxHeiBou[0]), self )
     pos2 = VecWorldToRegScale( Vector(loc.x+sk.node.width, list_boxHeiBou[1]), self )
-    colfac = colfac if self.dsIsColoredSkArea else GetUniformColVec(self)
-    DrawRectangle(self, pos1, pos2, Vector(1.0, 1.0, 1.0, self.dsSocketAreaAlpha)*colfac)
+    colfac = colfac if self.prefs.dsIsColoredSkArea else GetUniformColVec(self)
+    DrawRectangle(self, pos1, pos2, Vector(1.0, 1.0, 1.0, self.prefs.dsSocketAreaAlpha)*colfac)
 def DrawIsLinkedMarker(self, loc, ofs, skCol):
-    ofs[0] += ( (20*self.dsIsDrawText+self.dsDistFromCursor)*1.5+self.dsFrameOffset )*math.copysign(1,ofs[0])+4
+    ofs[0] += ( (20*self.prefs.dsIsDrawText+self.prefs.dsDistFromCursor)*1.5+self.prefs.dsFrameOffset )*math.copysign(1,ofs[0])+4
     vec = VecWorldToRegScale(loc, self)
-    skCol = skCol if self.dsIsColoredMarker else GetUniformColVec(self)
+    skCol = skCol if self.prefs.dsIsColoredMarker else GetUniformColVec(self)
     grayCol = 0.65
     col1 = (0.0, 0.0, 0.0, 0.5) #Тень
     col2 = (grayCol, grayCol, grayCol, max(max(skCol[0],skCol[1]),skCol[2])*0.9/2) #Прозрачная белая обводка
@@ -196,29 +196,29 @@ def DrawIsLinkedMarker(self, loc, ofs, skCol):
 def DrawWidePoint(self, loc, colfac=Vector(1.0, 1.0, 1.0, 1.0), resolution=54, forciblyCol=False): #"forciblyCol" нужен только для DrawDebug'а.
     #Подготовка:
     pos = VecWorldToRegScale(loc, self)
-    loc = Vector(loc.x+6*self.dsPointRadius*1000, loc.y) #Радиус точки вычисляется через мировое пространство. Единственный из двух, кто зависит от зума в редакторе. Второй -- коробка-подсветка сокетов.
+    loc = Vector(loc.x+6*self.prefs.dsPointRadius*1000, loc.y) #Радиус точки вычисляется через мировое пространство. Единственный из двух, кто зависит от зума в редакторе. Второй -- коробка-подсветка сокетов.
     #Умножается и делится на 1000, чтобы радиус не прилипал к целым числам и тем самым был красивее. Конвертация в экранное пространство даёт только целочисленный результат.
     rd = (VecWorldToRegScale(loc, self)[0]-pos[0])/1000
     #Рисование:
     col1 = Vector(0.5, 0.5, 0.5, 0.4)
     col2 = col1
     col3 = Vector(1.0, 1.0, 1.0, 1.0)
-    colfac = colfac if (self.dsIsColoredPoint)or(forciblyCol) else GetUniformColVec(self)
+    colfac = colfac if (self.prefs.dsIsColoredPoint)or(forciblyCol) else GetUniformColVec(self)
     rd = (rd*rd+10)**0.5
     DrawCircle(self, pos, rd+3.0, col1*colfac, resolution)
     DrawCircle(self, pos, rd,     col2*colfac, resolution)
     DrawCircle(self, pos, rd/1.5, col3*colfac, resolution)
 def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
-    if self.dsIsAllowTextShadow:
+    if self.prefs.dsIsAllowTextShadow:
         blf.enable(self.fontId, blf.SHADOW)
-        muv = self.dsShadowCol
-        blf.shadow(self.fontId, (0, 3, 5)[self.dsShadowBlur], muv[0], muv[1], muv[2], muv[3])
-        muv = self.dsShadowOffset
+        muv = self.prefs.dsShadowCol
+        blf.shadow(self.fontId, (0, 3, 5)[self.prefs.dsShadowBlur], muv[0], muv[1], muv[2], muv[3])
+        muv = self.prefs.dsShadowOffset
         blf.shadow_offset(self.fontId, muv[0], muv[1])
     else: #Большую часть времени бесполезно, но нужно использовать, когда опция рисования тени переключается.
         blf.disable(self.fontId, blf.SHADOW)
-    frameOffset = self.dsFrameOffset
-    blf.size(self.fontId, self.dsFontSize*(not fontSizeOverwrite)+fontSizeOverwrite)
+    frameOffset = self.prefs.dsFrameOffset
+    blf.size(self.fontId, self.prefs.dsFontSize*(not fontSizeOverwrite)+fontSizeOverwrite)
     #От "текста по факту" не вычисляется, потому что тогда каждая рамка каждый раз будет разной высоты в зависимости от текста.
     #Спецсимвол нужен, как общий случай, чтобы покрыть максимальную высоту. Остальные символы нужны для особых шрифтов, что могут быть выше чем █.
     #Но этого недостаточно, некоторые буквы некоторых шрифтов могут вылезти за рамку. Это не чинится, ибо изначально всё было вылизано и отшлифовано для Consolas.
@@ -235,7 +235,7 @@ def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
     gradientResolution = 12
     girderHeight = 1/gradientResolution*(txtDim[1]+frameOffset*2)
     #Рамка для текста
-    if self.dsDisplayStyle=='CLASSIC': #Красивая рамка
+    if self.prefs.dsDisplayStyle=='CLASSIC': #Красивая рамка
         #Прозрачный фон:
         def Fx(x, a, b):
             return ((x+b)/(b+1))**0.6*(1-a)+a
@@ -259,7 +259,7 @@ def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
         DrawLine( self, (pos2[0]+lineOffset, pos1[1]), (pos2[0], pos1[1]-lineOffset), 1, col, col )
         DrawLine( self, (pos2[0]+lineOffset, pos2[1]), (pos2[0], pos2[1]+lineOffset), 1, col, col )
         DrawLine( self, (pos1[0]-lineOffset, pos2[1]), (pos1[0], pos2[1]+lineOffset), 1, col, col )
-    elif self.dsDisplayStyle=='SIMPLIFIED': #Упрощённая рамка. Создана ради нытиков с гипертрофированным чувством дизайнерской эстетики; я вас не понимаю.
+    elif self.prefs.dsDisplayStyle=='SIMPLIFIED': #Упрощённая рамка. Создана ради нытиков с гипертрофированным чувством дизайнерской эстетики; я вас не понимаю.
         DrawRectangle( self, (pos1[0], pos1[1]), (pos2[0], pos2[1]), (drawCol[0]/2.4, drawCol[1]/2.4, drawCol[2]/2.4, 0.8) )
         col = (0.1, 0.1, 0.1, 0.95)
         DrawLine( self,       pos1,        (pos2[0],pos1[1]), 2, col, col)
@@ -272,9 +272,9 @@ def DrawText(self, pos, ofs, txt, drawCol, fontSizeOverwrite=0):
     blf.draw(    self.fontId, txt)
     return (txtDim[0]+frameOffset, txtDim[1]+frameOffset*2)
 def DrawSkText(self, pos, ofs, fgSk, fontSizeOverwrite=0):
-    if not self.dsIsDrawText:
+    if not self.prefs.dsIsDrawText:
         return [1, 0] #"1" нужен для сохранения информации для направления для позиции маркеров
-    skCol = GetSkCol(fgSk.tg) if self.dsIsColoredText else GetUniformColVec(self)
+    skCol = GetSkCol(fgSk.tg) if self.prefs.dsIsColoredText else GetUniformColVec(self)
     txt = fgSk.name if fgSk.tg.bl_idname!='NodeSocketVirtual' else TranslateIface('Virtual')
     return DrawText(self, pos, ofs, txt, skCol, fontSizeOverwrite)
 
@@ -284,22 +284,22 @@ def StencilStartDrawCallback(self, context):
     if self.whereActivated!=context.space_data: #Нужно чтобы рисовалось только в активном редакторе, а не во всех у кого открыто то же самое дерево.
         return True
     PrepareShaders(self)
-    if self.dsIsDrawDebug:
+    if self.prefs.dsIsDrawDebug:
         DrawDebug(self, context)
 
 def DrawDoubleNone(self, context):
     cusorPos = context.space_data.cursor_location
-    col = Vector(1, 1, 1, 1) if self.dsIsColoredPoint else GetUniformColVec(self)
-    vec = Vector(self.dsPointOffsetX*0.75, 0)
-    if (self.dsIsDrawLine)and(self.dsIsAlwaysLine):
+    col = Vector(1, 1, 1, 1) if self.prefs.dsIsColoredPoint else GetUniformColVec(self)
+    vec = Vector(self.prefs.dsPointOffsetX*0.75, 0)
+    if (self.prefs.dsIsDrawLine)and(self.prefs.dsIsAlwaysLine):
         DrawStick( self, cusorPos-vec, cusorPos+vec, col, col )
-    if self.dsIsDrawPoint:
+    if self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos-vec, col)
         DrawWidePoint(self, cusorPos+vec, col)
 def CallbackDrawEditTreeIsNone(self, context): #Именно. Ибо эстетика. Вдруг пользователь потеряется; нужно подать признаки жизни.
     if StencilStartDrawCallback(self, context):
         return
-    if self.dsIsDrawPoint:
+    if self.prefs.dsIsDrawPoint:
         cusorPos = context.space_data.cursor_location
         if getattr(self,'isDrawDoubleNone', False):
             DrawDoubleNone(self, context)
@@ -330,20 +330,20 @@ def DrawDebug(self, context):
         DebugTextDraw( VecWorldToRegScale(list_fgSksOut[0].pos, self), "Nearest socketOut here", 0.75, 0.75, 1)
 
 def DrawNodeStencil(self, cusorPos, pos):
-    colNode = PowerArr4ToVec(self.dsNodeColor, 1/2.2)
-    col = colNode if self.dsIsColoredLine else GetUniformColVec(self)
-    if self.dsIsDrawLine:
+    colNode = PowerArr4ToVec(self.prefs.dsNodeColor, 1/2.2)
+    col = colNode if self.prefs.dsIsColoredLine else GetUniformColVec(self)
+    if self.prefs.dsIsDrawLine:
         DrawStick( self, pos, cusorPos, col, col )
-    if self.dsIsDrawPoint:
-        DrawWidePoint( self, pos, colNode if self.dsIsColoredPoint else GetUniformColVec(self) )
+    if self.prefs.dsIsDrawPoint:
+        DrawWidePoint( self, pos, colNode if self.prefs.dsIsColoredPoint else GetUniformColVec(self) )
     return colNode
 def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide, col=Vector(1, 1, 1, 1)):
-    if not self.dsIsDrawText:
+    if not self.prefs.dsIsDrawText:
         return
     def DrawNodeText(txt):
         if txt:
-            DrawText( self, cusorPos, (self.dsDistFromCursor, -0.5), txt, col)
-    col = col if self.dsIsColoredText else GetUniformColVec(self)
+            DrawText( self, cusorPos, (self.prefs.dsDistFromCursor, -0.5), txt, col)
+    col = col if self.prefs.dsIsColoredText else GetUniformColVec(self)
     txt_label = nd.label
     match drawNodeNameLabel:
         case 'NAME':
@@ -359,8 +359,8 @@ def DrawTextNodeStencil(self, cusorPos, nd, drawNodeNameLabel, labelDispalySide,
                 case 2: tuple_side = (1, 1, -1.25)
                 case 3: tuple_side = (1, -1, -0.5)
                 case 4: tuple_side = (-1, 1, -0.5)
-            DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[0], tuple_side[2]), nd.name, col)
-            DrawText( self, cusorPos, (self.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
+            DrawText( self, cusorPos, (self.prefs.dsDistFromCursor*tuple_side[0], tuple_side[2]), nd.name, col)
+            DrawText( self, cusorPos, (self.prefs.dsDistFromCursor*tuple_side[1], -tuple_side[2]-1), txt_label, col)
 def DrawNodeStencilFull(self, cusorPos, fg, txtDnnl, lds, isCanText=True):
     if fg:
         #Нод не имеет цвета (в этом аддоне вся тусовка ради сокетов, так что нод не имеет цвета, ок да?.)
@@ -370,7 +370,7 @@ def DrawNodeStencilFull(self, cusorPos, fg, txtDnnl, lds, isCanText=True):
             DrawTextNodeStencil(self, cusorPos, fg.tg, txtDnnl, lds, colNode)
         else:
             return colNode #Для VEST.
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
     return False
 
@@ -383,14 +383,14 @@ def DrawToolOftenStencil(self, cusorPos, list_twoTgSks, #Одинаковое с
                          isDrawMarkersMoreTharOne=False,
                          isDrawOnlyArea=False):
     def GetVecOffsetFromSk(sk, y=0.0):
-        return Vector(self.dsPointOffsetX*((sk.is_output)*2-1), y)
+        return Vector(self.prefs.dsPointOffsetX*((sk.is_output)*2-1), y)
     try:
         #Вся суета ради линии:
-        if (self.dsIsDrawLine)and(not isDrawOnlyArea):
+        if (self.prefs.dsIsDrawLine)and(not isDrawOnlyArea):
             len = length(list_twoTgSks)
-            if self.dsIsColoredLine:
+            if self.prefs.dsIsColoredLine:
                 col1 = GetSkCol(list_twoTgSks[0].tg)
-                col2 = Vector(1, 1, 1, 1) if self.dsIsColoredPoint else GetUniformColVec(self)
+                col2 = Vector(1, 1, 1, 1) if self.prefs.dsIsColoredPoint else GetUniformColVec(self)
                 col2 = col2 if (isLineToCursor)or(len==1) else GetSkCol(list_twoTgSks[1].tg)
             else:
                 col1 = GetUniformColVec(self)
@@ -401,16 +401,16 @@ def DrawToolOftenStencil(self, cusorPos, list_twoTgSks, #Одинаковое с
                 DrawStick( self, list_twoTgSks[0].pos+GetVecOffsetFromSk(list_twoTgSks[0].tg), cusorPos, col1, col2 )
         #Всё остальное:
         for li in list_twoTgSks:
-            if self.dsIsDrawSkArea:
+            if self.prefs.dsIsDrawSkArea:
                 DrawSocketArea( self, li.tg, li.boxHeiBound, GetSkColPowVec(li.tg, 1/2.2) )
-            if (self.dsIsDrawPoint)and(not isDrawOnlyArea):
+            if (self.prefs.dsIsDrawPoint)and(not isDrawOnlyArea):
                 DrawWidePoint( self, li.pos+GetVecOffsetFromSk(li.tg), GetSkColPowVec(li.tg, 1/2.2) )
         if isDrawText:
             for li in list_twoTgSks:
                 side = (textSideFlip*2-1)
-                txtDim = DrawSkText( self, cusorPos, (self.dsDistFromCursor*(li.tg.is_output*2-1)*side, -0.5), li )
+                txtDim = DrawSkText( self, cusorPos, (self.prefs.dsDistFromCursor*(li.tg.is_output*2-1)*side, -0.5), li )
                 #В условии ".links", но не ".is_linked", потому что линки могут быть выключены (замьючены, красные)
-                if (self.dsIsDrawMarker)and( (li.tg.links)and(not isDrawMarkersMoreTharOne)or(length(li.tg.links)>1) ):
+                if (self.prefs.dsIsDrawMarker)and( (li.tg.links)and(not isDrawMarkersMoreTharOne)or(length(li.tg.links)>1) ):
                     DrawIsLinkedMarker( self, cusorPos, [txtDim[0]*(li.tg.is_output*2-1)*side, 0], GetSkCol(li.tg) )
     except Exception as ex:
         pass; print("VL DrawToolOftenStencil() --", ex)
@@ -479,7 +479,7 @@ def ProcCanMoveOut(self, event):
         if not(event.shift or event.ctrl or event.alt)^self.dict_isMoveOutSco[5]: #|3| Но не от первого отжатия. Оно должно быть полностью никакими. Ибо эстетика, и я так захотел.
             self.dict_isMoveOutSco[0] = 1
     else:
-        if self.vtRepickTriggerSold: #Переключать каждый раз при входе и выходе из карты
+        if self.prefs.vtRepickTrigger=='FULL': #Переключать каждый раз при входе и выходе из карты
             tgl = ( (event.shift==self.dict_isMoveOutSco[1])and(event.ctrl==self.dict_isMoveOutSco[2])and(event.alt==self.dict_isMoveOutSco[3]) )^self.dict_isMoveOutSco[5]
         else: #Переключать каждый раз при нажатии и отжатии любого из модификаторов
             tgl = (event.shift)or(event.ctrl)or(event.alt)
@@ -549,15 +549,7 @@ def StencilProcPassThrought(self, context): #Вынесено вовне для 
         return {'PASS_THROUGH'}
     return {}
 def StencilBeginToolInvoke(self, context, event):
-    def SolderingAllPrefsToSelf(self): #Меня напрягают постоянные вызовы Prefs() с его "многочленами" и одним взятием индекса; особенно в функциях рисования. Поэтому запаял их на каждый вызов инструмента.
-        #Из-за пайки в себя пришлось проложить путь self'ов во все функции рисования; благодаря чему отпала нужда хранить некоторые переменные, как глобальные.
-        prefs = Prefs() #Можно было бы сделать так, но тогда пришлось бы делать на каждую функцию; поэтому нет. Уж гулять, так по-просторному.
-        for li in VoronoiAddonPrefs.bl_rna.properties: #Заметка: не имеет 'rna_type'.
-            if (not li.is_readonly)and(li.identifier.startswith(('ds', 'v'))): #Важна только первая проверка is_readonly.
-                setattr(self, li.identifier, getattr(prefs, li.identifier))
-        self.vtRepickTriggerSold = self.vtRepickTrigger=='FULL' #"Пайка-надстройка".
-    #Учитывая специфические ответвления для некоторых инструментов, пайка в себя перенесена в самое начало.
-    SolderingAllPrefsToSelf(self)
+    self.prefs = Prefs() #А ларчик просто открывался.
     self.kmi = GetOpKmi(self, (event.type, event.shift, event.ctrl, event.alt))
     isPass = StencilProcPassThrought(self, context)
     if not isPass: #Для оптимизации; если всё равно завершится без выполнения с пропуском, то телодвижения ниже бесполезны.
@@ -572,7 +564,7 @@ def StencilToolWorkPrepare(self, context, Func, *naArgs):
     #Древний мейнстрим (этот кусок кода не изменялся со времен динозавров): #todo1 найти бы версию, когда такое появилось.
     self.uiScale = UiScale()
     self.whereActivated = context.space_data #CallBack'и рисуются во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
-    self.fontId = blf.load(self.dsFontFile) #Постоянная установка шрифта нужна чтобы шрифт не исчезал при смене темы оформления.
+    self.fontId = blf.load(self.prefs.dsFontFile) #Постоянная установка шрифта нужна чтобы шрифт не исчезал при смене темы оформления.
     context.area.tag_redraw() #Не нужно в основном, но тогда в кастомных деревьях с нодами без сокетов точка при активации (VMT) не появляется сразу.
     #Финальная подготовка к работе:
     tree = context.space_data.edit_tree
@@ -774,7 +766,7 @@ def RestoreCollapsedNodes(nodes):
 
 def StencilUnCollapseNode(nd, tar=True):
     #if type(tar)==str: tar = isInverse #Остаток от возможности разворачивания нода "в любом случае".
-    #if (self.vtAlwaysUnhideCursorNode)or(tar)and( not(isInverse and self.vtAlwaysUnhideCursorNode) ): #Запаянная старая версия.
+    #if (self.prefs.vtAlwaysUnhideCursorNode)or(tar)and( not(isInverse and self.prefs.vtAlwaysUnhideCursorNode) ): #Запаянная старая версия.
     if tar: #Стало проще, но избавляться от этой функции не стоит, потому что количество вызовов особо не изменилось, ибо 'isBoth'.
         result = nd.hide
         nd.hide = False
@@ -888,8 +880,8 @@ def CallbackDrawVoronoiLinker(self, context):
     if not self.foundGoalSkOut:
         DrawDoubleNone(self, context)
     elif (self.foundGoalSkOut)and(not self.foundGoalSkIn):
-        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=self.dsIsAlwaysLine )
-        if self.dsIsDrawPoint: #Точка под курсором шаблоном выше не обрабатывается, поэтому вручную.
+        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=self.prefs.dsIsAlwaysLine )
+        if self.prefs.dsIsDrawPoint: #Точка под курсором шаблоном выше не обрабатывается, поэтому вручную.
             DrawWidePoint(self, cusorPos)
     else:
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut, self.foundGoalSkIn] )
@@ -925,7 +917,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
                     #Заметка: оператор |= всё равно заставляет вычисляться правый операнд.
                     skIn = li.tg
                     #Для разрешённой-группы-между-собой разрешить "переходы". Рероутом для удобства можно в любой сокет с обеих сторон, минуя различные типы
-                    tgl = SkBetweenFieldsCheck(self, skIn, skOut)or( (skOut.node.type=='REROUTE')or(skIn.node.type=='REROUTE') )and(self.vlReroutesCanInAnyType)
+                    tgl = SkBetweenFieldsCheck(self, skIn, skOut)or( (skOut.node.type=='REROUTE')or(skIn.node.type=='REROUTE') )and(self.prefs.vlReroutesCanInAnyType)
                     #Любой сокет для виртуального выхода; разрешить в виртуальный для любого сокета; обоим в себя запретить
                     tgl = (tgl)or( (skIn.bl_idname=='NodeSocketVirtual')^(skOut.bl_idname=='NodeSocketVirtual') )#or(skIn.bl_idname=='NodeSocketVirtual')or(skOut.bl_idname=='NodeSocketVirtual')
                     #С версии 3.5 новый сокет автоматически не создаётся. Поэтому добавляются новые возможности по соединению
@@ -986,7 +978,7 @@ class VoronoiLinkerTool(VoronoiToolDblSk): #То ради чего. Самый �
     def invoke(self, context, event):
         if result:=StencilBeginToolInvoke(self, context, event):
             return result
-        if self.vlDeselectAllNodes:
+        if self.prefs.vlDeselectAllNodes:
             bpy.ops.node.select_all(action='DESELECT') #Возможно так же стоит делать активный нод никаким.
         self.foundGoalSkOut = None
         self.foundGoalSkIn = None
@@ -1095,7 +1087,7 @@ def CallbackDrawVoronoiPreview(self, context):
         return
     cusorPos = context.space_data.cursor_location
     if self.foundGoalSkOut:
-        if self.vpRvEeSksHighlighting: #Помощь в реверс-инженеринге, подсвечивать места соединения, и отображать имя этих сокетов, одновременно.
+        if self.prefs.vpRvEeSksHighlighting: #Помощь в реверс-инженеринге, подсвечивать места соединения, и отображать имя этих сокетов, одновременно.
             #Определить масштаб для надписей:
             pos = VecWorldToRegScale(cusorPos, self)
             loc = Vector(cusorPos.x+6*1000, cusorPos.y)
@@ -1118,7 +1110,7 @@ def CallbackDrawVoronoiPreview(self, context):
                                         break
         #Порядок рисования важен, главное над реверс-инженерингом.
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=True, textSideFlip=True, isDrawText=True, isDrawMarkersMoreTharOne=True )
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiPreviewTool(VoronoiToolSk):
     bl_idname = 'node.voronoi_preview'
@@ -1139,7 +1131,7 @@ class VoronoiPreviewTool(VoronoiToolSk):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            if self.vpRvEeIsSavePreviewResults:
+            if self.prefs.vpRvEeIsSavePreviewResults:
                 #Игнорировать готовый нод для переименования и тем самым сохраняя результаты предпросмотра.
                 if nd.name==voronoiPreviewResultNdName:
                     continue
@@ -1168,12 +1160,12 @@ class VoronoiPreviewTool(VoronoiToolSk):
             if (self.foundGoalSkOut)or(not(self.isTriggerOnlyOnLink)):
                 break #Завершать в случае успеха, или пока не будет сокет с линком.
         if self.foundGoalSkOut:
-            if self.vpIsLivePreview:
+            if self.prefs.vpIsLivePreview:
                 try:
                     PreviewFromSk(self, context, self.foundGoalSkOut.tg)
                 except: #todo4 придумать что делать с ошибками в NA() во всех инструментах.
                     pass
-            if self.vpRvEeIsColorOnionNodes: #Помощь в реверс-инженеринге, вместо поиска глазами тоненьких линий, быстрое визуальное считывание связанных нод топологией.
+            if self.prefs.vpRvEeIsColorOnionNodes: #Помощь в реверс-инженеринге, вместо поиска глазами тоненьких линий, быстрое визуальное считывание связанных нод топологией.
                 for nd in context.space_data.edit_tree.nodes:
                     nd.use_custom_color = False #Не париться с запоминанием последних и тупо выключать у всех каждый раз. Дёшево и сердито.
                 for sk in self.foundGoalSkOut.tg.node.inputs:
@@ -1199,7 +1191,7 @@ class VoronoiPreviewTool(VoronoiToolSk):
                 return {'CANCELLED'}
             PreviewFromSk(self, context, self.foundGoalSkOut.tg)
             RememberLastSockets(self.foundGoalSkOut.tg, None)
-            if self.vpRvEeIsColorOnionNodes:
+            if self.prefs.vpRvEeIsColorOnionNodes:
                 for nd in context.space_data.edit_tree.nodes:
                     dv = self.dict_saveRestoreNodeColors.get(nd, None) #Так же, как и в восстановлении свёрнутости.
                     if dv is not None:
@@ -1215,13 +1207,13 @@ class VoronoiPreviewTool(VoronoiToolSk):
         #Если использование классического viewer'а разрешено, завершить инструмент с меткой пропуска, "передавая эстафету" оригинальному виеверу.
         match context.space_data.tree_type:
             case 'CompositorNodeTree':
-                if (self.vpAllowClassicCompositorViewer)and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
+                if (self.prefs.vpAllowClassicCompositorViewer)and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
                     return {'PASS_THROUGH'}
             case 'GeometryNodeTree':
-                if (self.vpAllowClassicGeoViewer)and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
+                if (self.prefs.vpAllowClassicGeoViewer)and('FINISHED' in bpy.ops.node.select('INVOKE_DEFAULT')):
                     return {'PASS_THROUGH'}
         self.foundGoalSkOut = None
-        if self.vpRvEeIsColorOnionNodes:
+        if self.prefs.vpRvEeIsColorOnionNodes:
             #Запомнить все цвета, и обнулить их всех.
             self.dict_saveRestoreNodeColors = {}
             for nd in context.space_data.edit_tree.nodes:
@@ -1455,7 +1447,7 @@ def PreviewFromSk(self, context, targetSk):
                             ViaVerSkfRemove(ng, 1, sk)
     if self.isSelectingPreviewedNode:
         NdSelectAndActive(targetSk.node)
-    if self.vpRvEeIsSavePreviewResults: #Помощь в реверс-инженеринге, сохранять текущий сокет просмотра для последующего "менеджмента".
+    if self.prefs.vpRvEeIsSavePreviewResults: #Помощь в реверс-инженеринге, сохранять текущий сокет просмотра для последующего "менеджмента".
         def GetTypeOfNodeSave(sk):
             match sk.type:
                 case 'GEOMETRY': return 2
@@ -1525,8 +1517,8 @@ mxData = MixerData()
 
 txt_noMixingOptions = "No mixing options"
 def DrawMixerSkText(self, cusorPos, fg, ofsY, facY): #Вынесено вовне, чтобы этим мог воспользоваться VST.
-    txtDim = DrawSkText( self, cusorPos, (self.dsDistFromCursor*(fg.tg.is_output*2-1), ofsY), fg )
-    if (fg.tg.links)and(self.dsIsDrawMarker):
+    txtDim = DrawSkText( self, cusorPos, (self.prefs.dsDistFromCursor*(fg.tg.is_output*2-1), ofsY), fg )
+    if (fg.tg.links)and(self.prefs.dsIsDrawMarker):
         DrawIsLinkedMarker( self, cusorPos, [txtDim[0]*(fg.tg.is_output*2-1), txtDim[1]*facY*0.75], GetSkCol(fg.tg) )
 def CallbackDrawVoronoiMixer(self, context):
     if StencilStartDrawCallback(self, context):
@@ -1539,7 +1531,7 @@ def CallbackDrawVoronoiMixer(self, context):
         if tgl:
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut1], isLineToCursor=True, isDrawText=False )
             DrawMixerSkText(self, cusorPos, self.foundGoalSkOut1, -1.25, -1)
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiMixerTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_mixer'
@@ -1578,7 +1570,7 @@ class VoronoiMixerTool(VoronoiToolDblSk):
                     #Заметка: к VQMT такие возможности не относятся. Ибо он только по полям. Было бы странно присасываться ещё и к виртуальным.
                     tgl = (skOut1.bl_idname=='NodeSocketVirtual')^(skOut0.bl_idname=='NodeSocketVirtual')
                     tgl = (tgl)or( SkBetweenFieldsCheck(self, skOut0, skOut1)or( (skOut1.bl_idname==skOut0.bl_idname)and(not orV) ) )
-                    tgl = (tgl)or( (skOut0.node.type=='REROUTE')or(skOut1.node.type=='REROUTE') )and(self.vmReroutesCanInAnyType)
+                    tgl = (tgl)or( (skOut0.node.type=='REROUTE')or(skOut1.node.type=='REROUTE') )and(self.prefs.vmReroutesCanInAnyType)
                     if tgl:
                         self.foundGoalSkOut1 = li
                         break
@@ -1598,12 +1590,12 @@ class VoronoiMixerTool(VoronoiToolDblSk):
                 mxData.sk1 = self.foundGoalSkOut1.tg if self.foundGoalSkOut1 else None
                 #Поддержка виртуальных выключена; читается только из первого
                 mxData.skType = mxData.sk0.type if mxData.sk0.bl_idname!='NodeSocketVirtual' else mxData.sk1.type
-                mxData.isSpeedPie = self.vmPieType=='SPEED'
+                mxData.isSpeedPie = self.prefs.vmPieType=='SPEED'
                 mxData.isHideOptions = self.isHideOptions
                 mxData.isPlaceImmediately = self.isPlaceImmediately
-                mxData.pieScale = self.vmPieScale
-                mxData.pieDisplaySocketTypeInfo = self.vmPieSocketDisplayType
-                mxData.pieAlignment = self.vmPieAlignment
+                mxData.pieScale = self.prefs.vmPieScale
+                mxData.pieDisplaySocketTypeInfo = self.prefs.vmPieSocketDisplayType
+                mxData.pieAlignment = self.prefs.vmPieAlignment
                 di = dict_dictTupleMixerMain.get(context.space_data.tree_type, False)
                 if not di: #Если место действия не в классических редакторах, то просто выйти. Ибо классические редакторы у всех одинаковые, а аддонских есть бесчисленное множество.
                     return {'CANCELLED'}
@@ -1932,10 +1924,10 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                         case 'RGBA':    txt_opr = self.quickOprColor
                     return DoQuickMath(event, context.space_data.edit_tree, txt_opr, True)
                 qmData.depth = 0
-                qmData.isSpeedPie = self.vqmPieType=='SPEED'
-                qmData.pieScale = self.vqmPieScale
-                qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
-                qmData.pieAlignment = self.vqmPieAlignment
+                qmData.isSpeedPie = self.prefs.vqmPieType=='SPEED'
+                qmData.pieScale = self.prefs.vqmPieScale
+                qmData.pieDisplaySocketTypeInfo = self.prefs.vqmPieSocketDisplayType
+                qmData.pieAlignment = self.prefs.vqmPieAlignment
                 bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
                 return {'FINISHED'}
             return {'CANCELLED'}
@@ -1958,10 +1950,10 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
             qmData.isPlaceImmediately = self.isPlaceImmediately
             qmData.qmSkType = ('VALUE','VECTOR','BOOLEAN','RGBA')[self.justCallPie-1]
             qmData.depth = 0
-            qmData.isSpeedPie = self.vqmPieType=='SPEED'
-            qmData.pieScale = self.vqmPieScale
-            qmData.pieDisplaySocketTypeInfo = self.vqmPieSocketDisplayType
-            qmData.pieAlignment = self.vqmPieAlignment
+            qmData.isSpeedPie = self.prefs.vqmPieType=='SPEED'
+            qmData.pieScale = self.prefs.vqmPieScale
+            qmData.pieDisplaySocketTypeInfo = self.prefs.vqmPieSocketDisplayType
+            qmData.pieAlignment = self.prefs.vqmPieAlignment
             bpy.ops.node.voronoi_quick_math_main('INVOKE_DEFAULT')
             return {'FINISHED'}
         self.foundGoalSkOut0 = None
@@ -2294,7 +2286,7 @@ def CallbackDrawVoronoiSwapper(self, context):
         if tgl:
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkIo1], isLineToCursor=True, isDrawText=False )
             DrawMixerSkText(self, cusorPos, self.foundGoalSkIo1, -1.25, -1)
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiSwapperTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_swaper'
@@ -2432,10 +2424,10 @@ def CallbackDrawVoronoiHider(self, context):
     if self.isHideSocket:
         if self.foundGoalTg:
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalTg], isLineToCursor=True, textSideFlip=True )
-        elif self.dsIsDrawPoint:
+        elif self.prefs.dsIsDrawPoint:
             DrawWidePoint(self, cusorPos)
     else:
-        DrawNodeStencilFull(self, cusorPos, self.foundGoalTg, self.vhDrawNodeNameLabel, self.vhLabelDispalySide)
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalTg, self.prefs.vhDrawNodeNameLabel, self.prefs.vhLabelDispalySide)
 class VoronoiHiderTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
@@ -2471,7 +2463,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
                     StencilReNext(self, context) #Для режима сокетов тоже нужно перерисовывать, ибо нод у присосавшегося сокета может быть свёрнут.
             else:
                 #Для режима нод нет разницы, раскрывать все подряд под курсором, или нет.
-                if self.vhIsToggleNodesOnDrag:
+                if self.prefs.vhIsToggleNodesOnDrag:
                     if self.firstResult is None:
                         #Если активация для нода ничего не изменила, то для остальных хочется иметь сокрытие, а не раскрытие. Но текущая концепция не позволяет,
                         # информации об этом тупо нет. Поэтому реализовал это точечно вовне (здесь), а не модификацией самой реализации.
@@ -2493,7 +2485,7 @@ class VoronoiHiderTool(VoronoiToolSkNd):
             if self.foundGoalTg:
                 match self.isHideSocket:
                     case 0: #Обработка нода.
-                        if not self.vhIsToggleNodesOnDrag:
+                        if not self.prefs.vhIsToggleNodesOnDrag:
                             #Во время сокрытия сокета нужно иметь информацию обо всех, поэтому выполняется дважды. В первый заход собирается, во второй выполняется.
                             HideFromNode(self, self.foundGoalTg.tg, HideFromNode(self, self.foundGoalTg.tg, True), True)
                     case 1: #Сокрытие сокета.
@@ -2521,7 +2513,7 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
     def CheckSkZeroDefaultValue(sk): #Shader и Virtual всегда True, Geometry от настроек аддона.
         match sk.type: #Отсортированы в порядке убывания сложности.
             case 'GEOMETRY':
-                match self.vhNeverHideGeometry: #Задумывалось и для out тоже, но как-то леновато, а ещё `GeometryNodeBoundBox`, так что...
+                match self.prefs.vhNeverHideGeometry: #Задумывалось и для out тоже, но как-то леновато, а ещё `GeometryNodeBoundBox`, так что...
                     case 'FALSE': return True
                     case 'TRUE': return False
                     case 'ONLY_FIRST':
@@ -2538,13 +2530,13 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
                 return (sk.default_value[0]==0)and(sk.default_value[1]==0)and(sk.default_value[2]==0) #Заметка: `sk.default_value==(0,0,0)` не прокатит.
             case 'BOOLEAN':
                 if not sk.hide_value: #Лень паять, всё обрабатывается в прямом виде.
-                    match self.vhHideBoolSocket: #Заметка: `.self` всего один, но зато каждый NextAssignment() инструмента, причём по несколько за раз. Так что маршрут self'ов имел смысл.
+                    match self.prefs.vhHideBoolSocket: #Заметка: `.self` всего один, но зато каждый NextAssignment() инструмента, причём по несколько за раз. Так что маршрут self'ов имел смысл.
                         case 'ALWAYS': return True
                         case 'NEVER': return False
                         case 'IF_TRUE': return sk.default_value
                         case 'IF_FALSE': return not sk.default_value
                 else:
-                    match self.vhHideHiddenBoolSocket:
+                    match self.prefs.vhHideHiddenBoolSocket:
                         case 'ALWAYS': return True
                         case 'NEVER': return False
                         case 'IF_TRUE': return sk.default_value
@@ -2592,7 +2584,7 @@ def HideFromNode(self, ndTarget, lastResult, isCanDo=False): #Изначальн
         for ioputs in {ndTarget.inputs, ndTarget.outputs}:
             for sk in ioputs:
                 success |= sk.hide #Здесь success означает будет ли оно раскрыто.
-                sk.hide = (sk.bl_idname=='NodeSocketVirtual')and(not self.vhIsUnhideVirtual)
+                sk.hide = (sk.bl_idname=='NodeSocketVirtual')and(not self.prefs.vhIsUnhideVirtual)
         return success
 
 #"Массовый линкер" -- как линкер, только много за раз (ваш кэп).
@@ -2611,7 +2603,7 @@ def CallbackDrawVoronoiMassLinker(self, context):
             if not list_fgSksOut:
                 DrawDoubleNone(self, context)
             for li in list_fgSksOut: #Не известно, к кому это будет подсоединено и к кому получится => рисовать от всех сокетов.
-                DrawToolOftenStencil( self, cusorPos, [li], isLineToCursor=self.dsIsAlwaysLine, isDrawText=False ) #Всем к курсору!
+                DrawToolOftenStencil( self, cusorPos, [li], isLineToCursor=self.prefs.dsIsAlwaysLine, isDrawText=False ) #Всем к курсору!
         else:
             self.list_equalFgSks = [] #Отчищать каждый раз.
             list_fgSksOut = GetNearestSockets(self.ndGoalOut, cusorPos)[1]
@@ -2731,18 +2723,18 @@ def CallbackDrawVoronoiEnumSelector(self, context):
     if StencilStartDrawCallback(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if colNode:=DrawNodeStencilFull(self, cusorPos, self.foundGoalNd, self.vesDrawNodeNameLabel, self.vesLabelDispalySide, not self.vesIsDrawEnumNames):
+    if colNode:=DrawNodeStencilFull(self, cusorPos, self.foundGoalNd, self.prefs.vesDrawNodeNameLabel, self.prefs.vesLabelDispalySide, not self.prefs.vesIsDrawEnumNames):
         sco = -0.5
-        col = colNode if self.dsIsColoredText else GetUniformColVec(self)
+        col = colNode if self.prefs.dsIsColoredText else GetUniformColVec(self)
         for li in GetListOfNdEnums(self.foundGoalNd.tg):
-            DrawText( self, cusorPos, (self.dsDistFromCursor, sco), TranslateIface(li.name), col)
+            DrawText( self, cusorPos, (self.prefs.dsDistFromCursor, sco), TranslateIface(li.name), col)
             sco -= 1.5
 def CallbackDrawVoronoiEnumSelectorNode(self, context): #Тут вся тусовка про... о нет.
     if StencilStartDrawCallback(self, context):
         return
     nd = self.foundGoalNd.tg
-    colNd = PowerArr4ToVec(self.dsNodeColor, 1/2.2) #ToNodeCol и NodeCol -- это разное; второй опции нет, поэтому читать с первой.
-    col = Vector(colNd.x, colNd.y, colNd.z, self.dsSocketAreaAlpha) #Vector не обязателен.
+    colNd = PowerArr4ToVec(self.prefs.dsNodeColor, 1/2.2) #ToNodeCol и NodeCol -- это разное; второй опции нет, поэтому читать с первой.
+    col = Vector(colNd.x, colNd.y, colNd.z, self.prefs.dsSocketAreaAlpha) #Vector не обязателен.
     loc = RecrGetNodeFinalLoc(nd)
     hh = nd.dimensions[1]/2-10 if nd.hide else 0 #Всё равно криво рисуется. Ну и хрен с ними.
     #Вычленёнка-алерт, DrawWidePoint().
@@ -2780,7 +2772,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
             if self.isToggleOptions:
                 self.foundGoalNd = li
                 #Так же, как и в VHT:
-                if self.vesIsToggleNodesOnDrag:
+                if self.prefs.vesIsToggleNodesOnDrag:
                     if self.firstResult is None:
                         self.firstResult = ToggleOptionsFromNode(nd, True)
                     ToggleOptionsFromNode(nd, self.firstResult, True)
@@ -2796,9 +2788,9 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
             #Если ничего нет, то вызов коробки всё равно обрабатывается, словно она есть, и от чего повторный вызов инструмента не работает без движения курсора.
             if esData.list_enumProps: #Поэтому если пусто, то ничего не делаем.
                 esData.nd = self.foundGoalNd.tg
-                esData.boxScale = self.vesBoxScale
-                esData.isDarkStyle = self.vesDarkStyle
-                esData.isDisplayLabels = self.vesDisplayLabels
+                esData.boxScale = self.prefs.vesBoxScale
+                esData.isDarkStyle = self.prefs.vesDarkStyle
+                esData.isDisplayLabels = self.prefs.vesDisplayLabels
                 esData.isPieChoice = self.isPieChoice
                 if self.isSelectNode:
                     NdSelectAndActive(esData.nd)
@@ -2812,11 +2804,11 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
             if result:=StencilModalEsc(self, context, event):
                 return result
             if self.isToggleOptions:
-                if not self.vesIsToggleNodesOnDrag: #И снова, так же как и в VHT.
+                if not self.prefs.vesIsToggleNodesOnDrag: #И снова, так же как и в VHT.
                     ToggleOptionsFromNode(self.foundGoalNd.tg, ToggleOptionsFromNode(self.foundGoalNd.tg, True), True)
                 return {'FINISHED'}
             else:
-                if (not self.vesIsInstantActivation)and(VoronoiEnumSelectorTool.DoActivation(self)):
+                if (not self.prefs.vesIsInstantActivation)and(VoronoiEnumSelectorTool.DoActivation(self)):
                     return {'FINISHED'}
             return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -2824,7 +2816,7 @@ class VoronoiEnumSelectorTool(VoronoiToolNd):
         if result:=StencilBeginToolInvoke(self, context, event):
             return result
         self.foundGoalNd = None
-        if (self.vesIsInstantActivation)and(not self.isToggleOptions):
+        if (self.prefs.vesIsInstantActivation)and(not self.isToggleOptions):
             #Заметка: коробка может полностью закрыть нод вместе с линией к нему.
             VoronoiEnumSelectorTool.NextAssignment(self, context)
             VoronoiEnumSelectorTool.DoActivation(self)
@@ -3048,7 +3040,7 @@ def CallbackDrawVoronoiQuickDimensions(self, context):
         if tgl:
             DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut1], isLineToCursor=True, isDrawText=False )
             DrawMixerSkText(self, cusorPos, self.foundGoalSkOut1, -1.25, -1)
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiQuickDimensionsTool(VoronoiToolSk):
     bl_idname = 'node.voronoi_quick_dimensions'
@@ -3142,7 +3134,7 @@ def CallbackDrawVoronoiInterfaceCopier(self, context):
     cusorPos = context.space_data.cursor_location
     if self.foundGoalSk:
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSk], isLineToCursor=True, textSideFlip=True )
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_interface_copier'
@@ -3232,12 +3224,12 @@ def CallbackDrawVoronoiLinksTransfer(self, context):
     if not self.foundGoalNdFrom:
         DrawDoubleNone(self, context)
     elif (self.foundGoalNdFrom)and(not self.foundGoalNdTo):
-        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdFrom, self.vhDrawNodeNameLabel, self.vhLabelDispalySide)
-        if self.dsIsDrawPoint: #Точка под курсором шаблоном выше не обрабатывается, поэтому вручную.
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdFrom, self.prefs.vhDrawNodeNameLabel, self.prefs.vhLabelDispalySide)
+        if self.prefs.dsIsDrawPoint: #Точка под курсором шаблоном выше не обрабатывается, поэтому вручную.
             DrawWidePoint(self, cusorPos)
     else:
-        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdFrom, self.vhDrawNodeNameLabel, self.vhLabelDispalySide)
-        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdTo, self.vhDrawNodeNameLabel, self.vhLabelDispalySide)
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdFrom, self.prefs.vhDrawNodeNameLabel, self.prefs.vhLabelDispalySide)
+        DrawNodeStencilFull(self, cusorPos, self.foundGoalNdTo,   self.prefs.vhDrawNodeNameLabel, self.prefs.vhLabelDispalySide)
 class VoronoiLinksTransferTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_links_transfer'
     bl_label = "Voronoi Links Transfer"
@@ -3315,7 +3307,7 @@ def CallbackDrawVoronoiDummy(self, context):
     cusorPos = context.space_data.cursor_location
     if self.foundGoalSk:
         DrawToolOftenStencil( self, cusorPos, [self.foundGoalSk], isLineToCursor=True, textSideFlip=True )
-    elif self.dsIsDrawPoint:
+    elif self.prefs.dsIsDrawPoint:
         DrawWidePoint(self, cusorPos)
 class VoronoiDummyTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_dummy'
@@ -3472,7 +3464,6 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
     vaKmiSpecialBoxDiscl:    bpy.props.BoolProperty(name="", default=True)
     vaKmiQqmBoxDiscl:        bpy.props.BoolProperty(name="", default=True)
     vaKmiCustomBoxDiscl:     bpy.props.BoolProperty(name="", default=True)
-    #Заметка: префиксы "ds" и инструментальные "v_" теперь имеют ненулевую важность. См. пайку в SolderingAllPrefsToSelf().
     #Draw
     dsIsDrawText:   bpy.props.BoolProperty(name="Text",        default=True) #Учитывая VHT и VEST, это уже больше просто для текста в рамке, чем для текста от сокетов.
     dsIsDrawMarker: bpy.props.BoolProperty(name="Markers",     default=True)
@@ -3769,7 +3760,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmUNe = context.window_manager.keyconfigs.user.keymaps['Node Editor']
             ##
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
-            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Great trio",       set(), 0, dict_setKmiCats['ms']  )
+            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Tre Great Trio",   set(), 0, dict_setKmiCats['ms']  )
             kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
             kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Special",          set(), 0, dict_setKmiCats['s']   )
             kmiCats.qqm = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['qqm'] )
