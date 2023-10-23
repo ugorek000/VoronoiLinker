@@ -6,10 +6,10 @@
 
 #Этот аддон создавался мной как самопис лично для меня и под меня; который я по доброте душевной, сделал публичным для всех желающих. Ибо результат получился потрясающий. Наслаждайтесь.
 
-#P.s. В гробу я видал шатанину с лицензиями; так что любуйтесь предупреждениями о вредоносном коде (о да он тут есть, иначе накой смысол?).
+#P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,5), 'blender':(4,1,0), #2023.10.23
+           'version':(3,5,6), 'blender':(4,1,0), #2023.10.24
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -23,6 +23,9 @@ import math, mathutils
 isBlender4 = bpy.app.version[0]==4 #Для поддержки работы в предыдущих версиях. Нужно для комфортного осознания отсутствия напрягов при вынужденных переходах на старые версии,
 # и получится дополнительной порции эндорфинов от возможности работы в разных версиях с разными api.
 #todo1 опуститься с поддержкой как можно ниже по версиям. Сейчас с гарантией: 3.6 и 4.0
+
+def VLAddonVer():
+    return "v"+".".join([str(v) for v in bl_info['version']])
 
 #def Vector(*data): return mathutils.Vector(data[0] if len(data)<2 else data)
 def Vector(*args): return mathutils.Vector((args)) #Очень долго я охреневал от двойных скобок 'Vector((a,b))', и только сейчас допёр так сделать. Ну наконец-то настанет наслаждение.
@@ -77,6 +80,9 @@ def SmartAddToRegAndAddToKmiDefs(cls, keys, dict_props={}):
     global list_kmiDefs #И тут тоже.
     list_kmiDefs += [ (cls.bl_idname, dict_numToKey.get(keys[:-4], keys[:-4]), keys[-3]=="S", keys[-2]=="C", keys[-1]=="A", dict_props) ]
 
+def GetUserKmNe():
+    return bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
+
 
 class RepeatingData: #См. VRT.
     #Сокет с нодом может удалиться, включая само дерево. Поэтому всё что не сокет -- нужно для проверки этого.
@@ -115,22 +121,21 @@ def NdSelectAndActive(ndTar):
     ndTar.id_data.nodes.active = ndTar #Важно не только то, что только один он выделяется, но ещё и то, что он становится активным.
     ndTar.select = True
 
-#Таблица полезности инструментов в аддонских деревьях:
-# VLT   Да
+#Таблица неполезности инструментов в аддонских деревьях:
+# VLT
 # VPT   Нет
-# VPAT  Мб(?)
+# VPAT  Мб?
 # VMT   Нет
 # VQMT  Нет
-# VST   Да
-# VHT   Да
-# VMLT  Да
-# VEST  Да(?)
-# VRT   Да
+# VST
+# VHT
+# VMLT
+# VEST  ?
+# VRT
 # VQDT  Нет
-#todo2 будущие:
 # VICT  Нет
-# VLTT  Да
-# VWT   Да
+# VLTT
+# VWT
 
 def PrepareShaders(self):
     self.gpuLine = gpu.shader.from_builtin('POLYLINE_SMOOTH_COLOR')
@@ -418,16 +423,16 @@ def DrawToolOftenStencil(self, cusorPos, list_twoTgSks, #Одинаковое с
 #todo2 Головная боль с "проскальзывающими" кадрами!! Debug, Collapse, Alt, и много где ещё.
 
 def GetOpKmi(self, tuple_tar): #todo0 есть ли концепция или способ правильнее?
-    #return bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items[getattr(bpy.types, self.bl_idname).bl_idname] #Чума (но только если без дубликатов).
+    #return GetUserKmNe().keymap_items[getattr(bpy.types, self.bl_idname).bl_idname] #Если без дубликатов.
     txt_toolBlId = getattr(bpy.types, self.bl_idname).bl_idname
     #Оператор может иметь несколько комбинаций вызова, все из которых будут одинаковы по ключу в `keymap_items`, от чего за константу кажись никак не распознать.
     #Поэтому перебираем всех вручную
-    for li in bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items:
+    for li in GetUserKmNe().keymap_items:
         if li.idname==txt_toolBlId:
             #Заметка: искать и по соответствию самой клавише тоже, модификаторы тоже могут быть одинаковыми у нескольких вариантах вызова.
             if (li.type==tuple_tar[0])and(li.shift_ui==tuple_tar[1])and(li.ctrl_ui==tuple_tar[2])and(li.alt_ui==tuple_tar[3]):
                 #Заметка: могут быть и два идентичных хоткеев вызова, но Blender будет выполнять только один из них (по крайней мере для VL), тот, который будет первее в списке.
-                return li # Эта функция тоже выдаёт первого в списке.
+                return li # Эта функция так же выдаёт первого в списке.
 def ForseSetSelfNonePropToDefault(kmi, self):
     if not kmi:
         return
@@ -446,7 +451,7 @@ class VoronoiOp(bpy.types.Operator):
 class VoronoiTool(VoronoiOp): #Корень для инструментов.
     #Всегда неизбежно происходит кликанье в дереве, где обитают ноды, поэтому для всех инструментов
     isPassThrough: bpy.props.BoolProperty(name="Pass through node selecting", description="Clicking over a node activates selection, not the tool", default=False)
-    #Заметка: NextAssignment имеется у всех; и теперь одинаков по количеству параметров, чтобы проще обрабатывать шаблонами.
+    #Заметка: NextAssignment имеется у всех; и теперь он одинаков по количеству параметров, чтобы проще обрабатываться шаблонами.
 class VoronoiToolSk(VoronoiTool):
     pass
 class VoronoiToolDblSk(VoronoiToolSk):
@@ -2106,7 +2111,7 @@ def DoQuickMath(event, tree, opr, isQqo=False):
             #Второй ищется "визуально"; сделано ради операции 'SCALE'.
             for sk in aNd.inputs: #Ищется сверху вниз. Потому что ещё и 'MulAdd'.
                 if (sk.enabled)and(not sk.links):
-                    #Ох уж этот скейл; единственный с двумя разными типами сокетов.
+                    #Ох уж этот скейл; единственный с двумя сокетами разных типов.
                     if (sk.type==skInx.type)or(opr=='SCALE'): #Искать одинаковый по типу. Актуально для RGBA Mix.
                         NewLinkAndRemember(qmData.sk1, sk)
                         break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
@@ -3359,6 +3364,131 @@ class VoronoiDummyTool(VoronoiToolSkNd):
 #SmartAddToRegAndAddToKmiDefs(VoronoiDummyTool, "D_sca", {'isDummy':True})
 dict_setKmiCats['ms'].add(VoronoiDummyTool.bl_idname)
 
+def GetVlKeyconfigAsPy(): #Взято из `bl_keymap_utils.io`. Понятия не имею, как оно работает.
+    import bl_keymap_utils
+    def Ind(num):
+        return " "*num
+    def keyconfig_merge(kc1, kc2):
+        kc1_names = {km.name for km in kc1.keymaps}
+        merged_keymaps = [(km, kc1) for km in kc1.keymaps]
+        if kc1 != kc2:
+            merged_keymaps.extend(
+                (km, kc2)
+                for km in kc2.keymaps
+                if km.name not in kc1_names)
+        return merged_keymaps
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.active
+    class FakeKeyConfig:
+        keymaps = []
+    edited_kc = FakeKeyConfig()
+    edited_kc.keymaps.append(GetUserKmNe())
+    if kc!=wm.keyconfigs.default:
+        export_keymaps = keyconfig_merge(edited_kc, kc)
+    else:
+        export_keymaps = keyconfig_merge(edited_kc, edited_kc)
+    ##
+    result = ""
+    result += "list_keyconfigData = \\\n["
+    for km, _kc_x in export_keymaps:
+        km = km.active()
+        result += "("
+        result += f"\"{km.name:s}\","+"\n"
+        result += f"{Ind(2)}" "{"
+        result += f"\"space_type\": '{km.space_type:s}'"
+        result += f", \"region_type\": '{km.region_type:s}'"
+        isModal = km.is_modal
+        if isModal:
+            result += ", \"modal\": True"
+        result += "},"+"\n"
+        result += f"{Ind(2)}" "{"
+        result += f"\"items\":"+"\n"
+        result += f"{Ind(3)}["
+        for kmi in km.keymap_items:
+            if not kmi.idname.startswith("node.voronoi_"):
+                continue
+            if isModal:
+                kmi_id = kmi.propvalue
+            else:
+                kmi_id = kmi.idname
+            result += f"("
+            kmi_args = bl_keymap_utils.io.kmi_args_as_data(kmi)
+            kmi_data = bl_keymap_utils.io._kmi_attrs_or_none(4, kmi)
+            result += f"\"{kmi_id:s}\""
+            if kmi_data is None:
+                result += f", "
+            else:
+                result += ",\n" f"{Ind(5)}"
+            result += kmi_args
+            if kmi_data is None:
+                result += ", None),"+"\n"
+            else:
+                result += ","+"\n"
+                result += f"{Ind(5)}" "{"
+                result += kmi_data
+                result += f"{Ind(6)}"
+                result += "},\n" f"{Ind(5)}"
+                result += "),"+"\n"
+            result += f"{Ind(4)}"
+        result += "],\n" f"{Ind(3)}"
+        result += "},\n" f"{Ind(2)}"
+        result += "),\n" f"{Ind(1)}"
+    result += "]"+"\n"
+    result += "\n"
+    result += "import bl_keymap_utils"+"\n"
+    result += "import bl_keymap_utils.versioning"+"\n" #Чёрная магия; кажется, такая же как и с "gpu_extras".
+    result += "\n"
+    result += "kc = bpy.context.window_manager.keyconfigs.active"+"\n"
+    from bpy.app import version_file
+    result += f"kd = bl_keymap_utils.versioning.keyconfig_update(list_keyconfigData, {version_file!r})"+"\n"
+    del version_file
+    result += "bl_keymap_utils.io.keyconfig_init_from_data(kc, kd)"
+    return result
+
+def GetVaSettAsPy(isAllPrefs=True):
+    txt_vasp = ""
+    import datetime
+    txt_vasp += f"#Exported/Importing addon settings for Voronoi Linker {VLAddonVer()}\n"
+    txt_vasp += f"#Generated "+datetime.datetime.now().strftime("%Y.%m.%d")+"\n"
+    txt_vasp += "\n"
+    txt_vasp += "import bpy\n"
+    set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'vaShowAddonOptions', 'vaShowAllToolsOptions',
+                             'vaKmiMainstreamBoxDiscl', 'vaKmiOtjersBoxDiscl', 'vaKmiSpecialBoxDiscl', 'vaKmiQqmBoxDiscl', 'vaKmiCustomBoxDiscl'}
+    #Сконструировать изменённые настройки аддона:
+    txt_vasp += "\n"
+    txt_vasp += "#Addon prefs:\n"
+    txt_vasp += f"prefs = bpy.context.preferences.addons['{voronoiAddonName}'].preferences"+"\n\n"
+    prefs = Prefs()
+    for li in prefs.rna_type.properties:
+        if not li.is_readonly:
+            #'_BoxDiscl'ы не стал игнорировать, пусть будут.
+            if li.identifier not in set_ignoredAddonPrefs:
+                isArray = getattr(li,'is_array', False)
+                if isArray:
+                    isDiff = not not [li for li in zip(li.default_array, getattr(prefs, li.identifier)) if li[0]!=li[1]]
+                else:
+                    isDiff = li.default!=getattr(prefs, li.identifier)
+                if (isDiff)or(isAllPrefs):
+                    if isArray:
+                        #txt_vasp += f"prefs.{li.identifier} = ({' '.join([str(li)+',' for li in arr])})\n"
+                        list_vals = [str(li)+"," for li in getattr(prefs, li.identifier)]
+                        list_vals[-1] = list_vals[-1][:-1]
+                        txt_vasp += f"prefs.{li.identifier} = ("+" ".join(list_vals)+")\n"
+                    else:
+                        match li.type:
+                            case 'STRING': txt_vasp += f"prefs.{li.identifier} = \"{getattr(prefs, li.identifier)}\""+"\n"
+                            case 'ENUM':   txt_vasp += f"prefs.{li.identifier} = '{getattr(prefs, li.identifier)}'"+"\n"
+                            case _:        txt_vasp += f"prefs.{li.identifier} = {getattr(prefs, li.identifier)}"+"\n"
+    #Сконструировать все VL хоткеи:
+    txt_vasp += "\n"
+    txt_vasp += "#Addon keymaps:\n"
+    #P.s. я не знаю, как обрабатывать только изменённые хоткеи; это выглядит слишком головной болью и дремучим лесом.
+    # Лень реверсинженерить '..\scripts\modules\bl_keymap_utils\io.py', поэтому просто сохранять всех.
+    txt_vasp += GetVlKeyconfigAsPy() #Оно нахрен не работает. Та часть, которая восстанавливает. Ничего не сохраняется.
+    #Придётся ждать того героя, что придёт и починит всё это.
+    #todo1 нужно придумать другой способ сохранения хоткеев.
+    return txt_vasp
+
 def Prefs():
     return bpy.context.preferences.addons[voronoiAddonName].preferences
 
@@ -3375,63 +3505,10 @@ class VoronoiAddonTabs(bpy.types.Operator):
     def invoke(self, context, event):
         match self.opt:
             case 'GetPySett':
-                txt = "import bpy\n\n"+f"prefs = bpy.context.preferences.addons['{voronoiAddonName}'].preferences"+"\n\n"
-                prefs = Prefs()
-                for li in prefs.rna_type.properties:
-                    if not li.is_readonly:
-                        #'vaUiTabs' нужно для `event.shift`
-                        #'_BoxDiscl'ы не стал игнорировать, пусть будут; для эстетики.
-                        if li.identifier not in set_ignoredAddonPrefs:
-                            isArray = getattr(li,'is_array', False)
-                            if isArray:
-                                isDiff = not not [li for li in zip(li.default_array, getattr(prefs, li.identifier)) if li[0]!=li[1]]
-                            else:
-                                isDiff = li.default!=getattr(prefs, li.identifier)
-                            if (isDiff)or(event.shift):
-                                if isArray:
-                                    #txt += f"prefs.{li.identifier} = ({' '.join([str(li)+',' for li in arr])})\n"
-                                    list_vals = [str(li)+"," for li in getattr(prefs, li.identifier)]
-                                    list_vals[-1] = list_vals[-1][:-1]
-                                    txt += f"prefs.{li.identifier} = ("+" ".join(list_vals)+")\n"
-                                else:
-                                    match li.type:
-                                        case 'STRING': txt += f"prefs.{li.identifier} = \"{getattr(prefs, li.identifier)}\""+"\n"
-                                        case 'ENUM':   txt += f"prefs.{li.identifier} = '{getattr(prefs, li.identifier)}'"+"\n"
-                                        case _:        txt += f"prefs.{li.identifier} = {getattr(prefs, li.identifier)}"+"\n"
-                #todo4 придумать как сохранять хоткеи.
-                #Сохранение изменённых хоткеев -- накустарил по-быстрому, так что поаккуратнее, ибо колхоз. А ещё я не знаю, как обрабатывать удалённые записи.
-                if event.ctrl:
-                    txt += "\n"
-                    #Этот способ определения изменений -- лажа, кривит:
-                    #    kmU = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
-                    #    kmA = bpy.context.window_manager.keyconfigs.addon.keymaps['Node Editor']
-                    #    for liU in kmU.keymap_items:
-                    #        if liU.idname in set_toolBlids:
-                    #            tuple_u = tuple(liU.properties.items())
-                    #            for liA in kmA.keymap_items:
-                    #                tuple_a = tuple(liA.properties.items())
-                    #                if tuple_u==tuple_a: #У меня нет идей, как ещё распознать идентичность, когда ключи в `keymap_items` могут быть одинаковыми.
-                    #                    isDiff = PropsCheckDiffBool(liU, liA, ('active','type','ctrl_ui','shift_ui','alt_ui','oskey_ui','key_modifier','repeat'))
-                    #                    if (isDiff)or(event.shift):
-                    #                        txt += liU.idname+"\n"
-                    #                    break
-                    def GetTxtProps(who, tuple_txtProps):
-                        txt = ""
-                        for ti in tuple_txtProps:
-                            txt += ti+"="+str(getattr(who, ti))+"; "
-                        return txt
-                    #Но потом я внезапно осознал, что не знаю, как это устанавливать в коде 'txt += ...'.
-                    set_toolBlids = {li.bl_idname for li in list_classes if getattr(li,'bl_idname', False)}
-                    for li in bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items:
-                        if li.idname in set_toolBlids:
-                            opName = eval("bpy.types."+eval("bpy.ops."+li.idname).idname()).bl_label #Я в ахрене. Наверное кому-то стоит лучше разбираться в api.
-                            txt += "#"+opName+" "+str(dict(li.properties.items()))+"\n"
-                            txt += "# "+GetTxtProps(li, ('active','type','ctrl_ui','shift_ui','alt_ui','oskey_ui','key_modifier','repeat'))+"\n"
-                    #Так что сохранение хоткеев с восстановлением пока не поддерживается.
-                context.window_manager.clipboard = txt
-                #Для консоли: bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items['node.voronoi_linker'].type
+                context.window_manager.clipboard = GetVaSettAsPy(isAllPrefs=event.shift or True) #Наверное иметь разницу бесполезно.
+                # Особенно чем дальше в будущее, когда будут удаляться и появляться новые настройки.
             case 'AddNewKmi':
-                bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor'].keymap_items.new("node.voronoi_",'D','PRESS').show_expanded = True
+                GetUserKmNe().keymap_items.new("node.voronoi_",'D','PRESS').show_expanded = True
             case _:
                 Prefs().vaUiTabs = self.opt
         return {'FINISHED'}
@@ -3680,8 +3757,9 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 colProp.active = self.vesDrawNodeNameLabel=='LABELNAME'
             if colTool:=AddSelfBoxDiscl(colMaster,'vaShowAddonOptions'):
                 colProp = colTool.column(align=True)
+                colProp.alignment = 'CENTER' #Всё равно 'LEFT'.
+                colProp.scale_x = 1.15
                 colProp.operator(VoronoiAddonTabs.bl_idname, text=txt_copySettAsPyScript).opt = 'GetPySett'
-                colProp.active = False
         except Exception as ex:
             colMaster.label(text=str(ex), icon='ERROR')
     def DrawTabDraw(self, context, where):
@@ -3760,7 +3838,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             rowLabelPost = rowLabelMain.row(align=True)
             #rowLabelPost.active = False
             colList = colMaster.column(align=True)
-            kmUNe = context.window_manager.keyconfigs.user.keymaps['Node Editor']
+            kmUNe = GetUserKmNe()
             ##
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
             kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "The Great Trio",   set(), 0, dict_setKmiCats['ms']  )
@@ -4054,9 +4132,9 @@ def unregister():
 # Для более реалтаймового общения (предпочтительно) и по вопросам об аддоне и его коде пишите на мой дискорд 'ugorek#6434'.
 
 def DisableKmis(): #Для повторных запусков скрипта. Работает до первого "Restore".
-    kmNe = bpy.context.window_manager.keyconfigs.user.keymaps['Node Editor']
+    kmUNe = GetUserKmNe()
     for li, *oi in list_kmiDefs:
-        for kmiCon in kmNe.keymap_items:
+        for kmiCon in kmUNe.keymap_items:
             if li==kmiCon.idname:
                 kmiCon.active = False #Это удаляет дубликаты. Хак?
                 kmiCon.active = True #Вернуть обратно, если оригинал.
