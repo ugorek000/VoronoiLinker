@@ -1829,12 +1829,12 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
     quickOprFloat:  bpy.props.StringProperty(name="Float (quick)",  default="") #Они в начале, чтобы в kmi отображалось выровненным.
     quickOprVector: bpy.props.StringProperty(name="Vector (quick)", default="") #quick вторым, чтобы при нехватке места отображалось первое слово, от чего пришлось заключить в скобки.
     isCanFromOne:       bpy.props.BoolProperty(name="Can from one socket", default=True)
+    isRepeatLastOperation: bpy.props.BoolProperty(name="Repeat last operation", default=False) #Что ж, квартет qqm теперь вынуждает их постоянно выравнивать.
     isHideOptions:      bpy.props.BoolProperty(name="Hide node options",   default=False)
     isPlaceImmediately: bpy.props.BoolProperty(name="Place immediately",   default=False)
     quickOprBool:   bpy.props.StringProperty(name="Bool (quick)",   default="")
     quickOprColor:  bpy.props.StringProperty(name="Color (quick)",  default="")
     justCallPie:           bpy.props.IntProperty(name="Just call pie", default=0, min=0, max=4)
-    isRepeatLastOperation: bpy.props.BoolProperty(name="Repeat last operation", default=False)
     def NextAssignment(self, context, isBoth):
         if not context.space_data.edit_tree:
             return
@@ -3762,7 +3762,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
             kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Tre Great Trio",   set(), 0, dict_setKmiCats['ms']  )
             kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
-            kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Special",          set(), 0, dict_setKmiCats['s']   )
+            kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Specials",         set(), 0, dict_setKmiCats['s']   )
             kmiCats.qqm = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['qqm'] )
             kmiCats.c =   KmiCat('vaKmiCustomBoxDiscl',     "Custom",           set(), 0)
             #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
