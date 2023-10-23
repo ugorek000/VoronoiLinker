@@ -3763,7 +3763,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmUNe = context.window_manager.keyconfigs.user.keymaps['Node Editor']
             ##
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
-            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "Tre Great Trio",   set(), 0, dict_setKmiCats['ms']  )
+            kmiCats.ms =  KmiCat('vaKmiMainstreamBoxDiscl', "The Great Trio",   set(), 0, dict_setKmiCats['ms']  )
             kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
             kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Specials",         set(), 0, dict_setKmiCats['s']   )
             kmiCats.qqm = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['qqm'] )
