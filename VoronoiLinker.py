@@ -1150,15 +1150,16 @@ class VoronoiPreviewTool(VoronoiToolSk):
             list_fgSksOut = GetNearestSockets(nd, callPos)[1]
             for li in list_fgSksOut:
                 #Игнорировать свои сокеты мостов здесь. Нужно для нод нодгрупп, у которых "торчит" сокет моста и к которому произойдёт присасывание без этой проверки; и после чего они будут удалены в PreviewFromSk().
-                if li.tg.name!=voronoiSkPreviewName:
-                    #Этот инструмент триггерится на любой выход кроме виртуального. В геометрических нодах искать только выходы геометрии.
-                    #Якорь притягивает на себя превиев; рероут может принимать любой тип; следовательно -- при наличии якоря отключать триггер только на геосокеты
-                    if (li.tg.bl_idname!='NodeSocketVirtual')and( (context.space_data.tree_type!='GeometryNodeTree')or(li.tg.type=='GEOMETRY')or(isAncohorExist) ):
-                        if (not(self.isTriggerOnlyOnLink))or(li.tg.is_linked): #Помощь в реверс-инженеринге, триггериться только на существующие линки. Ускоряет процесс "считывания/понимания" дерева.
-                            self.foundGoalSkOut = li
-                            break
-            if (self.foundGoalSkOut)or(not(self.isTriggerOnlyOnLink)):
-                break #Завершать в случае успеха, или пока не будет сокет с линком.
+                if li.tg.name==voronoiSkPreviewName:
+                    continue
+                #Этот инструмент триггерится на любой выход кроме виртуального. В геометрических нодах искать только выходы геометрии.
+                #Якорь притягивает на себя превиев; рероут может принимать любой тип; следовательно -- при наличии якоря отключать триггер только на геосокеты
+                if (li.tg.bl_idname!='NodeSocketVirtual')and( (context.space_data.tree_type!='GeometryNodeTree')or(li.tg.type=='GEOMETRY')or(isAncohorExist) ):
+                    if (not(self.isTriggerOnlyOnLink))or(li.tg.is_linked): #Помощь в реверс-инженеринге, триггериться только на существующие линки. Ускоряет процесс "считывания/понимания" дерева.
+                        self.foundGoalSkOut = li
+                        break
+            if self.foundGoalSkOut: #Завершать в случае успеха. Иначе, например для игнорирования своих сокетов моста, если у нода только они -- остановится рядом и не найдёт других.
+                break
         if self.foundGoalSkOut:
             if self.prefs.vpIsLivePreview:
                 try:
@@ -1428,7 +1429,7 @@ def PreviewFromSk(self, context, targetSk):
     list_way = DoPreview(context, targetSk)
     #Гениально я придумал удалять интерфейсы после предпросмотра; стало возможным благодаря не-удалению в контекстных путях. Теперь ими можно будет пользоваться более свободно.
     tree = context.space_data.edit_tree
-    if (True)or(not tree.nodes.get(voronoiAnchorName)): #'True' см. ниже.
+    if (True)or(not tree.nodes.get(voronoiAnchorName)): #'True' см. далее.
         #Если в текущем дереве есть якорь, то никаких voronoiSkPreviewName не удалять; благодаря чему становится доступным ещё одно особое использование инструмента.
         #Должно было стать логическим продолжением после "завершение после напарывания", но допёр до этого только сейчас.
         #P.s. Я забыл нахрен какое. А теперь они не удаляются от контекстных путей, так что информация уже утеряна D:
@@ -2096,7 +2097,7 @@ def DoQuickMath(event, tree, opr, isQqo=False):
     if event.shift:
         for sk in aNd.inputs:
             if (sk!=skInx)and(sk.enabled)and(not sk.links):
-                if sk.type==skInx.type: #Сравнение, потому что операция 'SCALE'.
+                if sk.type==skInx.type:
                     skInx = sk
                     break
     if qmData.sk0:
@@ -2104,9 +2105,11 @@ def DoQuickMath(event, tree, opr, isQqo=False):
         if qmData.sk1:
             #Второй ищется "визуально"; сделано ради операции 'SCALE'.
             for sk in aNd.inputs: #Ищется сверху вниз. Потому что ещё и 'MulAdd'.
-                if (sk.enabled)and(not sk.links)and(sk.type==skInx.type):
-                    NewLinkAndRemember(qmData.sk1, sk)
-                    break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
+                if (sk.enabled)and(not sk.links):
+                    #Ох уж этот скейл; единственный с двумя разными типами сокетов.
+                    if (sk.type==skInx.type)or(opr=='SCALE'): #Искать одинаковый по типу. Актуально для RGBA Mix.
+                        NewLinkAndRemember(qmData.sk1, sk)
+                        break #Нужно соединить только в первый попавшийся, иначе будет соединено во все (например у 'MulAdd').
         elif (not isQqo)and(event.alt): #Если alt, то соединить первый во все.
             for sk in aNd.inputs:
                 if sk.type==skInx.type:
