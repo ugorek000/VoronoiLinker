@@ -86,7 +86,7 @@ def GetUserKmNe():
 
 class RepeatingData: #См. VRT.
     #Сокет с нодом может удалиться, включая само дерево. Поэтому всё что не сокет -- нужно для проверки этого.
-    tree = None #Если дерево удалиться, то tree будет `<bpy_struct, GeometryNodeTree invalid>`, спасибо что не краш.
+    tree = None #Если дерево удалится, то tree будет `<bpy_struct, GeometryNodeTree invalid>`, спасибо что не краш.
     lastNd1name = ""
     lastNd1Id = None
     lastNd2name = ""
@@ -109,6 +109,7 @@ def RememberLastSockets(sko, ski):
 def NewLinkAndRemember(sko, ski):
     DoLinkHH(sko, ski) #sko.id_data.links.new(sko, ski)
     RememberLastSockets(sko, ski)
+
 
 def GetSkLabelName(sk):
     return sk.label if sk.label else sk.name
@@ -2915,6 +2916,8 @@ def ToggleOptionsFromNode(nd, lastResult, isCanDo=False): #Копия логик
         nd.show_options = True
         return success
 
+#См. в начале файла: RepeatingData, RememberLastSockets() и NewLinkAndRemember().
+
 def CallbackDrawVoronoiRepeating(self, context):
     if StencilStartDrawCallback(self, context):
         return
@@ -2942,7 +2945,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             if nd==lSkO.node: #Исключить само-нод.
-                break#continue
+                break# continue
             if self.isAutoRepeatMode:
                 lSkI = rpData.lastSk2
                 if (self.isFromOut)or(lSkI):
@@ -2951,7 +2954,7 @@ class VoronoiRepeatingTool(VoronoiToolSkNd): #Вынесено в отдельн
                     for sk in nd.inputs:
                         if CompareSkLabelName(sk, lSkO if self.isFromOut else lSkI):
                             if (sk.enabled)and(not sk.hide):
-                                context.space_data.edit_tree.links.new(lSkO, sk) #Заметка: не высокоуровневый; зачем isAutoRepeatMode'у интерйесы?.
+                                context.space_data.edit_tree.links.new(lSkO, sk) #Заметка: не высокоуровневый; зачем isAutoRepeatMode'у интерфейсы?.
             else:
                 list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
                 if rpData.lastSk1:
@@ -3160,7 +3163,7 @@ class VoronoiInterfaceCopierTool(VoronoiToolSkNd):
             if nd.type=='REROUTE':
                 continue
             if (self.isPaste)and(nd.bl_idname not in set_equestrianPortalBlids): 
-                continue
+                break #Курсор должен быть рядом со всадником. А ещё с `continue` изменение интерфейса будет "неизбежно", и никак не отменить.
             if StencilUnCollapseNode(nd, isBoth):
                 StencilReNext(self, context, True)
             #Далее облегчённый паттерн от VST, без sk.links и isBoth'а:
@@ -3505,7 +3508,7 @@ class VoronoiAddonTabs(bpy.types.Operator):
     def invoke(self, context, event):
         match self.opt:
             case 'GetPySett':
-                context.window_manager.clipboard = GetVaSettAsPy(isAllPrefs=event.shift or True) #Наверное иметь разницу бесполезно.
+                context.window_manager.clipboard = GetVaSettAsPy(isAllPrefs=event.shift or True) #Наверное бесполезно иметь разницу.
                 # Особенно чем дальше в будущее, когда будут удаляться и появляться новые настройки.
             case 'AddNewKmi':
                 GetUserKmNe().keymap_items.new("node.voronoi_",'D','PRESS').show_expanded = True
