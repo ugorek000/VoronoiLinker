@@ -9,7 +9,7 @@
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,5,6), 'blender':(4,1,0), #2023.10.24
+           'version':(3,5,7), 'blender':(4,1,0), #2023.10.24
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", 'category':"Node",
            'wiki_url':"https://github.com/ugorek000/VoronoiLinker/wiki", 'tracker_url':"https://github.com/ugorek000/VoronoiLinker/issues"}
@@ -655,7 +655,7 @@ def ViaVerSkfRemove(tree, side, name):
 
 import ctypes
 
-#Аааа, я просто сделалъ на досуге VLT на 157 строчки; чёрт возьми, что происходит??
+#Аааа, я просто сделалъ на досуге VLT на 157 строчки; чёрт возьми, что тут происходит??
 class BNodeSocketRuntimeHandle(ctypes.Structure):
     _fields_ = ( #Заметка: понятия не имею как работает эта магия, но она работает. Наличие всех записей важно (у всех).
         ('_pad0',        ctypes.c_char*8  ),
@@ -3926,7 +3926,7 @@ list_classes += [VoronoiAddonTabs, VoronoiAddonPrefs]
 
 list_helpClasses = []
 
-class TranslationHelper(): #todo1 оставить здесь благодарностью пользователю за код для переводов (и найти его ник).
+class TranslationHelper(): #Спасибо пользователю с ником "atticus-lv" за код для переводов на другие языки.
     def __init__(self, data={}, lang=''):
         self.name = voronoiAddonName+lang
         self.translations_dict = dict()
@@ -3971,7 +3971,8 @@ def GetAnnotNameFromClass(pcls, txt, kw=0):
 #А так хоть на каждом новом тексте будет лепиться эта метка, которая своим визуальным наличием заставит пользователей языка перевода подсуетиться чуть больше и/или быстрее.
 dict_needTranslate = {}
 dict_needTranslate['ru_RU'] = '<требуется перевод>'
-dict_needTranslate['aa_AA'] = 'aaa!'
+dict_needTranslate['zh_CN'] = '<需要翻譯>' #需要翻译
+dict_needTranslate['aa_AA'] = 'aaa!!1'
 
 ##
 dict_translations = {}
@@ -3982,7 +3983,8 @@ dict_translations = {}
 Gapn = GetAddonPropName
 Ganfc = GetAnnotNameFromClass
 def CollectTranslationDict(): #Превращено в функцию ради `Gapn()`, который требует регистрации 'VoronoiAddonPrefs'.
-    dict_translations['ru_RU'] = {
+    needTranslate = dict_needTranslate['ru_RU'] #"Так будет выглядеть" вариант для словаря, в котором есть непереведённые элементы.
+    dict_translations['ru_RU'] = { #Последнее обновление для vl 3.5.6
             bl_info['description']:                    "Разнообразные помогалочки для соединения нод, основанные на поле расстояний.",
             "Virtual":                                 "Виртуальный",
             "Restore":                                 "Восстановить",
@@ -4089,8 +4091,116 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "Переносить по порядку",
             Ganfc(VoronoiInterfaceCopierTool,'isPaste'):          "Вставить",
             }
+    dict_translations['zh_CN'] = { #vl 3.5.6
+            bl_info['description']: "基于距离场的多种节点连接辅助工具。",
+            "Virtual": "虚拟",
+            "Restore": "恢复",
+            "Add New": "添加",
+            txt_noMixingOptions:                       "无混合选项",
+            txt_copySettAsPyScript:                    "将插件设置复制为'.py'脚本",
+            GetAddonProp('vaInfoRestore').description: "此列表只是设置的副本。“恢复”将还原所有设置，而不仅仅是插件。",
+            # 工具:
+            GclToolSet(VoronoiLinkerTool):       f"{VoronoiLinkerTool.bl_label}工具设置:",
+            GclToolSet(VoronoiPreviewTool):      f"{VoronoiPreviewTool.bl_label}工具设置:",
+            GclToolSet(VoronoiMixerTool):        f"{VoronoiMixerTool.bl_label}工具设置:",
+            GclToolSet(VoronoiQuickMathTool):    f"{VoronoiQuickMathTool.bl_label}工具设置:",
+            GclToolSet(VoronoiSwapperTool):      f"{VoronoiSwapperTool.bl_label}工具设置:",
+            GclToolSet(VoronoiHiderTool):        f"{VoronoiHiderTool.bl_label}工具设置:",
+            GclToolSet(VoronoiEnumSelectorTool): f"{VoronoiEnumSelectorTool.bl_label}工具设置:",
+            Gapn('vaShowAllToolsOptions'):       "所有工具的设置:",
+            Gapn('vaShowAddonOptions'):          "VL 插件",
+            # 绘制:
+            "Colored": "有颜色的",
+            Gapn('dsUniformColor'):       "替代的统一颜色",
+            Gapn('dsNodeColor'):          "节点的绘制颜色",
+            Gapn('dsSocketAreaAlpha'):    "端口区域的透明度",
+            Gapn('dsFontFile'):           "字体文件",
+            txt_onlyFontFormat:           "只支持.ttf或.otf格式",
+            Gapn('dsPointOffsetX'):       "X轴上的点偏移",
+            Gapn('dsFrameOffset'):        "边框大小",
+            Gapn('dsFontSize'):           "字体大小",
+            Gapn('dsIsDrawSkArea'):       "端口区域",
+            Gapn('dsDisplayStyle'):       "边框显示样式",
+                Gapn('dsDisplayStyle',0):     "经典",
+                Gapn('dsDisplayStyle',1):     "简化",
+                Gapn('dsDisplayStyle',2):     "仅文本",
+            Gapn('dsPointRadius'):        "点的大小",
+            Gapn('dsDistFromCursor'):     "到文本的距离",
+            Gapn('dsIsAllowTextShadow'):  "启用文本阴影",
+            Gapn('dsShadowCol'):          "阴影颜色",
+            Gapn('dsShadowOffset'):       "阴影偏移",
+            Gapn('dsShadowBlur'):         "阴影模糊",
+            Gapn('dsIsAlwaysLine'):       "始终绘制线条",
+            Gapn('dsIsDrawDebug'):        "显示调试信息",
+            # 设置:
+            Gapn('vtRepickTrigger'):                "重新选择触发条件",
+                Gapn('vtRepickTrigger',0):              "与所有调用修饰符完全匹配",
+                Gapn('vtRepickTrigger',1):              "至少一个修饰符匹配",
+            Gapn('vlReroutesCanInAnyType'):         "重新路由可以连接到任何类型",
+            Gapn('vlDeselectAllNodes'):             "在激活时取消选择所有节点",
+            Gapn('vpAllowClassicCompositorViewer'): "允许经典的合成器查看器",
+            Gapn('vpAllowClassicGeoViewer'):        "允许经典的几何节点查看器",
+            Gapn('vpIsLivePreview'):                "实时预览",
+            Gapn('vpRvEeIsColorOnionNodes'):        "颜色节点的显示",
+            Gapn('vpRvEeSksHighlighting'):          "拓扑连接的高亮显示",
+            Gapn('vpRvEeIsSavePreviewResults'):     "保存预览结果",
+            Gapn('vmReroutesCanInAnyType'):         "重新路由可以与任何类型混合",
+            Gapn('vmPieType'):                      "饼图类型",
+                Gapn('vmPieType',0):                    "速度",
+                Gapn('vmPieType',1):                    "控制",
+            Gapn('vmPieScale'):                     "饼图大小",
+            Gapn('vmPieSocketDisplayType'):         "显示端口类型",
+            Gapn('vmPieAlignment'):                 "元素对齐方式",
+            Gapn('vhNeverHideGeometry'):            "永不隐藏几何输入端口",
+            Gapn('vhHideBoolSocket'):               "隐藏布尔端口",
+            Gapn('vhHideHiddenBoolSocket'):         "隐藏隐藏的布尔端口",
+                Gapn('vhHideBoolSocket',1):             "如果为True",
+                Gapn('vhHideBoolSocket',3):             "如果为False",
+            Gapn('vhIsUnhideVirtual'):              "显示虚拟端口",
+            Gapn('vhIsToggleNodesOnDrag'):          "拖动时切换节点",
+            Gapn('vhDrawNodeNameLabel'):            "显示节点标签",
+                Gapn('vhDrawNodeNameLabel',1):          "仅名称",
+                Gapn('vhDrawNodeNameLabel',2):          "仅标题",
+                Gapn('vhDrawNodeNameLabel',3):          "名称和标题",
+            Gapn('vhLabelDispalySide'):             "标签显示位置",
+            Gapn('vesIsInstantActivation'):         "即时激活",
+            Gapn('vesIsDrawEnumNames'):             "绘制枚举属性名称",
+            Gapn('vesBoxScale'):                    "面板比例",
+            Gapn('vesDisplayLabels'):               "显示枚举属性名称",
+            Gapn('vesDarkStyle'):                   "暗色风格",
+            # 工具设置:
+            Ganfc(VoronoiTool,'isPassThrough'):                   "通过节点选中",
+            Ganfc(VoronoiTool,'isPassThrough',1):                 "单击节点激活选择而不是工具",
+            Ganfc(VoronoiToolDblSk,'isCanBetweenFields'):         "可以在字段之间连接",
+            Ganfc(VoronoiToolDblSk,'isCanBetweenFields',1):       "工具可以连接不同类型的字段",
+            Ganfc(VoronoiPreviewTool,'isSelectingPreviewedNode'): "选择预览节点",
+            Ganfc(VoronoiPreviewTool,'isTriggerOnlyOnLink'):      "仅触发连接",
+            Ganfc(VoronoiMixerTool,'isCanFromOne'):               "从一个端口连接",
+            Ganfc(VoronoiMixerTool,'isPlaceImmediately'):         "立即放置",
+            Ganfc(VoronoiQuickMathTool,'isHideOptions'):          "隐藏节点选项",
+            Ganfc(VoronoiQuickMathTool,'justCallPie'):            "仅调用饼图",
+            Ganfc(VoronoiQuickMathTool,'isRepeatLastOperation'):  "重复上一操作",
+            Ganfc(VoronoiQuickMathTool,'quickOprFloat'):          "浮点（快速）",
+            Ganfc(VoronoiQuickMathTool,'quickOprVector'):         "矢量（快速）",
+            Ganfc(VoronoiQuickMathTool,'quickOprBool'):           "布尔（快速）",
+            Ganfc(VoronoiQuickMathTool,'quickOprColor'):          "颜色（快速）",
+            Ganfc(VoronoiSwapperTool,'isAddMode'):                "添加模式",
+            Ganfc(VoronoiSwapperTool,'isIgnoreLinked'):           "忽略已连接的端口",
+            Ganfc(VoronoiSwapperTool,'isCanAnyType'):             "可以与任何类型交换",
+            Ganfc(VoronoiHiderTool,'isHideSocket'):               "端口隐藏模式",
+            Ganfc(VoronoiHiderTool,'isTriggerOnCollapsedNodes'):  "仅触发已折叠节点",
+            Ganfc(VoronoiMassLinkerTool,'isIgnoreExistingLinks'): "忽略现有链接",
+            Ganfc(VoronoiEnumSelectorTool,'isToggleOptions'):     "选项切换模式",
+            Ganfc(VoronoiEnumSelectorTool,'isPieChoice'):         "饼图选择",
+            Ganfc(VoronoiEnumSelectorTool,'isSelectNode'):        "选择目标节点",
+            Ganfc(VoronoiRepeatingTool,'isAutoRepeatMode'):       "自动重复模式",
+            Ganfc(VoronoiRepeatingTool,'isFromOut'):              "从输出开始",
+            Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "按顺序传输",
+            Ganfc(VoronoiInterfaceCopierTool,'isPaste'):          "粘贴",
+            }
+    dict_translations['zh_HANS'] = dict_translations['zh_CN']
     return
-    dict_translations['aa_AA'] = { #Ждёт своего часа. Кто же будет первым?
+    dict_translations['aa_AA'] = { #Ждёт своего часа. Кто же будет вторым?
             bl_info['description']:                     "",
             "Virtual":                                  "",
             "Restore":                                  "",
