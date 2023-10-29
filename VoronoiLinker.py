@@ -522,7 +522,8 @@ def ProcCanMoveOut(self, event):
     return not(self.dict_isMoveOutSco[0]%2)and(self.dict_isMoveOutSco[0]>1)
 
 def StencilReNext(self, context, *naArgs):
-    bpy.ops.wm.redraw_timer(type='DRAW_WIN', iterations=0) #Заставляет курсор меняться на мгновенье.
+    #Алерт! 'DRAW_WIN' вызывает краш для некоторых редких деревьях со свёрнутыми нодами!
+    bpy.ops.wm.redraw_timer(type='DRAW', iterations=0) #Заставляет курсор меняться на мгновенье (по крайней мере на винде).
     #Заметка: осторожно с вызозом StencilReNext() в NextAssignment(), чтобы не уйти в вечный цикл!
     self.NextAssignment(context, *naArgs) #Заметка: не забывать разворачивать нарезку.
 
