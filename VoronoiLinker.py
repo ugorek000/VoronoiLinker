@@ -3393,7 +3393,7 @@ class VoronoiWarperTool(VoronoiToolSkNd):
         callPos = context.space_data.cursor_location
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
-            if StencilUnCollapseNode(nd, isBoth):
+            if StencilUnCollapseNode(nd):
                 StencilReNext(self, context, True)
             list_fgSksOut = GetNearestSockets(nd, callPos)[1]
             #Вариант для первого попавшегося сокета бер зарбору:
