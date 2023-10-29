@@ -22,7 +22,7 @@ import bpy, blf, gpu, gpu_extras.batch
 import math, mathutils
 
 import platform
-isWinda = platform.system()=='Windows'
+#isWin = platform.system()=='Windows'
 isLinux = platform.system()=='Linux'
 
 isBlender4 = bpy.app.version[0]==4 #Для поддержки работы в предыдущих версиях. Нужно для комфортного осознания отсутствия напрягов при вынужденных переходах на старые версии,
@@ -656,10 +656,9 @@ def NewSkfFromSk(tree, side, sk):
         skf.default_value = sk.default_value
         #todo1 нужно придумать как внедриться до создания, чтобы у всех групп появился сокет со значением сразу же от sfk default.
         FixDefaultSkf(tree, skf.identifier, sk.default_value)
-        #Если сокет от другой группы нодов, то полная копия
         if hasattr(skf,'min_value'):
             nd = sk.node
-            if (nd.type=='GROUP')and(nd.node_tree):
+            if (nd.type=='GROUP')and(nd.node_tree): #Если сокет от другой группы нодов, то полная копия.
                 ng = nd.node_tree
                 skfiNg = ViaVerGetSkfi(ng, sk.is_output)
                 for skfNg in skfiNg:
@@ -3374,7 +3373,6 @@ SmartAddToRegAndAddToKmiDefs(VoronoiLinksTransferTool, "T_sCa")
 SmartAddToRegAndAddToKmiDefs(VoronoiLinksTransferTool, "T_SCa", {'isByOrder':True})
 dict_setKmiCats['s'].add(VoronoiLinksTransferTool.bl_idname)
 
-#Шаблон для быстрого и удобного добавления нового инструмента:
 def CallbackDrawVoronoiWarper(self, context):
     if StencilStartDrawCallback(self, context):
         return
@@ -4156,11 +4154,11 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             kmUNe = GetUserKmNe()
             ##
             kmiCats = KmiCats() #todo2 нужно ли переводить названия категорий-групп ниже?
-            kmiCats.g =  KmiCat('vaKmiMainstreamBoxDiscl', "The Great Trio",   set(), 0, dict_setKmiCats['g']  )
-            kmiCats.o =   KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
-            kmiCats.s =   KmiCat('vaKmiSpecialBoxDiscl',    "Specials",         set(), 0, dict_setKmiCats['s']   )
+            kmiCats.g = KmiCat('vaKmiMainstreamBoxDiscl', "The Great Trio",   set(), 0, dict_setKmiCats['g']  )
+            kmiCats.o = KmiCat('vaKmiOtjersBoxDiscl',     "Others",           set(), 0, dict_setKmiCats['o']   )
+            kmiCats.s = KmiCat('vaKmiSpecialBoxDiscl',    "Specials",         set(), 0, dict_setKmiCats['s']   )
             kmiCats.q = KmiCat('vaKmiQqmBoxDiscl',        "Quick quick math", set(), 0, dict_setKmiCats['q'] )
-            kmiCats.c =   KmiCat('vaKmiCustomBoxDiscl',     "Custom",           set(), 0)
+            kmiCats.c = KmiCat('vaKmiCustomBoxDiscl',     "Custom",           set(), 0)
             #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
             #Теперь сделал так. Как работал предыдущий метод -- для меня загадка.
             scoAll = 0
