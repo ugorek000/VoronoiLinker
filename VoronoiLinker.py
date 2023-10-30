@@ -9,7 +9,7 @@
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,6,0), 'blender':(4,1,0), #2023.10.29
+           'version':(3,6,0), 'blender':(4,1,0), #2023.10.30
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", #Надеюсь не настанет тот момент, когда у VL будет предупреждение. Неработоспособность в Linux'е была очень близко к этому.
            'category':"Node",
@@ -522,7 +522,7 @@ def ProcCanMoveOut(self, event):
     return not(self.dict_isMoveOutSco[0]%2)and(self.dict_isMoveOutSco[0]>1)
 
 def StencilReNext(self, context, *naArgs):
-    #Алерт! 'DRAW_WIN' вызывает краш для некоторых редких деревьях со свёрнутыми нодами!
+    #Алерт! 'DRAW_WIN' вызывает краш для некоторых редких деревьев со свёрнутыми нодами! #todo3 забагрепортить бы это.
     bpy.ops.wm.redraw_timer(type='DRAW', iterations=0) #Заставляет курсор меняться на мгновенье (по крайней мере на винде).
     #Заметка: осторожно с вызозом StencilReNext() в NextAssignment(), чтобы не уйти в вечный цикл!
     self.NextAssignment(context, *naArgs) #Заметка: не забывать разворачивать нарезку.
@@ -3544,7 +3544,7 @@ class LazyNode:
         self.lzOutSk = oSk
         self.lzInSk = iSk
 class LazyStencil:
-    def __init__(self, key, prior=0):
+    def __init__(self, key, prior=0.0):
         self.lzkey = key
         self.prior = prior #Чем выше, тем важнее.
         self.list_nodes = []
@@ -3600,7 +3600,10 @@ def LazyStencil(tree, skOut, skIn):
             if LzTypeDoubleCheck(zk, skOut, skIn):
                 if LzNameDoubleCheck(zk, skOut, skIn):
                     result = DoLazyStencil(tree, skOut, skIn, li)
-                    exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
+                    try:
+                        exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
+                    except:
+                        pass
                     return result
 def HhLazyStencil(context, tree, skOut, skIn):
     cusorPos = context.space_data.cursor_location
@@ -3743,14 +3746,15 @@ def GetVlKeyconfigAsPy(): #Взято из `bl_keymap_utils.io`. Понятия 
         result += "),\n" f"{Ind(1)}"
     result += "]"+"\n"
     result += "\n"
-    result += "import bl_keymap_utils"+"\n"
-    result += "import bl_keymap_utils.versioning"+"\n" #Чёрная магия; кажется, такая же как и с "gpu_extras".
-    result += "\n"
-    result += "kc = bpy.context.window_manager.keyconfigs.active"+"\n"
+    result += "if False:"+"\n"
+    result += "    import bl_keymap_utils"+"\n"
+    result += "    import bl_keymap_utils.versioning"+"\n" #Чёрная магия; кажется, такая же как и с "gpu_extras".
+    result += "    #\n"
+    result += "    kc = bpy.context.window_manager.keyconfigs.active"+"\n"
     from bpy.app import version_file
-    result += f"kd = bl_keymap_utils.versioning.keyconfig_update(list_keyconfigData, {version_file!r})"+"\n"
+    result += f"    kd = bl_keymap_utils.versioning.keyconfig_update(list_keyconfigData, {version_file!r})"+"\n"
     del version_file
-    result += "bl_keymap_utils.io.keyconfig_init_from_data(kc, kd)"
+    result += "    bl_keymap_utils.io.keyconfig_init_from_data(kc, kd)"
     return result
 
 def GetVaSettAsPy(isAllPrefs=True):
@@ -3761,7 +3765,7 @@ def GetVaSettAsPy(isAllPrefs=True):
     txt_vasp += "\n"
     txt_vasp += "import bpy\n"
     set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'vaShowAddonOptions', 'vaShowAllToolsOptions',
-                             'vaKmiMainstreamBoxDiscl', 'vaKmiOtjersBoxDiscl', 'vaKmiSpecialBoxDiscl', 'vaKmiQqmBoxDiscl', 'vaKmiCustomBoxDiscl'}
+            'vaKmiMainstreamBoxDiscl', 'vaKmiOtjersBoxDiscl', 'vaKmiSpecialBoxDiscl', 'vaKmiQqmBoxDiscl', 'vaKmiCustomBoxDiscl'}
     #Сконструировать изменённые настройки аддона:
     txt_vasp += "\n"
     txt_vasp += "#Addon prefs:\n"
