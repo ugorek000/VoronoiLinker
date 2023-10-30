@@ -2009,6 +2009,9 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                 case 'GeometryNodeTree': can = True
                 case 'CompositorNodeTree'|'TextureNodeTree': can = self.justCallPie in {1,4}
             if not can:
+                def PopupMessage(self, context): #todo3 сделать общую функцию.
+                    self.layout.label(text="There is nothing")#, icon='INFO')
+                bpy.context.window_manager.popup_menu(PopupMessage, title="")
                 return {'CANCELLED'}
             qmData.sk0 = None #Обнулять для полноты картины и для GetSkCol().
             qmData.sk1 = None
@@ -3385,7 +3388,7 @@ def CallbackDrawVoronoiWarper(self, context):
 class VoronoiWarperTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_warper'
     bl_label = "Voronoi Warper"
-    isZoomTo: bpy.props.BoolProperty(name="Zoom to", default=False) #Изначально инструмент был создан ради этого. Возможно стоит переназвать эту опцию как-то по-другому.
+    isZoomedTo: bpy.props.BoolProperty(name="Zoom to", default=True)
     #isColorNodes: bpy.props.BoolProperty(name="Color nodes", default=False) #Тогда нужно будет париться с отчисткой, и цветом краски для разных тем. Лень, и наверное такое без нужды.
     def NextAssignment(self, context, *naArgs):
         if not context.space_data.edit_tree:
@@ -3428,14 +3431,14 @@ class VoronoiWarperTool(VoronoiToolSkNd):
                     if event.alt: #Здесь; для новой возможности иметь клавишу в свойствах инструмента.
                         sk.node.select = True
                     sk.id_data.nodes.active = sk.node
-                    if self.isZoomTo:
+                    if self.isZoomedTo:
                         bpy.ops.node.view_selected('INVOKE_DEFAULT')
                 else:
                     sk.node.select = True
-                    if self.isZoomTo:
+                    if self.isZoomedTo:
                         bpy.ops.node.view_selected('INVOKE_DEFAULT')
                     sk.node.select = False #Огонь хак.
-                    #Изначально я ещё хотел максимально зумиться на сокет, но наверное это будет слишком неудобно; так что не стал.
+                    #Изначально я ещё хотел максимально зумиться на сокет, но наверное это будет слишком странно; так что не стал.
                 return {'FINISHED'}
             return {'CANCELLED'}
         return {'RUNNING_MODAL'}
@@ -3447,7 +3450,7 @@ class VoronoiWarperTool(VoronoiToolSkNd):
         return {'RUNNING_MODAL'}
 
 SmartAddToRegAndAddToKmiDefs(VoronoiWarperTool, "W_scA")
-SmartAddToRegAndAddToKmiDefs(VoronoiWarperTool, "W_ScA", {'isZoomTo':True})
+SmartAddToRegAndAddToKmiDefs(VoronoiWarperTool, "W_ScA", {'isZoomedTo':False})
 dict_setKmiCats['s'].add(VoronoiWarperTool.bl_idname)
 
 def CallbackDrawVoronoiLazyNodeStencils(self, context):
@@ -3600,10 +3603,11 @@ def LazyStencil(tree, skOut, skIn):
             if LzTypeDoubleCheck(zk, skOut, skIn):
                 if LzNameDoubleCheck(zk, skOut, skIn):
                     result = DoLazyStencil(tree, skOut, skIn, li)
-                    try:
-                        exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
-                    except:
-                        pass
+                    if li.txt_exec:
+                        try:
+                            exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
+                        except:
+                            pass
                     return result
 def HhLazyStencil(context, tree, skOut, skIn):
     cusorPos = context.space_data.cursor_location
@@ -3746,7 +3750,7 @@ def GetVlKeyconfigAsPy(): #Взято из `bl_keymap_utils.io`. Понятия 
         result += "),\n" f"{Ind(1)}"
     result += "]"+"\n"
     result += "\n"
-    result += "if False:"+"\n"
+    result += "if True:"+"\n"
     result += "    import bl_keymap_utils"+"\n"
     result += "    import bl_keymap_utils.versioning"+"\n" #Чёрная магия; кажется, такая же как и с "gpu_extras".
     result += "    #\n"
@@ -4398,7 +4402,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiRepeatingTool,'isFromOut'):              "Из выхода",
             Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "Переносить по порядку",
             Ganfc(VoronoiInterfaceCopierTool,'isPaste'):          "Вставить",
-            Ganfc(VoronoiWarperTool,'isZoomTo'):                  "Центрировать",
+            Ganfc(VoronoiWarperTool,'isZoomedTo'):                  "Центрировать",
             }
     dict_translations['zh_CN'] = { #VL 3.5.6
             bl_info['description']: "基于距离场的多种节点连接辅助工具。",
@@ -4508,7 +4512,7 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiRepeatingTool,'isFromOut'):              "从输出开始",
             Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "按顺序传输",
             Ganfc(VoronoiInterfaceCopierTool,'isPaste'):          "粘贴",
-#            Ganfc(VoronoiWarperTool,'isZoomTo'):                  "",
+#            Ganfc(VoronoiWarperTool,'isZoomedTo'):                  "",
             }
     dict_translations['zh_HANS'] = dict_translations['zh_CN']
     return
