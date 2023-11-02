@@ -9,7 +9,7 @@
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek",
-           'version':(3,6,0), 'blender':(4,1,0), #2023.10.30
+           'version':(3,6,1), 'blender':(4,1,0), #2023.11.02
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", #Надеюсь не настанет тот момент, когда у VL будет предупреждение. Неработоспособность в Linux'е была очень близко к этому.
            'category':"Node",
@@ -649,7 +649,8 @@ def NewSkfFromSk(tree, side, sk):
         for ng in bpy.data.node_groups:
             FixTree(ng)
         for mt in bpy.data.materials:
-            FixTree(mt.node_tree)
+            if mt.node_tree: #На основе багрепорта; я так и не понял, каким образом оно может быть None.
+                FixTree(mt.node_tree)
         #Остальные (например свет или композитинг) обделены. Ибо костыль.
     skf = ViaVerNewSkf(tree, side, sk, GetSkLabelName(sk))
     skf.hide_value = sk.hide_value
@@ -1305,7 +1306,7 @@ class VoronoiPreviewAnchorTool(VoronoiTool):
         rrAnch.select = True
         if tgl:
             #Почему бы и нет. Зато красивый.
-            rrAnch.inputs[0].type = 'MATERIAL' #Для аддонских деревьях, потому что в них "напролом" ниже не работает.
+            rrAnch.inputs[0].type = 'MATERIAL' #Для аддонских деревьев, потому что в них "напролом" ниже не работает.
             rrAnch.outputs[0].type = rrAnch.inputs[0].type #Чтобы цвет выхода у линка был таким же.
             #Выше установка напрямую 'CUSTOM' не работает, поэтому идём напролом (спасибо обновлению Blender 3.5):
             nd = tree.nodes.new('NodeGroupInput')
@@ -2010,7 +2011,7 @@ class VoronoiQuickMathTool(VoronoiToolDblSk):
                 case 'CompositorNodeTree'|'TextureNodeTree': can = self.justCallPie in {1,4}
             if not can:
                 def PopupMessage(self, context): #todo3 сделать общую функцию.
-                    self.layout.label(text="There is nothing")#, icon='INFO')
+                    self.layout.label(text="There is nothing")#, icon='INFO') #"Ничего нет".
                 bpy.context.window_manager.popup_menu(PopupMessage, title="")
                 return {'CANCELLED'}
             qmData.sk0 = None #Обнулять для полноты картины и для GetSkCol().
@@ -3457,50 +3458,53 @@ def CallbackDrawVoronoiLazyNodeStencils(self, context):
     if StencilStartDrawCallback(self, context):
         return
     cusorPos = context.space_data.cursor_location
-    if not self.foundGoalSkOut:
+    if not self.foundGoalSkFirst:
         DrawDoubleNone(self, context)
-    elif (self.foundGoalSkOut)and(not self.foundGoalSkIn):
-        DrawToolOftenStencil( self, cusorPos, [self.foundGoalSkOut], isLineToCursor=True )
+    elif (self.foundGoalSkFirst)and(not self.foundGoalSkSecond):
+        DrawToolOftenStencil(self, cusorPos, [self.foundGoalSkFirst], isLineToCursor=True, textSideFlip=True)
         if self.prefs.dsIsDrawPoint:
             DrawWidePoint(self, cusorPos)
     else:
-        DrawToolOftenStencil(self, cusorPos, [self.foundGoalSkOut], isLineToCursor=True)
-        DrawToolOftenStencil(self, cusorPos, [self.foundGoalSkIn],  isLineToCursor=True)
+        DrawToolOftenStencil(self, cusorPos, [self.foundGoalSkFirst], isLineToCursor=True, isDrawText=False)
+        DrawToolOftenStencil(self, cusorPos, [self.foundGoalSkSecond], isLineToCursor=True, isDrawText=False)
+        if self.foundGoalSkFirst.tg.is_output^self.foundGoalSkSecond.tg.is_output:
+            DrawMixerSkText(self, cusorPos, self.foundGoalSkFirst, -0.5, 0) #todo3 не очевидное соответствие стороне текста гендеру сокета.
+            DrawMixerSkText(self, cusorPos, self.foundGoalSkSecond, -0.5, 0)
+        else:
+            DrawMixerSkText(self, cusorPos, self.foundGoalSkFirst, 0.25, -1)
+            DrawMixerSkText(self, cusorPos, self.foundGoalSkSecond, -1.25, -1)
 #Первый инструмент, что был создан по запросам извне, а не по моим личным хотелкам.
 class VoronoiLazyNodeStencilsTool(VoronoiToolDblSk):
     bl_idname = 'node.voronoi_lazy_node_stencils'
     bl_label = "Voronoi Lazy Node Stencils" #Три буквы на инструмент, дожили.
-    def NextAssignment(self, context, isBoth): #Пока что полная копия от VLT.
+    def NextAssignment(self, context, isBoth):
+        def FindAnySk():
+            fgSkOut, fgSkIn = None, None
+            for li in list_fgSksOut:
+                fgSkOut = li
+                break
+            for li in list_fgSksIn:
+                fgSkIn = li
+                break
+            return MinFromFgs(fgSkOut, fgSkIn)
         if not context.space_data.edit_tree:
             return
-        self.foundGoalSkIn = None
+        self.foundGoalSkSecond = None
         callPos = context.space_data.cursor_location
+        #Из-за своего предназначения, этот инструмент гарантированно получает первый попавшийся сокет.
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos):
             nd = li.tg
             list_fgSksIn, list_fgSksOut = GetNearestSockets(nd, callPos)
             if isBoth:
-                self.foundGoalSkOut = list_fgSksOut[0] if list_fgSksOut else []
-            skOut = self.foundGoalSkOut.tg if self.foundGoalSkOut else None
-            if skOut:
+                self.foundGoalSkFirst = FindAnySk()
+            skFirst = self.foundGoalSkFirst.tg if self.foundGoalSkFirst else None
+            if skFirst:
                 if StencilUnCollapseNode(nd, isBoth):
                     StencilReNext(self, context, True)
-                for li in list_fgSksIn:
-                    skIn = li.tg
-                    tgl = SkBetweenFieldsCheck(self, skIn, skOut)or( (skOut.node.type=='REROUTE')or(skIn.node.type=='REROUTE') )and(self.prefs.vlReroutesCanInAnyType)
-                    tgl = (tgl)or( (skIn.bl_idname=='NodeSocketVirtual')^(skOut.bl_idname=='NodeSocketVirtual') )#or(skIn.bl_idname=='NodeSocketVirtual')or(skOut.bl_idname=='NodeSocketVirtual')
-                    tgl = (tgl)or(skIn.node.type=='REROUTE')and(skIn.bl_idname=='NodeSocketVirtual')
-                    tgl = (tgl)or(skIn.bl_idname==skOut.bl_idname)and( not( (skIn.bl_idname=='NodeSocketVirtual')and(skOut.bl_idname=='NodeSocketVirtual') ) )
-                    if tgl:
-                        self.foundGoalSkIn = li
-                        break
-                if self.foundGoalSkIn:
-                    if self.foundGoalSkOut.tg.node==self.foundGoalSkIn.tg.node:
-                        self.foundGoalSkIn = None
-                    elif self.foundGoalSkOut.tg.links:
-                        for lk in self.foundGoalSkOut.tg.links:
-                            if lk.to_socket==self.foundGoalSkIn.tg:
-                                self.foundGoalSkIn = None
-                                break
+                self.foundGoalSkSecond = FindAnySk()
+                if self.foundGoalSkSecond:
+                    if skFirst==self.foundGoalSkSecond.tg:
+                        self.foundGoalSkSecond = None
                     if StencilUnCollapseNode(nd):
                         StencilReNext(self, context, False)
             break
@@ -3508,22 +3512,24 @@ class VoronoiLazyNodeStencilsTool(VoronoiToolDblSk):
         if StencilMouseNextAndReout(self, context, event, False, True):
             if result:=StencilModalEsc(self, context, event):
                 return result
-            if not(self.foundGoalSkOut):
+            if not(self.foundGoalSkFirst):
                 return {'CANCELLED'}
             tree = context.space_data.edit_tree
-            HhLazyStencil(context, tree, self.foundGoalSkOut.tg, self.foundGoalSkIn.tg if self.foundGoalSkIn else None)
+            skFirst = self.foundGoalSkFirst.tg if self.foundGoalSkFirst else None
+            skSecond = self.foundGoalSkSecond.tg if self.foundGoalSkSecond else None
+            HhLazyStencil(context, tree, skFirst, skSecond)
             return {'FINISHED'}
         return {'RUNNING_MODAL'}
     def invoke(self, context, event):
         if result:=StencilBeginToolInvoke(self, context, event):
             return result
-        self.foundGoalSkOut = None
-        self.foundGoalSkIn = None
+        self.foundGoalSkFirst = None
+        self.foundGoalSkSecond = None
         self.isDrawDoubleNone = True
         StencilToolWorkPrepare(self, context, CallbackDrawVoronoiLazyNodeStencils, True)
         return {'RUNNING_MODAL'}
 
-SmartAddToRegAndAddToKmiDefs(VoronoiLazyNodeStencilsTool, "L_sca")
+SmartAddToRegAndAddToKmiDefs(VoronoiLazyNodeStencilsTool, "Q_scA") #L_sca
 dict_setKmiCats['s'].add(VoronoiLazyNodeStencilsTool.bl_idname)
 
 #Внезапно оказалось, что моя когда-то идея для инструмента "Ленивое Продолжение" инкапсулировалось в этом инструменте. Вот так неожиданность.
@@ -3531,87 +3537,116 @@ dict_setKmiCats['s'].add(VoronoiLazyNodeStencilsTool.bl_idname)
 
 lzAny = '!any'
 class LazyKey:
-    def __init__(self, inb, ist, isn, onb, ost, osn):
-        self.inNdBlid = inb
-        self.inSkBlid = CollapseBlid(ist)
-        self.inSkName = isn
-        self.outNdBlid = onb
-        self.outSkBlid = CollapseBlid(ost)
-        self.outSkName = osn
+    def __init__(self, fnb, fst, fsn, fsg, snb=lzAny, sst=lzAny, ssn=lzAny, ssg=lzAny):
+        self.firstNdBlid = fnb
+        self.firstSkBlid = CollapseBlid(fst)
+        self.firstSkName = fsn
+        self.firstSkGend = fsg
+        self.secondNdBlid = snb
+        self.secondSkBlid = CollapseBlid(sst)
+        self.secondSkName = ssn
+        self.secondSkGend = ssg
 class LazyNode:
-    def __init__(self, blid, list_props=[], iSk=-1, oSk=-1):
+    #Чёрная магия. Если в __init__(list_props=[]), то указание в одном nd.list_props += [..] меняет вообще у всех в lzSt. Нереально чёрная магия; ночные кошмары обеспечены.
+    def __init__(self, blid, list_props, ofs=(0,0), hhoSk=0, hhiSk=0):
         self.blid = blid
+        #list_props Содержит в себе обработку и сокетов тоже.
+        #Указание на сокеты (в list_props и lzHh_Sk) -- +1 от индекса, а знак указывает сторону; => 0 не используется.
         self.list_props = list_props
-        self.list_skouts = [] #Пока не используется.
-        self.list_skins = []
-        self.lzOutSk = oSk
-        self.lzInSk = iSk
+        self.lzHhOutSk = hhoSk
+        self.lzHhInSk = hhiSk
+        self.locloc = ofs #"Local location"; и offset от центра мира.
 class LazyStencil:
-    def __init__(self, key, prior=0.0):
+    def __init__(self, key, csn=2, name="", prior=0.0):
         self.lzkey = key
         self.prior = prior #Чем выше, тем важнее.
+        self.name = name
+        self.trees = {} #Это так же похоже на часть ключа.
+        self.isTwoSkNeeded = csn==2
         self.list_nodes = []
-        #P.s. я не знаю, как определить lzInSk и lzOutSk за константу, когда могут быть несколько нодов с одинаковым blid.
-        self.list_links = []
+        self.list_links = [] #Порядковый нод / сокет, и такое же на вход.
         self.isSameLink = False
         self.txt_exec = ""
 
 list_lazyNodeStencilsDataPool = []
 
-lns = LazyStencil( LazyKey(lzAny,'RGB','Color',lzAny,'VECTOR','Normal') )
-nd = LazyNode('ShaderNodeNormalMap', iSk=1, oSk=0)
-lns.list_nodes.append(nd)
-lns.txt_exec = "skOut.node.image.colorspace_settings.name = 'Non-Color'"
-list_lazyNodeStencilsDataPool.append(lns)
+import copy
+#Database:
+lzSt = LazyStencil(LazyKey(lzAny,'RGB','Color',True,lzAny,'VECTOR','Normal',False), 2, "Fast Color NormapMap")
+lzSt.trees = {'ShaderNodeTree'}
+lzSt.list_nodes.append( LazyNode('ShaderNodeNormalMap', [], hhiSk=-2, hhoSk=1) )
+lzSt.txt_exec = "skFirst.node.image.colorspace_settings.name = 'Non-Color'"
+list_lazyNodeStencilsDataPool.append(lzSt)
 ##
-lns = LazyStencil( LazyKey(lzAny,'RGB','Color',lzAny,'VALUE',lzAny) )
-lns.isSameLink = True
-lns.txt_exec = "skOut.node.image.colorspace_settings.name = 'Non-Color'"
-list_lazyNodeStencilsDataPool.append(lns)
+lzSt = LazyStencil(LazyKey(lzAny,'RGB','Color',True,lzAny,'VALUE',lzAny,False), 2, "Lazy Non-Color data to float socket")
+lzSt.trees = {'ShaderNodeTree'}
+lzSt.isSameLink = True
+lzSt.txt_exec = "skFirst.node.image.colorspace_settings.name = 'Non-Color'"
+list_lazyNodeStencilsDataPool.append(lzSt)
+##
+lzSt = LazyStencil(LazyKey(lzAny,'RGB','Color',False), 1, "NW TexCord Parody")
+lzSt.trees = {'ShaderNodeTree'}
+lzSt.list_nodes.append( LazyNode('ShaderNodeTexImage', [(2,'hide',True)], hhoSk=-1) )
+lzSt.list_nodes.append( LazyNode('ShaderNodeMapping', [(-1,'hide_value',True)], ofs=(-180,0)) )
+lzSt.list_nodes.append( LazyNode('ShaderNodeUVMap', [('width',140)], ofs=(-360,0)) )
+lzSt.list_links += [ (1,0,0,0),(2,0,1,0) ]
+list_lazyNodeStencilsDataPool.append(lzSt)
+lzSt = copy.deepcopy(lzSt)
+lzSt.lzkey.firstSkName = "Base Color"
+list_lazyNodeStencilsDataPool.append(lzSt)
+##
 
 list_lazyNodeStencilsDataPool.sort(key=lambda a: a.prior, reverse=True)
 
-def DoLazyStencil(tree, skOut, skIn, lzSten):
+#Для одного нода ещё и сгодилось бы, но учитывая большое разнообразие и гибкость, наверное лучше без NewLinkAndRemember(), а в сыром виде.
+def DoLazyStencil(tree, skFirst, skSecond, lzSten):
     list_result = []
     firstCenter = None
     for li in lzSten.list_nodes:
         nd = tree.nodes.new(li.blid)
+        nd.location += mathutils.Vector(li.locloc)
         list_result.append(nd)
         for pr in li.list_props:
-            setattr(nd, pr[0], pr[1])
-        if li.lzOutSk>-1:
-            NewLinkAndRemember(nd.outputs[li.lzOutSk], skIn)
-        if li.lzInSk>-1:
-            NewLinkAndRemember(skOut, nd.inputs[li.lzInSk])
+            if length(pr)==2:
+                setattr(nd, pr[0], pr[1])
+            else:
+                setattr( (nd.outputs if pr[0]>0 else nd.inputs)[abs(pr[0])-1], pr[1], pr[2] )
+        if li.lzHhOutSk:
+            tree.links.new(nd.outputs[abs(li.lzHhOutSk)-1], skFirst if li.lzHhOutSk<0 else skSecond)
+        if li.lzHhInSk:
+            tree.links.new(skFirst if li.lzHhInSk<0 else skSecond, nd.inputs[abs(li.lzHhInSk)-1])
+    for li in lzSten.list_links:
+        tree.links.new(list_result[li[0]].outputs[li[1]], list_result[li[2]].inputs[li[3]])
     if lzSten.isSameLink:
-        NewLinkAndRemember(skOut, skIn)
+        tree.links.new(skFirst, skSecond)
     return list_result
 def LzCompare(a, b):
     return (a==b)or(a==lzAny)
-def LzNodeDoubleCheck(zk, a, b):
-    return LzCompare(zk.inNdBlid, a.bl_idname if a else "") and LzCompare(zk.outNdBlid, b.bl_idname if b else "")
-def LzTypeDoubleCheck(zk, a, b):
-    return LzCompare(zk.inSkBlid, CollapseSkBlid(a) if a else "") and LzCompare(zk.outSkBlid, CollapseSkBlid(b) if b else "") #Не 'type', а blid'ы; для аддонских деревьях.
-def LzNameDoubleCheck(zk, a, b):
-    return LzCompare(zk.inSkName, GetSkLabelName(a) if a else "") and LzCompare(zk.outSkName, GetSkLabelName(b) if b else "")
-def LazyStencil(tree, skOut, skIn):
-    ndOut = skOut.node
-    ndIn = skIn.node if skIn else None
+def LzNodeDoubleCheck(zk, a, b): return LzCompare(zk.firstNdBlid,       a.bl_idname if a else "") and LzCompare(zk.secondNdBlid,       b.bl_idname if b else "")
+def LzTypeDoubleCheck(zk, a, b): return LzCompare(zk.firstSkBlid, CollapseSkBlid(a) if a else "") and LzCompare(zk.secondSkBlid, CollapseSkBlid(b) if b else "") #Не 'type', а blid'ы; для аддонских деревьев.
+def LzNameDoubleCheck(zk, a, b): return LzCompare(zk.firstSkName, GetSkLabelName(a) if a else "") and LzCompare(zk.secondSkName, GetSkLabelName(b) if b else "")
+def LzGendDoubleCheck(zk, a, b): return LzCompare(zk.firstSkGend,       a.is_output if a else "") and LzCompare(zk.secondSkGend,       b.is_output if b else "")
+def LazyStencil(tree, skFirst, skSecond):
+    if not skFirst:
+        return []
+    ndOut = skFirst.node
+    ndIn = skSecond.node if skSecond else None
     for li in list_lazyNodeStencilsDataPool:
-        zk = li.lzkey
-        if LzNodeDoubleCheck(zk, ndOut, ndIn):
-            if LzTypeDoubleCheck(zk, skOut, skIn):
-                if LzNameDoubleCheck(zk, skOut, skIn):
-                    result = DoLazyStencil(tree, skOut, skIn, li)
-                    if li.txt_exec:
-                        try:
-                            exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
-                        except:
-                            pass
-                    return result
-def HhLazyStencil(context, tree, skOut, skIn):
+        if (li.isTwoSkNeeded)^(not skSecond): #Должен не иметь второго для одного, или иметь для двух.
+            if (not li.trees)or(tree.bl_idname in li.trees): #Должен поддерживать тип дерева.
+                zk = li.lzkey
+                if LzNodeDoubleCheck(zk, ndOut, ndIn): #Совпадение нод.
+                    if LzTypeDoubleCheck(zk, skFirst, skSecond): #Совпадение Blid'ов сокетов.
+                        if LzNameDoubleCheck(zk, skFirst, skSecond): #Имён/меток сокетов.
+                            if LzGendDoubleCheck(zk, skFirst, skSecond): #Гендеров.
+                                result = DoLazyStencil(tree, skFirst, skSecond, li)
+                                if li.txt_exec:
+                                    try: exec(li.txt_exec) #Тревога!1, А нет.. без паники, это внутренее. Всё ещё всё в безопасности.
+                                    except: pass
+                                return result
+def HhLazyStencil(context, tree, skFirst, skSecond):
     cusorPos = context.space_data.cursor_location
-    list_nodes = LazyStencil(tree, skOut, skIn)
+    list_nodes = LazyStencil(tree, skFirst, skSecond)
     if list_nodes:
         bpy.ops.node.select_all(action='DESELECT')
         firstOffset = cusorPos-list_nodes[0].location
@@ -3821,7 +3856,7 @@ set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'vaShowAddonO
                                       'vaKmiMainstreamBoxDiscl', 'vaKmiOtjersBoxDiscl', 'vaKmiSpecialBoxDiscl', 'vaKmiQqmBoxDiscl', 'vaKmiCustomBoxDiscl'}
 class VoronoiAddonTabs(bpy.types.Operator):
     bl_idname = 'node.voronoi_addon_tabs'
-    bl_label = "Addon Tabs"
+    bl_label = "VL Addon Tabs"
     opt: bpy.props.StringProperty()
     def invoke(self, context, event):
         match self.opt:
@@ -3849,7 +3884,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                                                                                           ('DRAW',    "Draw",    ""),
                                                                                           ('KEYMAP',  "Keymap",  "") ))
     vaShowAddonOptions: bpy.props.BoolProperty(name="VL Addon:", default=False)
-    vaShowAllToolsOptions: bpy.props.BoolProperty(name="All"+voronoiTextToolSettings, default=True)
+    vaShowAllToolsOptions: bpy.props.BoolProperty(name="All"+voronoiTextToolSettings, default=True) #todo2 наверное нужно переименовать.
     vaInfoRestore: bpy.props.BoolProperty(name="", description="This list is just a copy from the \"Preferences > Keymap\".\nResrore will restore everything \"Node Editor\", not just addon")
     #Box disclosures:
     vlBoxDiscl: bpy.props.BoolProperty(name="", default=True)
@@ -4194,7 +4229,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
                 rowRestore = rowLabelMain.row(align=True)
                 rowInfo = rowRestore.row()
                 rowInfo.prop(self,'vaInfoRestore', icon='INFO', emboss=False)
-                rowInfo.active = False #True, но от постоянного горения рискует мозг прожечь.
+                rowInfo.active = False #True, но от постоянного горения рискует мозги прожечь.
                 rowRestore.context_pointer_set('keymap', kmUNe)
                 rowRestore.operator('preferences.keymap_restore', text=TranslateIface("Restore"))
             else:
@@ -4226,8 +4261,7 @@ class VoronoiAddonPrefs(bpy.types.AddonPreferences):
             colMaster.label(text=str(ex), icon='ERROR')
     def draw(self, context):
         colMaster = self.layout.column()
-        colMain = colMaster.column(align=True)
-        rowTabs = colMain.row(align=True)
+        rowTabs = colMaster.row(align=True)
         #Переключение вкладок через оператор создано, чтобы случайно не сменить вкладку при ведении зажатой мышки, кой есть особый соблазн с таким большим количеством "isColored".
         if True:
             for li in [en for en in self.rna_type.properties['vaUiTabs'].enum_items]:
