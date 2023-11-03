@@ -17,9 +17,6 @@ Blender Addon for Node Editor which adds ~three~ nine new awesome tools:
 * Voronoi Warper
 * Voronoi Lazy Node Stencils
 
-This tools will be added only after the arrival of popularity:
-* Voronoi RANTO
-
 Disclaimer: Скрипт аддона предоставляется как есть. Воспринимайте это, как археологическую находку, ни с чем не связанную. Поэтому перед использованием обязательно ознакомьтесь с содержимым того, что будете себе устанавливать. Ибо вы используете этот файл на свой страх и риск.
 
 See wiki for details https://github.com/ugorek000/VoronoiLinker/wiki
