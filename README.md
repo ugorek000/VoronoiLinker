@@ -1,21 +1,23 @@
 https://github.com/ugorek000/VoronoiLinker/assets/120259754/19900e6a-8263-4b02-835e-18a6703b34c6
 
 # VoronoiLinker
-Blender Addon for Node Editor which adds ~three~ nine new awesome tools:
+Blender Addon for Node Editor which adds ~three~ nine (16) new awesome tools:
 * Voronoi Linker
 * Voronoi Preview
 * Voronoi Mixer
 * Voronoi Quick Math
+* Voronoi RANTO
 * Voronoi Swapper
 * Voronoi Hider
 * Voronoi MassLinker
 * Voronoi Enum Selector
-* Voronoi Repeating
+* Voronoi Link Repeating
 * Voronoi Quick Dimensions
 * Voronoi Interface Copier
 * Voronoi Links Transfer
 * Voronoi Warper
 * Voronoi Lazy Node Stencils
+* Voronoi Reset Node
 
 Disclaimer: Скрипт аддона предоставляется как есть. Воспринимайте это, как археологическую находку, ни с чем не связанную. Поэтому перед использованием обязательно ознакомьтесь с содержимым того, что будете себе устанавливать. Ибо вы используете этот файл на свой страх и риск.
 
