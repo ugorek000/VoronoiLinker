@@ -5,11 +5,11 @@
 # Используйте этот файл на свой страх и риск.
 #P.s. Использование этого файла полностью безопасно, продлевает жизнь вашего компьютера, и вообще избавляет от вирусов.
 
-#Этот аддон создавался мной как самопис лично для меня и под меня; который я, по доброте душевной, сделал публичным для всех желающих. Ибо результат получился потрясающий. Наслаждайтесь.
+#Этот аддон создавался мной как самопис лично для меня и под меня; который я по доброте душевной, сделал публичным для всех желающих. Ибо результат получился потрясающий. Наслаждайтесь.
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek", #Так же спасибо "Oxicid" за большую для VL'а помощь.
-           'version':(4,0,0), 'blender':(4,0,2), #2023.12.10
+           'version':(4,0,1), 'blender':(4,0,2), #2023.12.16
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше здесь была запись 'Node Editor > Alt + RMB' в честь того, ради чего всё, но теперь VL "повсюду"!
            'warning':"", #Надеюсь не настанет тот момент, когда у VL будет предупреждение. Неработоспособность в Linux'е была очень близко к этому.
            'category':"Node",
@@ -82,7 +82,7 @@ def DisplayMessage(title, text, icon='NONE'):
 # 1. Является ли GeoViewer активным (по заголовку) и/или активно-просматривающим прямо сейчас?
 # 2. Однозначное определение для контекста редактора, через какой именно нод на уровень выше, пользователь зашёл в текущую группу?
 # 3. Как отличить общие классовые enum от уникальных enum для данного нода?
-# наверняка есть ещё, но я забыл.
+# наверняка есть ещё что, но я забыл.
 
 
 dict_numToKey = {"1":'ONE', "2":'TWO', "3":'THREE', "4":'FOUR', "5":'FIVE', "6":'SIX', "7":'SEVEN', "8":'EIGHT', "9":'NINE', "0":'ZERO'}
@@ -153,11 +153,6 @@ def NewLinkAndRemember(sko, ski):
 
 def GetSkLabelName(sk):
     return sk.label if sk.label else sk.name
-def CompareSkLabelName(sk1, sk2, isIgnoreCase=False): #Для VMLT и VRT.
-    if isIgnoreCase:
-        return GetSkLabelName(sk1).lower()==GetSkLabelName(sk2).lower()
-    else:
-        return GetSkLabelName(sk1)==GetSkLabelName(sk2)
 
 def NdSelectAndActive(ndTar):
     for nd in ndTar.id_data.nodes:
@@ -246,7 +241,7 @@ def AddNiceColorProp(where, who, prop, align=False, txt="", ico='NONE', decor=3)
     rowProp.prop(who, prop, text="", icon=ico)
     rowProp.active = decor//2%2
 
-def AddDisclosureProp(where, who, prop, txt=None, isActive=False, isWide=False): #Заметка: не может на всю ширину, если where -- row().
+def AddDisclosureProp(where, who, prop, txt=None, isActive=False, isWide=False): #Заметка: не может на всю ширину, если where -- row.
     tgl = getattr(who, prop)
     rowMain = where.row(align=True)
     rowProp = rowMain.row(align=True)
@@ -316,7 +311,8 @@ def DrawAreaFan(self, vpos, col):
 def DrawLine(self, pos1, pos2, siz=1, col1=(1.0, 1.0, 1.0, 0.75), col2=(1.0, 1.0, 1.0, 0.75)):
     DrawWay(self, (pos1,pos2), (col1,col2), siz)
 def DrawStick(self, prefs, pos1, pos2, col1, col2):
-    DrawLine(self, VecWorldToRegScale(pos1, self), VecWorldToRegScale(pos2, self), prefs.dsLineWidth, col1, col2)
+    rd = 1.0#(VecWorldToRegScale(Vector(pos1.x+prefs.dsPointRadius*1000, pos1.y), self)[0]-VecWorldToRegScale(pos1, self)[0])/1000
+    DrawLine(self, VecWorldToRegScale(pos1, self), VecWorldToRegScale(pos2, self), prefs.dsLineWidth*rd, col1, col2) 
 def DrawRing(self, pos, rd, siz=1, col=(1.0, 1.0, 1.0, 0.75), rotation=0.0, resolution=16):
     vpos = [];  vcol = []
     for cyc in range(resolution+1):
@@ -360,7 +356,7 @@ def DrawWidePoint(self, prefs, loc, colfac=Vector(1.0, 1.0, 1.0, 1.0), resolutio
     pos = VecWorldToRegScale(loc, self)
     loc = Vector(loc.x+6*prefs.dsPointRadius*1000, loc.y) #Радиус точки вычисляется через мировое пространство. Единственный из двух, кто зависит от зума в редакторе. Второй -- коробка-подсветка сокетов.
     #Умножается и делится на 1000, чтобы радиус не прилипал к целым числам и тем самым был красивее. Конвертация в экранное пространство даёт только целочисленный результат.
-    rd = (VecWorldToRegScale(loc, self)[0]-pos[0])/1000
+    rd = (VecWorldToRegScale(loc, self)[0]-pos[0])/1000 #todo1 теперь настало очередь и это сделать более адекватным и "легальным" образом.
     #Рисование:
     col1 = Vector(0.5, 0.5, 0.5, 0.4)
     col2 = col1
@@ -559,7 +555,7 @@ def DrawToolOftenStencil(self, prefs, cusorPos, list_twoTgSks, #Одинаков
         else:
             col1 = GetUniformColVec(prefs)
             col2 = col1
-        if len>1: #Ниже могут нарисоваться две палки одновременно. Эта ситуация вручную обрабатывается в вызывающей функции на стек выше.
+        if len>1: #Ниже могут нарисоваться две палки одновременно. Эта забота для вызывающей стороны.
             DrawStick(self, prefs, list_twoTgSks[0].pos+GetVecOffsetFromSk(list_twoTgSks[0].tg), list_twoTgSks[1].pos+GetVecOffsetFromSk(list_twoTgSks[1].tg), col1, col2)
         if isLineToCursor:
             DrawStick(self, prefs, list_twoTgSks[0].pos+GetVecOffsetFromSk(list_twoTgSks[0].tg), cusorPos, col1, col2)
@@ -601,7 +597,7 @@ def ForseSetSelfNonePropToDefault(kmi, self):
     for li in self.rna_type.properties:
         if li.identifier!='rna_type':
             #Заметка: определить установленность в kmi -- наличие `kmi.properties[li.identifier]`.
-            setattr(self, li.identifier, getattr(kmi.properties, li.identifier)) #Ради этого мне пришлось реверсинженерить с отладкой. А ларчик просто открывался...
+            setattr(self, li.identifier, getattr(kmi.properties, li.identifier)) #Ради этого мне пришлось реверсинженерить Blender с отладкой. А ларчик просто открывался...
 
 class VoronoiOp(bpy.types.Operator):
     bl_options = {'UNDO'} #Вручную созданные линки undo'тся, так что и в VL ожидаемо тоже. И вообще для всех.
@@ -614,7 +610,7 @@ class VoronoiTool(VoronoiOp): #Корень для инструментов.
     #Заметка: NextAssignment имеется у всех; и теперь он одинаков по количеству параметров, чтобы проще обрабатываться шаблонами.
     def __del__(self): #Для EdgePan.
         #todo3 Опять запары, _del_ не вызывается, если отпустить за пределами региона. И хрен с ним. Потом что-нибудь придумаю. См. StopEdpePanBug()
-        edgePan.isWorking = False
+        edgePanData.isWorking = False
 class VoronoiToolSk(VoronoiTool):
     pass
 class VoronoiToolDblSk(VoronoiToolSk):
@@ -656,7 +652,7 @@ def StencilReNext(self, context, *naArgs):
     #Заметка: осторожно с вызовом StencilReNext() в NextAssignment(), чтобы не уйти в вечный цикл!
     self.NextAssignment(context, *naArgs) #Заметка: не забывать разворачивать.
 
-class EdgePan:
+class EdgePanData:
     rect = None
     #Накостылил по-быстрому:
     isWorking = False
@@ -667,35 +663,35 @@ class EdgePan:
     regionCenter = Vector(0,0)
     delta = 0.0 #Ох уж эти ваши дельты.
     izoomFac = 0.5
-edgePan = EdgePan()
+edgePanData = EdgePanData()
 import time
 def TimerEdgePan():
-    delta = time.time()-edgePan.delta
-    vec = edgePan.curPos*edgePan.uiScale
-    field0 = mathutils.Vector( edgePan.view2d.view_to_region(vec.x, vec.y, clip=False) )
+    delta = time.time()-edgePanData.delta
+    vec = edgePanData.curPos*edgePanData.uiScale
+    field0 = mathutils.Vector( edgePanData.view2d.view_to_region(vec.x, vec.y, clip=False) )
     #Ещё немного реймарчинга:
-    field1 = field0-edgePan.regionCenter
+    field1 = field0-edgePanData.regionCenter
     field2 = Vector(abs(field1.x), abs(field1.y))
-    field2 = field2-edgePan.regionCenter+Vector(5,5) #Слегка уменьшить для курсора вплотную к краю экрана.
+    field2 = field2-edgePanData.regionCenter+Vector(5,5) #Слегка уменьшить для курсора, находящегося вплотную к краю экрана.
     field2 = Vector(max(field2.x, 0), max(field2.y, 0))
     field3 = Vector(math.copysign(field2.x, field1.x), math.copysign(field2.y, field1.y))
     ##
-    xi, yi, xa, ya = edgePan.rect.GetRaw()
+    xi, yi, xa, ya = edgePanData.rect.GetRaw()
     speedZoomSize = Vector(xa-xi, ya-yi)/2.5*delta #125 без дельты.
-    edgePan.rect.TranslateScaleFac((math.copysign(speedZoomSize.x, field3.x) if field3.x else 0.0, math.copysign(speedZoomSize.y, field3.y) if field3.y else 0.0), edgePan.izoomFac)
-    edgePan.delta = time.time() #"Отправляется в неизвестность" перед следующим заходом.
-    edgePan.area.tag_redraw()
-    return 0.0 if edgePan.isWorking else None
+    edgePanData.rect.TranslateScaleFac((math.copysign(speedZoomSize.x, field3.x) if field3.x else 0.0, math.copysign(speedZoomSize.y, field3.y) if field3.y else 0.0), edgePanData.izoomFac)
+    edgePanData.delta = time.time() #"Отправляется в неизвестность" перед следующим заходом.
+    edgePanData.area.tag_redraw()
+    return 0.0 if edgePanData.isWorking else None
 def StencilInitEdgePan(context, prefs, uiScale):
-    edgePan.rect = View2D.get_rect(context.region.view2d)
-    edgePan.isWorking = True
-    edgePan.area = context.area
-    edgePan.curPos = context.space_data.cursor_location
-    edgePan.uiScale = uiScale
-    edgePan.view2d = context.region.view2d
-    edgePan.regionCenter = Vector(context.region.width/2, context.region.height/2)
-    edgePan.delta = time.time() #..А ещё есть "слегка-границы".
-    edgePan.izoomFac = 1.0-prefs.vEdgePanFac
+    edgePanData.rect = View2D.get_rect(context.region.view2d)
+    edgePanData.isWorking = True
+    edgePanData.area = context.area
+    edgePanData.curPos = context.space_data.cursor_location
+    edgePanData.uiScale = uiScale
+    edgePanData.view2d = context.region.view2d
+    edgePanData.regionCenter = Vector(context.region.width/2, context.region.height/2)
+    edgePanData.delta = time.time() #..А ещё есть "слегка-границы".
+    edgePanData.izoomFac = 1.0-prefs.vEdgePanFac
     bpy.app.timers.register(TimerEdgePan, first_interval=0.0)
 
 def StencilMouseNext(self, context, event, *naArgs):
@@ -745,7 +741,7 @@ def UselessForCustomUndefTrees(context, isForCustom=True, isForUndef=True): #'is
 
 def StencilModalEsc(self, context, event):
     def StopEdpePanBug():
-        edgePan.isWorking = False
+        edgePanData.isWorking = False
     if event.type=='ESC': #Собственно то, что и должна делать клавиша побега.
         StopEdpePanBug()
         return {'CANCELLED'}
@@ -781,10 +777,6 @@ def StencilBeginToolInvoke(self, context, event):
     ForseSetSelfNonePropToDefault(self.kmi, self) #Имеет смысл как можно раньше. Актуально для VQMT и VEST (и из-за них это переехало сюда).
     return {}
 
-#todo3 на память, потом удалить:
-#"0" -- количество хитов, 1..3 -- карта проверки, 4 -- предыдущее состояние переключателя, 5 -- метка активации без модификаторов;
-#self.dict_isMoveOutSco = {0:0, 1:self.kmi.shift_ui, 2:self.kmi.ctrl_ui, 3:self.kmi.alt_ui, 4:False, 5:not(self.kmi.shift_ui or self.kmi.ctrl_ui or self.kmi.alt_ui)}
-
 def StencilToolWorkPrepare(self, prefs, context, Func, *naArgs):
     #Здесь были self.kmi, ForseSetSelfNonePropToDefault() и self.uiScale, переехали в StencilBeginToolInvoke.
     self.whereActivated = context.space_data #CallBack'и рисуются во всех редакторах. Но в тех, у кого нет целевого сокета -- выдаёт ошибку и тем самым ничего не рисуется.
@@ -800,7 +792,7 @@ def StencilToolWorkPrepare(self, prefs, context, Func, *naArgs):
         self.NextAssignment(context, *naArgs) #А всего-то нужно было перенести перед modal_handler_add(). #projects.blender.org/blender/blender/issues/113479
     except Exception as ex:
         DisplayMessage(voronoiAddonName+" StencilToolWorkPrepare()", str(ex), icon='ERROR')
-        edgePan.isWorking = False
+        edgePanData.isWorking = False
         bpy.types.SpaceNodeEditor.draw_handler_remove(self.handle, 'WINDOW')
     context.window_manager.modal_handler_add(self)
 
@@ -1192,7 +1184,7 @@ def GetFromIoPuts(nd, side, callPos, uiScale): #Вынесено для Preview 
                                             (posSk.y-11-muv*20, posSk.y+11+max(length(sk.links)-2,0)*5*(not side)),
                                             TranslateIface(GetSkLabelName(sk)) ))
     return list_result
-def GetNearestSockets(nd, callPos, uiScale): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного. Да, да, аддон назван именно из-за этого.
+def GetNearestSockets(nd, callPos, uiScale): #Выдаёт список "ближайших сокетов". Честное поле расстояний ячейками Вороного. Всё верно, аддон назван именно из-за этого.
     list_fgSksIn = []
     list_fgSksOut = []
     if not nd: #Если искать не у кого
@@ -2054,6 +2046,7 @@ class VoronoiMixerTool(VoronoiToolDblSk):
         self.foundGoalSkOut1 = None
         callPos = context.space_data.cursor_location
         isBothSucessTgl = True #Изначально был создан в VQMT. Нужен, чтобы повторно не перевыбирать уже успешный isBoth, если далее для второго сокета была лажа и цикл по нодам продолжился..
+        vmReroutesCanInAnyType = self.prefs.vmReroutesCanInAnyType
         for li in GetNearestNodes(context.space_data.edit_tree.nodes, callPos, self.uiScale):
             nd = li.tg
             StencilUnCollapseNode(nd, isBoth)
@@ -2076,7 +2069,7 @@ class VoronoiMixerTool(VoronoiToolDblSk):
                     #Заметка: к VQMT такие возможности не относятся. Ибо он только по полям. Было бы странно цепляться ещё и к виртуальным.
                     tgl = (skOut1.bl_idname=='NodeSocketVirtual')^(skOut0.bl_idname=='NodeSocketVirtual')
                     tgl = (tgl)or( SkBetweenFieldsCheck(self, skOut0, skOut1)or( (skOut1.bl_idname==skOut0.bl_idname)and(not orV) ) )
-                    tgl = (tgl)or( (skOut0.node.type=='REROUTE')or(skOut1.node.type=='REROUTE') )and(self.prefs.vmReroutesCanInAnyType)
+                    tgl = (tgl)or( (skOut0.node.type=='REROUTE')or(skOut1.node.type=='REROUTE') )and(vmReroutesCanInAnyType)
                     if tgl:
                         self.foundGoalSkOut1 = li
                         break
@@ -3342,6 +3335,12 @@ def HideFromNode(self, prefs, ndTarget, lastResult, isCanDo=False): #Изнач�
                 sk.hide = (sk.bl_idname=='NodeSocketVirtual')and(not prefs.vhIsUnhideVirtual)
         return success
 
+def VmltCompareSkLabelName(sk1, sk2, isIgnoreCase=False):
+    if isIgnoreCase:
+        return GetSkLabelName(sk1).lower()==GetSkLabelName(sk2).lower()
+    else:
+        return GetSkLabelName(sk1)==GetSkLabelName(sk2)
+
 #"Массовый линкер" -- как линкер, только много за раз (ваш кэп).
 #См. вики на гитхабе, чтобы посмотреть 4 примера использования массового линкера. Дайте мне знать, если обнаружите ещё одно необычное применение этому инструменту.
 
@@ -3366,7 +3365,7 @@ def CallbackDrawVoronoiMassLinker(self, context):
         for liSko in list_fgSksOut:
             for liSki in list_fgSksIn:
                 #Т.к. "массовый" -- критерии приходится автоматизировать и сделать их едиными для всех.
-                if CompareSkLabelName(liSko.tg, liSki.tg, prefs.vmlIgnoreCase): #Соединяться только с одинаковыми по именам сокетами.
+                if VmltCompareSkLabelName(liSko.tg, liSki.tg, prefs.vmlIgnoreCase): #Соединяться только с одинаковыми по именам сокетами.
                     tgl = False
                     if self.isIgnoreExistingLinks: #Если соединяться без разбору, то исключить уже имеющиеся "желанные" связи. Нужно только для эстетики.
                         for lk in liSki.tg.links:
@@ -3698,6 +3697,12 @@ def VestToggleOptionsFromNode(nd, lastResult, isCanDo=False): #Паттерн л
 
 #См.: VlrtLinkRepeatingData, VlrtRememberLastSockets() и NewLinkAndRemember().
 
+def VlrtCompareSkLabelName(sk1, sk2, isIgnoreCase=False):
+    if isIgnoreCase:
+        return GetSkLabelName(sk1).lower()==GetSkLabelName(sk2).lower()
+    else:
+        return GetSkLabelName(sk1)==GetSkLabelName(sk2)
+
 def CallbackDrawVoronoiLinkRepeating(self, context):
     if not(prefs:=StencilStartDrawCallback(self, context)):
         return
@@ -3732,7 +3737,7 @@ class VoronoiLinkRepeatingTool(VoronoiToolSkNd): #Вынесено в отдел
                     if nd.inputs:
                         self.foundGoalTg = li
                     for sk in nd.inputs:
-                        if CompareSkLabelName(sk, lSkO if self.isFromOut else lSkI):
+                        if VlrtCompareSkLabelName(sk, lSkO if self.isFromOut else lSkI):
                             if (sk.enabled)and(not sk.hide):
                                 context.space_data.edit_tree.links.new(lSkO, sk) #Заметка: не высокоуровневый; зачем isAutoRepeatMode'у интерфейсы?.
             else:
@@ -3948,7 +3953,7 @@ def CallbackDrawVoronoiInterfacer(self, context):
         DrawWidePoint(self, prefs, cusorPos)
 class VoronoiInterfacerTool(VoronoiToolSkNd):
     bl_idname = 'node.voronoi_interface_copier'
-    bl_label = "Voronoi Interface Copier"
+    bl_label = "Voronoi Interfacer"
     mode: bpy.props.IntProperty(name="Mode", default=0)
     def NextAssignment(self, context, isBoth):
         def FindAnySk():
@@ -4442,6 +4447,14 @@ lzSt.trees = {'ShaderNodeTree'}
 lzSt.list_nodes.append( LazyNode('ShaderNodeEmission', [], hhiSk=-1, hhoSk=1) )
 list_vlnstDataPool.append(lzSt)
 ##
+lzSt = LazyStencil(LazyKey('ShaderNodeBackground','RGB','Color',False), 1, "World env texture", prior=1.0)
+lzSt.trees = {'ShaderNodeTree'}
+lzSt.list_nodes.append( LazyNode('ShaderNodeTexEnvironment', [], hhoSk=-1) )
+lzSt.list_nodes.append( LazyNode('ShaderNodeMapping', [(-1,'hide_value',True)], ofs=(-180,0)) )
+lzSt.list_nodes.append( LazyNode('ShaderNodeTexCoord', [('show_options',False)], ofs=(-360,0)) )
+lzSt.list_links += [ (1,0,0,0),(2,3,1,0) ]
+list_vlnstDataPool.append(lzSt)
+##
 
 list_vlnstDataPool.sort(key=lambda a:a.prior, reverse=True)
 
@@ -4853,9 +4866,9 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
     dsNodeColor:       bpy.props.FloatVectorProperty(name="To-Node draw color",        default=(1.0, 1.0, 1.0, 0.9),                min=0, max=1, size=4, subtype='COLOR')
     ##
     dsDisplayStyle: bpy.props.EnumProperty(name="Display frame style", default='CLASSIC', items=( ('CLASSIC',"Classic",""), ('SIMPLIFIED',"Simplified",""), ('ONLY_TEXT',"Only text","") ))
-    dsFontFile:    bpy.props.StringProperty(name="Font file",  default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH') #"Пользователи линукса негодуют".
-    dsLineWidth:   bpy.props.FloatProperty( name="Line Width", default=1.25, min=0.5, max=16, subtype="FACTOR")
-    dsPointRadius: bpy.props.FloatProperty( name="Point size", default=1,    min=0,   max=3)
+    dsFontFile:    bpy.props.StringProperty(name="Font file",  default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH') #"Пользователи Линукса негодуют".
+    dsLineWidth:   bpy.props.FloatProperty( name="Line Width", default=1.5, min=0.5, max=8, subtype="FACTOR")
+    dsPointRadius: bpy.props.FloatProperty( name="Point size", default=1,   min=0,   max=3)
     dsFontSize:    bpy.props.IntProperty(   name="Font size",  default=28,   min=10,  max=48)
     ##
     dsPointOffsetX:   bpy.props.FloatProperty(name="Point offset X axis",       default=20, min=-50, max=50)
@@ -5263,110 +5276,110 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiResetNodeTool,'isResetOnDrag'):          "Восстанавливать при ведении курсора",
             Ganfc(VoronoiResetNodeTool,'isSelectResetedNode'):    "Выделять восстановленный нод",
             }
-    dict_translations['zh_CN'] = { #VL 3.5.6  #https://github.com/ugorek000/VoronoiLinker/issues/18#issue-1958410684
+    dict_translations['zh_CN'] = { #VL 4.0.0  #https://github.com/ugorek000/VoronoiLinker/issues/21
             bl_info['description']: "基于距离场的多种节点连接辅助工具。",
             "Virtual": "虚拟",
             "Restore": "恢复",
             "Add New": "添加",
             txt_vmtNoMixingOptions:                    "无混合选项",
-            txt_copySettAsPyScript:                    "将插件设置复制为'.py'脚本",
-            GetAddonProp('vaInfoRestore').description: "此列表只是设置的副本。“恢复”将还原所有设置，而不仅仅是插件。",
+            txt_copySettAsPyScript:                    "将插件设置复制为'.py'脚本,复制到粘贴板里",
+            GetAddonProp('vaInfoRestore').description: "危险:“恢复”按钮将恢复整个快捷键里“节点编辑器”类中的所有设置,而不仅仅是恢复此插件!下面只显示本插件的快捷键。",
             #工具:
-            Gapn('vaGeneralBoxDiscl'):               "所有工具的设置:",
-            GclToolSet(VoronoiLinkerTool):           f"{VoronoiLinkerTool.bl_label}工具设置:",
-            GclToolSet(VoronoiPreviewTool):          f"{VoronoiPreviewTool.bl_label}工具设置:",
-            GclToolSet(VoronoiMixerTool):            f"{VoronoiMixerTool.bl_label}工具设置:",
-            GclToolSet(VoronoiQuickMathTool):        f"{VoronoiQuickMathTool.bl_label}工具设置:",
-            GclToolSet(VoronoiRantoTool):            f"{VoronoiRantoTool.bl_label}工具设置:",
-            GclToolSet(VoronoiHiderTool):            f"{VoronoiHiderTool.bl_label}工具设置:",
-            GclToolSet(VoronoiMassLinkerTool):       f"{VoronoiMassLinkerTool.bl_label}工具设置:",
-            GclToolSet(VoronoiEnumSelectorTool):     f"{VoronoiEnumSelectorTool.bl_label}工具设置:",
-            GclToolSet(VoronoiLazyNodeStencilsTool): f"{VoronoiLazyNodeStencilsTool.bl_label}工具设置:",
+            Gapn('vaGeneralBoxDiscl'):               "通用设置:",
+            GclToolSet(VoronoiLinkerTool):           f"{VoronoiLinkerTool.bl_label}快速连接设置:",
+            GclToolSet(VoronoiPreviewTool):          f"{VoronoiPreviewTool.bl_label}快速预览设置:",
+            GclToolSet(VoronoiMixerTool):            f"{VoronoiMixerTool.bl_label}快速混合设置:",
+            GclToolSet(VoronoiQuickMathTool):        f"{VoronoiQuickMathTool.bl_label}快速数学运算设置:",
+            GclToolSet(VoronoiRantoTool):            f"{VoronoiRantoTool.bl_label}节点自动排布对齐工具设置:",
+            GclToolSet(VoronoiHiderTool):            f"{VoronoiHiderTool.bl_label}快速隐藏端口设置:",
+            GclToolSet(VoronoiMassLinkerTool):       f"{VoronoiMassLinkerTool.bl_label}根据端口名批量连接设置:",
+            GclToolSet(VoronoiEnumSelectorTool):     f"{VoronoiEnumSelectorTool.bl_label}快速显示节点里下拉列表设置:",
+            GclToolSet(VoronoiLazyNodeStencilsTool): f"{VoronoiLazyNodeStencilsTool.bl_label}快速添加纹理设置:(代替NodeWrangler的ctrl+t):",
             Gapn('vaAddonBoxDiscl'):                 "插件",
             #绘制:
-            "Colored": "有颜色的",
-            Gapn('dsUniformColor'):       "替代的统一颜色",
-            Gapn('dsNodeColor'):          "节点的绘制颜色",
+            "Colored": "根据端点类型自动设置颜色:",
+            Gapn('dsUniformColor'):       "自定义轮选时端口的颜色",
+            Gapn('dsNodeColor'):          "动态选择节点时标识的颜色(显示下拉列表时)",
             Gapn('dsSocketAreaAlpha'):    "端口区域的透明度",
             Gapn('dsFontFile'):           "字体文件",
             txt_onlyFontFormat:           "只支持.ttf或.otf格式",
             Gapn('dsPointOffsetX'):       "X轴上的点偏移",
             Gapn('dsFrameOffset'):        "边框大小",
             Gapn('dsFontSize'):           "字体大小",
-            Gapn('dsIsDrawSkArea'):       "端口区域",
+            Gapn('dsIsDrawSkArea'):       "高亮显示选中端口",
             Gapn('dsDisplayStyle'):       "边框显示样式",
                 Gapn('dsDisplayStyle',0):     "经典",
                 Gapn('dsDisplayStyle',1):     "简化",
                 Gapn('dsDisplayStyle',2):     "仅文本",
             Gapn('dsPointRadius'):        "点的大小",
             Gapn('dsDistFromCursor'):     "到文本的距离",
-            Gapn('dsIsAlwaysLine'):       "始终绘制线条",
-#            Gapn('dsIsSlideOnNodes'):     "",
+            Gapn('dsIsAlwaysLine'):       "始终绘制线条(在鼠标移动到移动到已有连接端口的时是否还显示连线)",
+            Gapn('dsIsSlideOnNodes'):     "在节点上滑动",
             Gapn('dsIsAllowTextShadow'):  "启用文本阴影",
             Gapn('dsShadowCol'):          "阴影颜色",
             Gapn('dsShadowOffset'):       "阴影偏移",
             Gapn('dsShadowBlur'):         "阴影模糊",
             Gapn('dsIsDrawDebug'):        "显示调试信息",
             #设置:
-#            Gapn('vEdgePanFac'):                    "",
-            Gapn('vPieType'):                       "饼图类型",
-                Gapn('vPieType',0):                     "控制",
-                Gapn('vPieType',1):                     "速度",
-            Gapn('vPieScale'):                      "饼图大小",
+            Gapn('vEdgePanFac'):                    "边缘平移缩放系数",
+            Gapn('vPieType'):                       "饼菜单类型",
+                Gapn('vPieType',0):                     "控制(自定义)",
+                Gapn('vPieType',1):                     "速度型(多层菜单)",
+            Gapn('vPieScale'):                      "饼菜单大小",
             Gapn('vPieSocketDisplayType'):          "显示端口类型",
             Gapn('vPieAlignment'):                  "元素对齐方式",
-            Gapn('vdsDrawNodeNameLabel'):            "显示节点标签",
-                Gapn('vdsDrawNodeNameLabel',1):          "仅名称",
-                Gapn('vdsDrawNodeNameLabel',2):          "仅标题",
-                Gapn('vdsDrawNodeNameLabel',3):          "名称和标题",
-#            Gapn('vdsLabelSideRight'):               "",
+            Gapn('vdsDrawNodeNameLabel'):           "显示节点标签",
+                Gapn('vdsDrawNodeNameLabel',1):         "仅名称",
+                Gapn('vdsDrawNodeNameLabel',2):         "仅标题",
+                Gapn('vdsDrawNodeNameLabel',3):         "名称和标题",
+            Gapn('vdsLabelSideRight'):              "标签显示在右边",
             ##
-#            Gapn('vlRepickKey'):                    "",
-            Gapn('vlReroutesCanInAnyType'):         "重新路由可以连接到任何类型",
-            Gapn('vlDeselectAllNodes'):             "在激活时取消选择所有节点",
-#            Gapn('vlAnnoyingIgnoring'):             "",
-#            Gapn('vlSelectingInvolved'):            "",
-            Gapn('vpAllowClassicCompositorViewer'): "允许经典的合成器查看器",
-            Gapn('vpAllowClassicGeoViewer'):        "允许经典的几何节点查看器",
-            Gapn('vpIsLivePreview'):                "实时预览",
-            Gapn('vpRvEeIsColorOnionNodes'):        "颜色节点的显示",
-            Gapn('vpRvEeSksHighlighting'):          "拓扑连接的高亮显示",
-            Gapn('vpRvEeIsSavePreviewResults'):     "保存预览结果",
-            Gapn('vmReroutesCanInAnyType'):         "重新路由可以与任何类型混合",
-#            Gapn('vqmIncludeThirdSk'):              "",
-#            Gapn('vrIsLiveRanto'):                  "",
-#            Gapn('vrIsIgnoreMuted'):                "",
-#            Gapn('vrIsRestoreMuted'):               "",
+            Gapn('vlRepickKey'):                    "重选快捷键",
+            Gapn('vlReroutesCanInAnyType'):         "重新定向节点可以连接到任何类型的节点",
+            Gapn('vlDeselectAllNodes'):             "快速连接时取消选择所有节点",
+            Gapn('vlAnnoyingIgnoring'):             "烦人的忽略",
+            Gapn('vlSelectingInvolved'):            "快速连接后自动选择连接的节点",
+            Gapn('vpAllowClassicCompositorViewer'): "合成器里使用默认预览方式(默认是按顺序轮选输出接口端无法直选第N个通道接口)",
+            Gapn('vpAllowClassicGeoViewer'):        "几何节点里使用默认预览方式",
+            Gapn('vpIsLivePreview'):                "实时预览(即使没松开鼠标也能观察预览结果)",
+            Gapn('vpRvEeIsColorOnionNodes'):        "快速预览时将与预览的节点有连接关系的节点全部着色显示",
+            Gapn('vpRvEeSksHighlighting'):          "快速预览时高亮显示连接到预览的节点的上级节点的输出端口",
+            Gapn('vpRvEeIsSavePreviewResults'):     "保存预览结果,通过新建一个预览节点连接预览",
+            Gapn('vmReroutesCanInAnyType'):         "快速混合不限定端口类型",
+            Gapn('vqmIncludeThirdSk'):              "包括第三个端口",
+            Gapn('vrIsLiveRanto'):                  "实时对齐",#？？工具还没完成
+            Gapn('vrIsIgnoreMuted'):                "忽略禁用的链接",#？？工具还没完成
+            Gapn('vrIsRestoreMuted'):               "恢复禁用的链接",#？？工具还没完成
             Gapn('vhHideBoolSocket'):               "隐藏布尔端口",
-            Gapn('vhHideHiddenBoolSocket'):         "隐藏隐藏的布尔端口",
+            Gapn('vhHideHiddenBoolSocket'):         "隐藏已隐藏的布尔端口",
                 Gapn('vhHideBoolSocket',1):             "如果为True",
                 Gapn('vhHideBoolSocket',3):             "如果为False",
             Gapn('vhNeverHideGeometry'):            "永不隐藏几何输入端口",
-#                Gapn('vhNeverHideGeometry',1):          "",
+                Gapn('vhNeverHideGeometry',1):          "仅第一个端口",
             Gapn('vhIsUnhideVirtual'):              "显示虚拟端口",
-            Gapn('vhIsToggleNodesOnDrag'):          "拖动时切换节点",
-#            Gapn('vmlIgnoreCase'):                  "",
-            Gapn('vesIsInstantActivation'):         "即时激活",
-            Gapn('vesIsDrawEnumNames'):             "绘制枚举属性名称",
-            Gapn('vesBoxScale'):                    "面板比例",
-            Gapn('vesDisplayLabels'):               "显示枚举属性名称",
+            Gapn('vhIsToggleNodesOnDrag'):          "移动光标时切换节点",
+            Gapn('vmlIgnoreCase'):                  "忽略端口名称的大小写",
+            Gapn('vesIsInstantActivation'):         "直接打开饼菜单(不勾选可以先根据鼠标位置动态选择节点)",
+            Gapn('vesIsDrawEnumNames'):             "动态选择节点时显示节点里下拉列表属性名称",
+            Gapn('vesBoxScale'):                    "下拉列表面板大小",
+            Gapn('vesDisplayLabels'):               "显示下拉列表属性名称",
             Gapn('vesDarkStyle'):                   "暗色风格",
-#            Gapn('vwSelectTargetKey'):              "",
-#            Gapn('vlnsNonColorName'):               "",
-#            Gapn('vlnsLastExecError'):              "",
+            Gapn('vwSelectTargetKey'):              "选择目标快捷键",
+            Gapn('vlnsNonColorName'):               "图片纹理色彩空间名称",
+            Gapn('vlnsLastExecError'):              "上次运行时错误",
             #工具设置:
-            Ganfc(VoronoiTool,'isPassThrough'):                   "通过节点选中",
-            Ganfc(VoronoiTool,'isPassThrough',1):                 "单击节点激活选择而不是工具",
-            Ganfc(VoronoiToolDblSk,'isCanBetweenFields'):         "可以在字段之间连接",
-            Ganfc(VoronoiToolDblSk,'isCanBetweenFields',1):       "工具可以连接不同类型的字段",
-            Ganfc(VoronoiPreviewTool,'isSelectingPreviewedNode'): "选择预览节点",
-            Ganfc(VoronoiPreviewTool,'isTriggerOnlyOnLink'):      "仅触发连接",
-#            Ganfc(VoronoiPreviewTool,'isEqualAnchorType'):        "",
-#            Ganfc(VoronoiPreviewAnchorTool,'isActiveAnchor'):     "",
-#            Ganfc(VoronoiPreviewAnchorTool,'isSelectAnchor'):     "",
-#            Ganfc(VoronoiPreviewAnchorTool,'anchorType'):         "",
+            Ganfc(VoronoiTool,'isPassThrough'):                   "单击输出端口预览(而不是自动根据鼠标位置自动预览)",
+            Ganfc(VoronoiTool,'isPassThrough',1):                 "单击输出端口才连接预览而不是根据鼠标位置动态预览",#上面一个选项的说明翻译
+            Ganfc(VoronoiToolDblSk,'isCanBetweenFields'):         "端口类型可以不一样",
+            Ganfc(VoronoiToolDblSk,'isCanBetweenFields',1):       "工具可以连接不同类型的端口",
+            Ganfc(VoronoiPreviewTool,'isSelectingPreviewedNode'): "自动选择被预览的节点",
+            Ganfc(VoronoiPreviewTool,'isTriggerOnlyOnLink'):      "只预览已有连接的输出端口",
+            Ganfc(VoronoiPreviewTool,'isEqualAnchorType'):        "切换Voronoi_Anchor转接点预览时,只有类型和当前预览的端口类型一样才能被预览连接",
+            Ganfc(VoronoiPreviewAnchorTool,'isActiveAnchor'):     "转接点设置为活动项",
+            Ganfc(VoronoiPreviewAnchorTool,'isSelectAnchor'):     "转接点高亮显示",
+            Ganfc(VoronoiPreviewAnchorTool,'anchorType'):         "转接点的类型",#Voronoi_Anchor转接点显示类型，0和1是两种显示类型，-1是删除所有Voronoi_Anchor转接点转接点
             Ganfc(VoronoiMixerTool,'isCanFromOne'):               "从一个端口连接",
-            Ganfc(VoronoiMixerTool,'isPlaceImmediately'):         "立即放置",
+            Ganfc(VoronoiMixerTool,'isPlaceImmediately'):         "立即添加节点到鼠标位置",
             Ganfc(VoronoiQuickMathTool,'isHideOptions'):          "隐藏节点选项",
             Ganfc(VoronoiQuickMathTool,'justCallPie'):            "仅调用饼图",
             Ganfc(VoronoiQuickMathTool,'isRepeatLastOperation'):  "重复上一操作",
@@ -5374,31 +5387,55 @@ def CollectTranslationDict(): #Превращено в функцию ради `
             Ganfc(VoronoiQuickMathTool,'quickOprVector'):         "矢量（快速）",
             Ganfc(VoronoiQuickMathTool,'quickOprBool'):           "布尔（快速）",
             Ganfc(VoronoiQuickMathTool,'quickOprColor'):          "颜色（快速）",
-#            Ganfc(VoronoiRantoTool,'isUniWid'):                   "",
-#            Ganfc(VoronoiRantoTool,'isOnlySelected'):             "",
-#            Ganfc(VoronoiRantoTool,'isUncollapseNodes'):          "",
-#            Ganfc(VoronoiRantoTool,'isSelectNodes'):              "",
-#            Ganfc(VoronoiRantoTool,'ndWidth'):                    "",
-#            Ganfc(VoronoiRantoTool,'indentX'):                    "",
-#            Ganfc(VoronoiRantoTool,'indentY'):                    "",
-            Ganfc(VoronoiSwapperTool,'isAddMode'):                "添加模式",
+            Ganfc(VoronoiRantoTool,'isUniWid'):                   "统一宽度",
+            Ganfc(VoronoiRantoTool,'isOnlySelected'):             "仅选定的",
+            Ganfc(VoronoiRantoTool,'isUncollapseNodes'):          "展开节点",
+            Ganfc(VoronoiRantoTool,'isSelectNodes'):              "选择节点",
+            Ganfc(VoronoiRantoTool,'ndWidth'):                    "节点宽度",
+            Ganfc(VoronoiRantoTool,'indentX'):                    "X缩进",
+            Ganfc(VoronoiRantoTool,'indentY'):                    "Y缩进",
+            Ganfc(VoronoiSwapperTool,'isAddMode'):                "添加模式(不修改新端口已有的连接)",
             Ganfc(VoronoiSwapperTool,'isIgnoreLinked'):           "忽略已连接的端口",
             Ganfc(VoronoiSwapperTool,'isCanAnyType'):             "可以与任何类型交换",
             Ganfc(VoronoiHiderTool,'isHideSocket'):               "端口隐藏模式",
             Ganfc(VoronoiHiderTool,'isTriggerOnCollapsedNodes'):  "仅触发已折叠节点",
             Ganfc(VoronoiMassLinkerTool,'isIgnoreExistingLinks'): "忽略现有链接",
-            Ganfc(VoronoiEnumSelectorTool,'isToggleOptions'):     "选项切换模式",
-            Ganfc(VoronoiEnumSelectorTool,'isPieChoice'):         "饼图选择",
+            Ganfc(VoronoiEnumSelectorTool,'isToggleOptions'):     "隐藏节点里的下拉列表",
+            Ganfc(VoronoiEnumSelectorTool,'isPieChoice'):         "饼菜单选择",
             Ganfc(VoronoiEnumSelectorTool,'isSelectNode'):        "选择目标节点",
-            Ganfc(VoronoiLinkRepeatingTool,'isAutoRepeatMode'):   "自动重复模式",
-            Ganfc(VoronoiLinkRepeatingTool,'isFromOut'):          "从输出开始",
+            Ganfc(VoronoiLinkRepeatingTool,'isAutoRepeatMode'):   "自动恢复连接模式(鼠标移动到节点旁自动恢复节点的连接)",
+            Ganfc(VoronoiLinkRepeatingTool,'isFromOut'):          "从输出端处",#？？？
             Ganfc(VoronoiLinksTransferTool,'isByOrder'):          "按顺序传输",
-#            Ganfc(VoronoiInterfacerTool,'mode'):                  "",
-#            Ganfc(VoronoiWarperTool,'isZoomedTo'):                "",
-#            Ganfc(VoronoiWarperTool,'isSelectReroutes'):          "",
-#            Ganfc(VoronoiResetNodeTool,'isResetEnums'):           "",
-#            Ganfc(VoronoiResetNodeTool,'isResetOnDrag'):          "",
-#            Ganfc(VoronoiResetNodeTool,'isSelectResetedNode'):    "",
+            Ganfc(VoronoiInterfacerTool,'mode'):                  "模式",
+            Ganfc(VoronoiWarperTool,'isZoomedTo'):                "自动最大化显示",
+            Ganfc(VoronoiWarperTool,'isSelectReroutes'):          "选择更改路线",
+            Ganfc(VoronoiResetNodeTool,'isResetEnums'):           "恢复下拉列表里的选择",
+            Ganfc(VoronoiResetNodeTool,'isResetOnDrag'):          "悬停时恢复",
+            Ganfc(VoronoiResetNodeTool,'isSelectResetedNode'):    "选择重置的节点",
+            #Quick Mix and Math Pie Menu Titles快速混合和运算饼菜单上的标题
+            "Float Quick Math":                                  "快速浮点运算",
+            "Vector Quick Math":                                 "快速矢量运算",
+            "Boolean Quick Math":                                "快速布尔运算",
+            "Color Quick Mode":                                  "快速颜色运算",
+            #Translation shortcut key setting page设置快捷键页面名称
+            "Voronoi Linker":                                    "Voronoi快速连接",
+            "Voronoi Preview":                                   "Voronoi快速预览",
+            "Voronoi Mixer":                                     "Voronoi快速混合",
+            "Voronoi Quick Math":                                "Voronoi快速数学运算",
+            "Voronoi RANTO":                                     "Voronoi节点自动排布对齐",
+            "Voronoi Preview Anchor":                            "Voronoi新建预览转接点",
+            "Voronoi Swapper":                                   "Voronoi快速替换端口(Alt是批量替换输出端口,Shift是互换端口)",
+            "Voronoi Hider":                                     "Voronoi快速隐藏(Shift是自动隐藏数值为0/颜色纯黑/未连接的端口,Ctrl是单个隐藏端口)",
+            "Voronoi MassLinker":                                "Voronoi根据端口名批量快速连接",
+            "Voronoi Enum Selector":                             "Voronoi快速切换节点内部下拉列表",
+            "Voronoi Link Repeating":                            "Voronoi快速恢复连接",
+            "Voronoi Repeating":                                 "Voronoi重复连接到上次用快速连接到的输出端",
+            "Voronoi Quick Dimensions":                          "Voronoi快速分离/合并 矢量/颜色",
+#            "Voronoi Interfacer":                                "Voronoi在节点组里快速复制粘贴端口名给节点组输入输出端",
+            "Voronoi Links Transfer":                            "Voronoi链接按输入端类型切换到别的端口",
+            "Voronoi Warper":                                    "Voronoi快速聚焦某条连接",
+            "Voronoi Lazy Node Stencils":                        "Voronoi在输入端快速节点(代替NodeWrangler的ctrl+t)",
+            "Voronoi Reset Node":                                "Voronoi快速恢复节点默认参数",
             }
     dict_translations['zh_HANS'] = dict_translations['zh_CN']
     return
