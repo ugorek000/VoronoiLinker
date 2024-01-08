@@ -6,7 +6,7 @@ Blender Addon for Node Editor which adds ~three~ nine (16) new awesome tools:
 * Voronoi Preview
 * Voronoi Mixer
 * Voronoi Quick Math
-* Voronoi RANTO
+* Voronoi [RANTO](https://github.com/ugorek000/RANTO)
 * Voronoi Swapper
 * Voronoi Hider
 * Voronoi MassLinker
