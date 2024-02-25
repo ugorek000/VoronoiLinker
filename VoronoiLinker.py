@@ -1445,7 +1445,7 @@ StructBase._init_structs()
 
 viaverSkfMethod = -1 #Переключатель-пайка под успешный способ взаимодействия. Можно было и распределить по карте с версиями, но у попытки "по факту" есть свои эстетические прелести.
 
-#Заметка: ViaVer'ы не обновлялись,
+#Заметка: ViaVer'ы не обновлялись.
 def ViaVerNewSkf(tree, isSide, ess, name):
     if viaverIsBlender4: #Todo1VV переосмыслить топологию; глобальные функции с методами и глобальная переменная, указывающая на успешную из них; с "полной пайкой защёлкиванием".
         global viaverSkfMethod
@@ -3441,7 +3441,7 @@ dict_vqmtDefaultValueOperation = {
                  'VALUE':     ( (1,1,1,1), (1,1,1,1) ),
                  'SATURATION':( (1,1,1,1), (0,0,1,1) ),
                  'HUE':       ( (1,1,1,1), (0,1,0,1) ),
-                 'COLOR':     ( (1,1,1,1), (1,0,0,1) ) } }
+                 'COLOR':     ( (1,1,1,1), (1,0,0,1) )} }
 dict_vqmtDefaultDefault = { #Можно было оставить без изменений, но всё равно обнуляю. Ради чего был создан VQMT?.
         #Заметка: Основано на типе нода, а не на типе сокета. Повезло, что они одинаковые.
         'VALUE': (0.0, 0.0, 0.0),
@@ -3458,7 +3458,7 @@ dict_vqmtQuickPresets = {
                   #"SUBTRACT|x|0.5": "x - 0.5",
                   "ADD|x|6.283185307179586": "x + tau",
                   "ADD|x|3.141592653589793": "x + pi",
-                  "ADD|x|1.5707963267948966": "x + pi/2" },
+                  "ADD|x|1.5707963267948966": "x + pi/2"},
         'VECTOR': {"ADD|x|x": "x + x",
                    "MULTIPLY|x|x": "x * x",
                    "SUBTRACT|0,0,0|x": "-x", #"x * -1"
@@ -3466,7 +3466,7 @@ dict_vqmtQuickPresets = {
                    "SUBTRACT|x|0.5,0.5,0": "x - (0.5, 0.5)",
                    "ADD|x|pi*2,pi*2,pi*2": "x + tau",
                    "ADD|x|pi,pi,pi": "x + pi",
-                   "ADD|x|pi/2,pi/2,pi/2": "x + pi/2" } }
+                   "ADD|x|pi/2,pi/2,pi/2": "x + pi/2"} }
 
 def DoQuickMath(event, tree, operation, isCombo=False):
     txt = dict_vqmtEditorNodes[VqmtData.qmSkType].get(tree.bl_idname, "")
@@ -3846,7 +3846,7 @@ class VoronoiRantoTool(VoronoiToolNd): #Свершилось.
         #    self.ndMaxAccRoot = None
         #    self.lastNdProc = None
         self.DoRANTO(ndTar, tree, prefs.vrtIsFixIslands)
-        DisplayMessage("RANTO", TranslateIface("This tool is empty")+" ¯\_(ツ)_/¯")
+        #DisplayMessage("RANTO", TranslateIface("This tool is empty")+" ¯\_(ツ)_/¯")
     def InitTool(self, event, prefs, tree):
         self.lastNdProc = None
         #self.ndMaxAccRoot = None
@@ -4984,11 +4984,11 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
                     if isFirstActivation:
                         ftgSkOut, ftgSkIn = None, None
                         for ftg in list_ftgSksIn:
-                            if Equestrian.IsSimRepCorrectSk(nd, ftg.tar):
+                            if (ftg.blid!='NodeSocketVirtual')and(Equestrian.IsSimRepCorrectSk(nd, ftg.tar)):
                                 ftgSkIn = ftg
                                 break
                         for ftg in list_ftgSksOut:
-                            if Equestrian.IsSimRepCorrectSk(nd, ftg.tar):
+                            if (ftg.blid!='NodeSocketVirtual')and(Equestrian.IsSimRepCorrectSk(nd, ftg.tar)):
                                 ftgSkOut = ftg
                                 break
                         self.fotagoSkMain = MinFromFtgs(ftgSkOut, ftgSkIn)
@@ -5056,7 +5056,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
                     min = 16777216.0
                     list_ftgSksIn, list_ftgSksOut = self.ToolGetNearestSockets(ndTar)
                     for ftg in list_ftgSksIn if skMain.is_output else list_ftgSksOut:
-                        if Equestrian.IsSimRepCorrectSk(ndTar, ftg.tar):
+                        if (ftg.blid!='NodeSocketVirtual')and(Equestrian.IsSimRepCorrectSk(ndTar, ftg.tar)):
                             len = (ftgNdTar.pos-ftg.pos).length
                             if min>len:
                                 min = len
@@ -5546,7 +5546,7 @@ def LzLazyStencil(prefs, tree, skFirst, skSecond):
                     for cyc in (False, True):
                         skF = skFirst
                         skS = skSecond
-                        if cyc: #Оба выхода и оба входа, но разные гендеры могут быть в разном порядке. Всё равно для них перестановка не имеет значения, да ведь?.
+                        if cyc: #Оба выхода и оба входа, но разные гендеры могут быть в разном порядке. Но перестановка имеет значение для содержания txt_exec'ов.
                             skF, skS = skSecond, skFirst
                         if LzTypeDoubleCheck(zk, skF, skS): #Совпадение Blid'ов сокетов.
                             if LzNameDoubleCheck(zk, skF, skS): #Имён/меток сокетов.
