@@ -3846,7 +3846,7 @@ class VoronoiRantoTool(VoronoiToolNd): #Свершилось.
         #    self.ndMaxAccRoot = None
         #    self.lastNdProc = None
         self.DoRANTO(ndTar, tree, prefs.vrtIsFixIslands)
-        #DisplayMessage("RANTO", TranslateIface("This tool is empty")+" ¯\_(ツ)_/¯")
+        DisplayMessage("RANTO", TranslateIface("This tool is empty")+" ¯\_(ツ)_/¯")
     def InitTool(self, event, prefs, tree):
         self.lastNdProc = None
         #self.ndMaxAccRoot = None
