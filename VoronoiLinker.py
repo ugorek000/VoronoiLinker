@@ -9,7 +9,7 @@
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek", #Так же спасибо "Oxicid" за важную для VL'а помощь.
-           'version':(5,0,0), 'blender':(4,0,2), 'created':"2024.02.26", #Ключ 'created' для внутренних нужд.
+           'version':(5,0,1), 'blender':(4,0,2), 'created':"2024.02.29", #Ключ 'created' для внутренних нужд.
            'info_supported_blvers': "b4.0.2 – b4.0.2", #Тоже внутреннее.
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше была надпись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", #Надеюсь не настанет тот момент, когда у VL будет предупреждение. Неработоспособность в Linux'е была очень близко к этому.
@@ -22,30 +22,27 @@ import blf, gpu, gpu_extras.batch
 
 from math import pi, cos, sin
 from mathutils import Vector as Vec
-import random
-
-import platform
-from time import perf_counter
-import copy #VLNST
-
 Vec2 = Col4 = Vec
 
-list_classes = []
-list_toolClasses = []
+import platform
+from time import perf_counter, perf_counter_ns
+import copy #Для VLNST.
+
+dict_classes = {} #Все подряд, которых нужно регистрировать. Через словарь -- для SmartAddToRegAndAddToKmiDefs(), но чтобы сохранял порядок.
+dict_vtClasses = {} #Только инструменты V*T.
 
 voronoiAddonName = bl_info['name'].replace(" ","") #todo0 узнать разницу между названием аддона, именем аддона, именем файла, именем модуля, (мб ещё пакета); и ещё в установленных посмотреть.
 class VoronoiAddonPrefs(bpy.types.AddonPreferences):
-    bl_idname = voronoiAddonName if __name__=="__main__" else __name__
+    bl_idname = voronoiAddonName
 
 list_kmiDefs = []
 dict_setKmiCats = {'grt':set(), 'oth':set(), 'spc':set(), 'qqm':set(), 'cus':set()}
 
 def SmartAddToRegAndAddToKmiDefs(cls, txt, dict_props={}):
     dict_numToKey = {"1":'ONE', "2":'TWO', "3":'THREE', "4":'FOUR', "5":'FIVE', "6":'SIX', "7":'SEVEN', "8":'EIGHT', "9":'NINE', "0":'ZERO'}
-    if cls not in list_classes: #Благодаря этому назван как "Smart", и регистрация инструментов стала чуть проще.
-        list_classes.append(cls)
-        list_toolClasses.append(cls)
-    list_kmiDefs.append( (cls.bl_idname, dict_numToKey.get(txt[4:], txt[4:]), txt[0]=="S", txt[1]=="C", txt[2]=="A", txt[3]=="+", dict_props) ) #Тоже Smart.
+    dict_classes[cls] = True
+    dict_vtClasses[cls] = True
+    list_kmiDefs.append( (cls.bl_idname, dict_numToKey.get(txt[4:], txt[4:]), txt[0]=="S", txt[1]=="C", txt[2]=="A", txt[3]=="+", dict_props) )
 
 isWin = platform.system()=='Windows'
 #isLinux = platform.system()=='Linux'
@@ -73,14 +70,14 @@ def GetUserKmNe():
 # 2. Однозначное определение для контекста редактора, через какой именно нод на уровень выше, пользователь зашёл в текущую группу.
 # 3. Как отличить общие классовые enum'ы от уникальных enum для данного нода?
 # 4. Сменить для гео-Viewer'а тип поля, который он предпросматривает.
-# 5. Высота макета сокета.
+# 5. Высота макета сокета (я уже давно пожалел, что вообще добавил Draw Socket Area (от удаления этого спасает только эстетика)).
 # 6. Новосозданному интерфейсу через api теперь приходиться проходить по всем существующим деревьям, и искать его "экземпляры", чтобы установить ему `default_value`; имитируя классический не-api-шный способ.
 # 7. Фулл-доступ на интерфейсные панели со всеми плюшками. См. |4|.
 
 #Таблица (теоретической) полезности инструментов в аддонских деревьях (по умолчанию -- полезно):
 # VLT
 # VPT    Частично
-# VPAT   ??
+# VPAT   Частично
 # VMT    Нет?
 # VQMT   Нет
 # VRT
@@ -128,7 +125,6 @@ dict_timeOutside = {}
 #    with ToTimeNs("aaa"):
 class ToTimeNs(): #Сдаюсь. Я не знаю, почему так лагает на больших деревьях. Но судя по замерам, это где-то за пределами VL.
     def __init__(self, name):
-        from time import perf_counter_ns
         self.name = name
         tpcn = perf_counter_ns()
         dict_timeOutside[name] = tpcn-dict_timeOutside.setdefault(name, 0)
@@ -137,7 +133,6 @@ class ToTimeNs(): #Сдаюсь. Я не знаю, почему так лага�
     def __enter__(self):
         pass
     def __exit__(self, *_):
-        from time import perf_counter_ns
         tpcn = perf_counter_ns()
         nsExec = tpcn-self.tmn
         list_avg = dict_timeAvg[self.name]
@@ -155,7 +150,7 @@ from bpy.app.translations import pgettext_iface as TranslateIface
 
 dict_vlHhTranslations = {}
 
-dict_vlHhTranslations['ru_RU'] = {'author':"ugorek",    'vl':(5,0,0), 'created':"2024.02.25", 'trans':{'a':{}, 'Op':{}}} #self
+dict_vlHhTranslations['ru_RU'] = {'author':"ugorek",    'vl':(5,0,0), 'created':"2024.02.29", 'trans':{'a':{}, 'Op':{}}} #self
 dict_vlHhTranslations['zh_CN'] = {'author':"chenpaner", 'vl':(4,0,0), 'created':"2023.12.15", 'trans':{'a':{}, 'Op':{}}} #https://github.com/ugorek000/VoronoiLinker/issues/21
 #dict_vlHhTranslations['aa_AA'] = #Кто же будет вторым?. И как скоро?
 
@@ -326,7 +321,7 @@ def CollectTranslationDict(): #Для удобства переводов, ко�
     global prefsTran
     prefsTran = Prefs()
     ##
-    for cls in list_toolClasses:
+    for cls in dict_vtClasses:
         cls.BringTranslations()
     VoronoiAddonPrefs.BringTranslations()
     ##
@@ -344,7 +339,7 @@ def CollectTranslationDict(): #Для удобства переводов, ко�
 #        dm[zh_CN] = "工具可以连接不同类型的端口"?
     ##
     dict_vlHhTranslations['zh_HANS'] = dict_vlHhTranslations['zh_CN']
-    for cls in list_toolClasses:
+    for cls in dict_vtClasses:
         if (cls, 'zh_CN') in dict_toolLangSpecifDataPool:
             dict_toolLangSpecifDataPool[cls, 'zh_HANS'] = dict_toolLangSpecifDataPool[cls, 'zh_CN']
 
@@ -808,17 +803,17 @@ def DrawWorldText(drata, pos, ofsHh, text, *, colText, colBg, fontSizeOverwrite=
     blf.size(drata.fontId, siz)
     #Высота от "текста по факту" не вычисляется, потому что тогда каждая рамка каждый раз будет разной высоты.
     #Спецсимвол нужен, как "общий случай", чтобы покрыть максимальную высоту. Остальные символы нужны для особых шрифтов, что могут быть выше чем "█".
-    dim = (blf.dimensions(drata.fontId, text)[0], blf.dimensions(drata.fontId, "█GJKLPgjklp!?")[1])
+    dimDb = (blf.dimensions(drata.fontId, text)[0], blf.dimensions(drata.fontId, "█GJKLPgjklp!?")[1])
     pos = drata.VecUiViewToReg(pos)
     frameOffset = drata.dsFrameOffset
     ofsGap = 10
-    pos = (pos[0]-(dim[0]+frameOffset+ofsGap)*(ofsHh[0]<0)+(frameOffset+1)*(ofsHh[0]>-1), pos[1]+frameOffset)
+    pos = (pos[0]-(dimDb[0]+frameOffset+ofsGap)*(ofsHh[0]<0)+(frameOffset+1)*(ofsHh[0]>-1), pos[1]+frameOffset)
     #Я уже нахрен забыл, что я намудрил и как оно работает; но оно работает -- вот и славно, "работает -- не трогай":
-    placePosY = round( (dim[1]+frameOffset*2)*ofsHh[1] ) #Без округления красивость горизонтальных линий пропадет.
+    placePosY = round( (dimDb[1]+frameOffset*2)*ofsHh[1] ) #Без округления красивость горизонтальных линий пропадет.
     pos1 = (pos[0]+ofsHh[0]-frameOffset,               pos[1]+placePosY-frameOffset)
-    pos2 = (pos[0]+ofsHh[0]+ofsGap+dim[0]+frameOffset, pos[1]+placePosY+dim[1]+frameOffset)
+    pos2 = (pos[0]+ofsHh[0]+ofsGap+dimDb[0]+frameOffset, pos[1]+placePosY+dimDb[1]+frameOffset)
     ##
-    return DrawFramedText(drata, pos1, pos2, text, siz=siz, adj=dim[1]*drata.dsManualAdjustment, colTx=PowerArr4(colText, pw=1/1.975), colFr=PowerArr4(colBg, pw=1/1.5), colBg=colBg)
+    return DrawFramedText(drata, pos1, pos2, text, siz=siz, adj=dimDb[1]*drata.dsManualAdjustment, colTx=PowerArr4(colText, pw=1/1.975), colFr=PowerArr4(colBg, pw=1/1.5), colBg=colBg)
 
 def DrawVlSkText(drata, pos, ofsHh, ftg, *, fontSizeOverwrite=0): #Заметка: `pos` всегда ради drata.cursorLoc, но см. vptRvEeSksHighlighting.
     if not drata.dsIsDrawText:
@@ -875,15 +870,14 @@ def TemplateDrawNodeFull(drata, ftgNd, *, side=1): #Шаблон переосм�
         if drata.dsIsDrawPoint:
             DrawVlWidePoint(drata, ftgNd.pos, col1=colPt, col2=colPt)
         if (drata.dsIsDrawText)and(drata.dsIsDrawNodeNameLabel):
-            txt = ndTar.label if ndTar.label else ndTar.bl_rna.name
-            DrawWorldText(drata, drata.cursorLoc, (drata.dsDistFromCursor*side, -0.5), txt, colText=colTx, colBg=colTx)
+            DrawWorldText(drata, drata.cursorLoc, (drata.dsDistFromCursor*side, -0.5), ndTar.label if ndTar.label else ndTar.bl_rna.name, colText=colTx, colBg=colTx)
     elif drata.dsIsDrawPoint:
         col = tup_whiteCol4 #Единственный оставшийся неопределённый цвет. 'dsCursorColor' здесь по задумке не подходит (весь аддон ради сокетов, ок да?.).
         DrawVlWidePoint(drata, drata.cursorLoc, col1=Col4(col), col2=col)
 
 #Высокоуровневый шаблон рисования для сокетов. Теперь в названии есть "Sk", поскольку ноды полноценно вошли в VL.
 #Пользоваться этим шаблоном невероятно кайфово, после того хардкора что был в старых версиях (даже не заглядывайте туда, там около-ад).
-def TemplateDrawSksToolHh(drata, *args_ftgSks, isFlipSide=False, isDrawText=True, isClassicFlow=False, isDrawMarkersMoreTharOne=False): #Ура, шаблон переосмыслен. По ощущениям, лучше не стало.
+def TemplateDrawSksToolHh(drata, *args_ftgSks, sideMarkerHh=1, isDrawText=True, isClassicFlow=False, isDrawMarkersMoreTharOne=False): #Ура, шаблон переосмыслен. По ощущениям, лучше не стало.
     def GetPosFromFtg(ftg):
         return ftg.pos+Vec2((drata.dsPointOffsetX*ftg.dir, 0.0))
     list_ftgSks = [ar for ar in args_ftgSks if ar]
@@ -929,11 +923,12 @@ def TemplateDrawSksToolHh(drata, *args_ftgSks, isFlipSide=False, isDrawText=True
     if isDrawText: #Текст должен быть над всеми остальными ^.
         list_ftgSksIn = [ftg for ftg in list_ftgSks if ftg.dir<0]
         list_ftgSksOut = [ftg for ftg in list_ftgSks if ftg.dir>0]
+        soldOverrideDir = abs(sideMarkerHh)>1 and (1 if sideMarkerHh>0 else -1)
         for list_ftgs in list_ftgSksIn, list_ftgSksOut: #"Накапливать", гениально! Головная боль со спагетти-кодом исчезла.
             hig = length(list_ftgs)-1
             for cyc, ftg in enumerate(list_ftgs):
                 ofsY = 0.75*hig-1.5*cyc
-                dir = ftg.dir*(1-isFlipSide*2)
+                dir = soldOverrideDir if soldOverrideDir else ftg.dir*sideMarkerHh
                 frameDim = DrawVlSkText(drata, cursorLoc, (drata.dsDistFromCursor*dir, ofsY-0.5), ftg)
                 if (drata.dsIsDrawMarker)and( (ftg.tar.vl_sold_is_final_linked_cou)and(not isDrawMarkersMoreTharOne)or(ftg.tar.vl_sold_is_final_linked_cou>1) ):
                     DrawVlMarker(drata, cursorLoc, ofsHh=(frameDim[0]*dir, frameDim[1]*ofsY), col=GetSkColSafeTup4(ftg.tar))
@@ -944,31 +939,38 @@ def TemplateDrawSksToolHh(drata, *args_ftgSks, isFlipSide=False, isDrawText=True
 #Todo0SF Головная боль с "проскальзывающими кадрами"!! Debug, Collapse, Alt, и вообще везде.
 
 class TestDraw:
-    handle = None
     @classmethod
     def GetNoise(cls, w):
         from mathutils.noise import noise
         return noise((cls.time, w, cls.rand))
     @classmethod
     def Toggle(cls, context, tgl):
+        import random
+        stNe = bpy.types.SpaceNodeEditor
         if tgl:
             cls.rand = random.random()*32.0
             cls.time = 0.0
             cls.state = [0.5, 0.5, 0.5, 0.5]
-            prefs = Prefs()
-            cls.dev = prefs.dev
             cls.ctView2d = View2D.GetFields(context.region.view2d)
-            cls.handle = bpy.types.SpaceNodeEditor.draw_handler_add(cls.CallbackDrawTest, (cls.dev, context, prefs), 'WINDOW', 'POST_PIXEL')
-        else:
-            bpy.types.SpaceNodeEditor.draw_handler_remove(cls.handle, 'WINDOW')
+            stNe.nsReg = stNe.nsReg if hasattr(stNe,'nsReg') else -2
+            stNe.nsCur = stNe.nsReg
+            stNe.handle = stNe.draw_handler_add(cls.CallbackDrawTest, (context,), 'WINDOW', 'POST_PIXEL')
+        elif hasattr(stNe,'handle'):
+            stNe.draw_handler_remove(stNe.handle, 'WINDOW')
+            del stNe.handle
+            del stNe.nsCur
+            del stNe.nsReg
     @classmethod
-    def CallbackDrawTest(cls, dev, context, prefs):
+    def CallbackDrawTest(cls, context):
         from math import atan2
-        if dev!=Prefs().dev:
+        stNe = bpy.types.SpaceNodeEditor
+        if stNe.nsCur!=stNe.nsReg:
+            #Выключить и включить заново:
             Prefs().dsIsTestDrawing = False
-            bpy.types.SpaceNodeEditor.draw_handler_remove(cls.handle, 'WINDOW')
-            return
-        drata = VlDrawData(context, context.space_data.cursor_location, context.preferences.system.dpi/72, prefs)
+            #Чума топология!
+            Prefs().dsIsTestDrawing = True
+            return #Не знаю, обязательно ли выходить.
+        drata = VlDrawData(context, context.space_data.cursor_location, context.preferences.system.dpi/72, Prefs())
         drata.worldZoom = cls.ctView2d.GetZoom()
         ##
         for cyc in range(4):
@@ -996,25 +998,27 @@ class TestDraw:
         center = Vec2((context.region.width/2, context.region.height/2))
         txt = "a.¯\_(- _-)_/¯"
         DrawFramedText(drata, (300,300), (490,330), txt, siz=24, adj=(555-525)*-.2, colTx=tup_whiteCol4, colFr=tup_whiteCol4, colBg=tup_whiteCol4)
-        txt = "a."
+        txt = bpy.context.window_manager.clipboard
+        txt = txt[0] if txt else "a."
         DrawFramedText(drata, (375,170), (400,280), txt, siz=24, adj=0, colTx=tup_whiteCol4, colFr=tup_whiteCol4, colBg=tup_whiteCol4)
-        txt = "GJKLPgjklp!? "
+        DrawFramedText(drata, (410,200), (435,250), txt, siz=24, adj=0, colTx=tup_whiteCol4, colFr=tup_whiteCol4, colBg=tup_whiteCol4)
+        #DrawFramedText(drata, (445,200), (470,250), txt, siz=24, adj=0, colTx=tup_whiteCol4, colFr=tup_whiteCol4, colBg=tup_whiteCol4)
         loc = context.space_data.edit_tree.view_center
         col2 = col.copy()
         col2.w = max(0, (cursorReg.y-center.y/2)/150)
-        DrawWorldText(drata, loc, (0, -.33), txt, colText=col2, colBg=col2)
-        txt = "█GJKLPgjklp!?"
-        col1 = col.copy()
-        col1.w = 1.0
-        DrawWorldText(drata, loc, (-1, .33), txt, colText=col1, colBg=col1)
-        txt = "абф"
-        DrawWorldText(drata, loc, (256, 0), txt, colText=col, colBg=col)
+        DrawWorldText(drata, loc, (-1, 2), "█GJKLPgjklp!?", colText=col, colBg=col)
+        DrawWorldText(drata, loc, (-1, .33), "abcdefghijklmnopqrstuvwxyz", colText=tup_whiteCol4, colBg=col)
+        DrawWorldText(drata, loc, (0, -.33), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", colText=col2, colBg=col2)
+        DrawWorldText(drata, loc+Vec2((0,-256)), (0, 0), "абфуabfy", colText=col, colBg=col)
+        DrawWorldText(drata, loc+Vec2((0,-256)), (200, 0), "аa", colText=col, colBg=col)
+        DrawWorldText(drata, loc+Vec2((0,-256)), (300, 0), "абab", colText=col, colBg=col)
+        DrawWorldText(drata, loc+Vec2((0,-256)), (500, 0), "ауay", colText=col, colBg=col)
         DrawMarker(drata, center+Vec2((-50,-60)), col, style=0)
         DrawMarker(drata, center+Vec2((-100,-60)), col, style=1)
         DrawMarker(drata, center+Vec2((-150,-60)), col, style=2)
         drata.DrawPathLL( (center+Vec2((0,-60)), center+Vec2((100,-60))), (OpaqueCol3Tup4(col), OpaqueCol3Tup4(col)), wid=drata.dsLineWidth )
         drata.DrawPathLL( (center+Vec2((100,-60)), center+Vec2((200,-60))), (OpaqueCol3Tup4(col), OpaqueCol3Tup4(col, al=0.0)), wid=drata.dsLineWidth )
-        drata.DrawWidePoint(center+Vec2((0,-60)), radHh=( (6*drata.dsPointScale+1)**2+10 )**0.5, col1=col, col2=Col4(OpaqueCol3Tup4(col)))
+        drata.DrawWidePoint(center+Vec2((0,-60)), radHh=( (6*drata.dsPointScale+1)**2+10 )**0.5, col1=Col4(OpaqueCol3Tup4(col)), col2=Col4(OpaqueCol3Tup4(col)))
         drata.DrawWidePoint(center+Vec2((100,-60)), radHh=( (6*drata.dsPointScale+1)**2+10 )**0.5, col1=col, col2=Col4(OpaqueCol3Tup4(col)))
         import gpu_extras.presets; gpu_extras.presets.draw_circle_2d((256,256),(1,1,1,1),10)
         ##
@@ -1027,7 +1031,7 @@ class VoronoiOpTool(bpy.types.Operator):
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR' #Не знаю, зачем это нужно, но пусть будет.
 
-class VoronoiToolPads: #-1
+class VoronoiToolFiller: #-1
     usefulnessForCustomTree = None
     usefulnessForUndefTree = None
     usefulnessForNoneTree = None
@@ -1044,7 +1048,7 @@ class VoronoiToolPads: #-1
     def LyDrawInAddonDiscl(col, prefs): pass
     @classmethod
     def BringTranslations(cls): pass
-class VoronoiToolRoot(VoronoiOpTool, VoronoiToolPads): #0
+class VoronoiToolRoot(VoronoiOpTool, VoronoiToolFiller): #0
     usefulnessForUndefTree = False
     usefulnessForNoneTree = False
     canDrawInAddonDiscl = True
@@ -1559,17 +1563,18 @@ class Equestrian():
                     raise Exception(f"Socket type is not supported by Repeating: `{skTar.path_from_id()}`")
                 return self.skfa.new(skTar.type, newName)
             case 'CLASSIC'|'GROUP':
-                skfNew = self.skfa.data.new_socket(newName, socket_type=skTar.bl_idname, in_out='OUTPUT' if (skTar.is_output^isFlipSide) else 'INPUT')
+                skfNew = self.skfa.data.new_socket(newName, socket_type=SkConvertTypeToBlid(skTar), in_out='OUTPUT' if (skTar.is_output^isFlipSide) else 'INPUT')
                 skfNew.hide_value = skTar.hide_value
                 if hasattr(skfNew,'default_value'):
                     skfNew.default_value = skTar.default_value
                     if hasattr(skfNew,'min_value'):
                         nd = skTar.node
-                        if (nd.type in {'GROUP', 'GROUP_INPUT', 'GROUP_OUTPUT'})and(nd.node_tree): #Если сокет от другой группы нодов, то полная копия.
+                        if (nd.type in {'GROUP_INPUT', 'GROUP_OUTPUT'})or( (nd.type=='GROUP')and(nd.node_tree) ): #Если сокет от другой группы нодов, то полная копия.
                             skf = Equestrian(nd).GetSkfFromSk(skTar)
                             for pr in skfNew.rna_type.properties:
                                 if not(pr.is_readonly or pr.is_registered):
                                     setattr(skfNew, pr.identifier, getattr(skf, pr.identifier))
+                    #tovo2v6 карта замен блида сокета для `skfNew.subtype =`.
                     #Todo0 нужно придумать как внедриться до создания, чтобы у всех групп появился сокет со значением сразу же от sfk default. Как это делает сам Blender?
                     def FixInTree(tree):
                         for nd in tree.nodes:
@@ -1580,12 +1585,9 @@ class Equestrian():
                     for ng in bpy.data.node_groups:
                         if IsClassicTreeBlid(ng.bl_idname):
                             FixInTree(ng)
-                    for mt in bpy.data.materials:
-                        if mt.node_tree: #https://github.com/ugorek000/VoronoiLinker/issues/19; Я так и не понял, каким образом оно может быть None.
-                            FixInTree(mt.node_tree)
-                    for att in ('scenes','worlds','textures','lights','linestyles'): #Это все или я кого-то забыл?
+                    for att in ('materials','scenes','worlds','textures','lights','linestyles'): #Это все или я кого-то забыл?
                         for dt in getattr(bpy.data, att):
-                            if dt.node_tree:
+                            if dt.node_tree: #Для materials -- https://github.com/ugorek000/VoronoiLinker/issues/19; Я так и не понял, каким образом оно может быть None.
                                 FixInTree(dt.node_tree)
                 return skfNew
     def MoveBySkfs(self, skfFrom, skfTo, *, isSwap=False): #Можно было бы и взять на себя запары с "BySks", но это уже забота вызывающей стороны.
@@ -1809,7 +1811,7 @@ def GenFtgsFromPuts(nd, isSide, samplePos, uiScale): #Вынесено для vp
                 if "VectorDirection" in str(sk.rna_type):
                     hei = 2
                 elif not( (nd.type in ('BSDF_PRINCIPLED','SUBSURFACE_SCATTERING'))and(not viaverIsBlender4) )or( not(sk.name in ("Subsurface Radius","Radius"))):
-                    hei = 3
+                    hei = 3 #todo1v6 ctypes, flag==1024
             boxHeiBound = (pos.y-11-hei*20,  pos.y+11+max(sk.vl_sold_is_final_linked_cou-2,0)*5*(not isSide))
             txt = TranslateIface(GetSkLabelName(sk)) if sk.bl_idname!='NodeSocketVirtual' else TranslateIface("Virtual" if not sk.name else GetSkLabelName(sk))
             list_result.append(Fotago(sk, dist=(samplePos-pos).length, pos=pos, dir= 1 if sk.is_output else -1 , boxHeiBound=boxHeiBound, text=txt))
@@ -1835,7 +1837,7 @@ class VoronoiLinkerTool(VoronoiToolPairSk): #Святая святых. То р�
     usefulnessForCustomTree = True
     usefulnessForUndefTree = True
     def CallbackDrawTool(self, drata):
-        TemplateDrawSksToolHh(drata, self.fotagoSkOut, self.fotagoSkIn, isFlipSide=True, isClassicFlow=True)
+        TemplateDrawSksToolHh(drata, self.fotagoSkOut, self.fotagoSkIn, sideMarkerHh=-1, isClassicFlow=True)
     @staticmethod
     def SkPriorityIgnoreCheck(sk): #False -- игнорировать.
         #Эта функция была добавлена по запросам извне (как и VLNST).
@@ -3074,7 +3076,8 @@ class VmtPieMixer(bpy.types.Menu):
                 row.template_node_socket(color=GetSkColorRaw(VmtData.sk0))
                 row.label(text=VmtData.sk0.bl_label)
 
-list_classes += [VmtOpMixer, VmtPieMixer]
+dict_classes[VmtOpMixer] = True
+dict_classes[VmtPieMixer] = True
 
 class VqmtData(PieRootData):
     list_speedPieDisplayItems = []
@@ -3766,7 +3769,8 @@ class VqmtPieMath(bpy.types.Menu):
                 case 'BOOLEAN': DrawForBool()
                 case 'RGBA': DrawForCol()
 
-list_classes += [VqmtOpMain, VqmtPieMath]
+dict_classes[VqmtOpMain] = True
+dict_classes[VqmtPieMath] = True
 
 class VoronoiRantoTool(VoronoiToolNd): #Свершилось.
     bl_idname = 'node.voronoi_ranto'
@@ -4121,7 +4125,7 @@ class VoronoiHiderTool(VoronoiToolAny):
                         if self.firstResult is None:
                             #Если активация для нода ничего не изменила, то для остальных хочется иметь сокрытие, а не раскрытие. Но текущая концепция не позволяет,
                             # информации об этом тупо нет. Поэтому реализовал это точечно вовне (здесь), а не модификацией самой реализации.
-                            LGetVisSide = lambda a: [sk for sk in a if sk.enabled and not sk.hide]
+                            LGetVisSide = lambda puts: [sk for sk in puts if sk.enabled and not sk.hide]
                             list_visibleSks = [LGetVisSide(nd.inputs), LGetVisSide(nd.outputs)]
                             self.firstResult = HideFromNode(prefs, nd, True)
                             HideFromNode(prefs, nd, self.firstResult, True) #Заметка: Изменить для нода (для проверки ниже), но не трогать 'self.firstResult'.
@@ -4663,7 +4667,8 @@ class VestPieBox(bpy.types.Menu):
         colAll = GetCol(pie, any(True for li in VestData.list_enumProps if li.identifier!='domain'))
         VestLyAddEnumSelectorBox(colAll, colDom)
 
-list_classes += [VestOpBox, VestPieBox]
+dict_classes[VestOpBox] = True
+dict_classes[VestPieBox] = True
 
 #См.: VlrtData, VlrtRememberLastSockets() и NewLinkHhAndRemember().
 
@@ -4734,7 +4739,7 @@ class VoronoiLinkRepeatingTool(VoronoiToolAny): #Вынесено в отдел�
                         setattr(VlrtData, txtAttReprLastSk, "")
                 except:
                     setattr(VlrtData, txtAttReprLastSk, "")
-        #Заметка: Оказывается, Ctrl Z делает (глобально сохранённую) ссылку на tree 'ReferenceError: StructRNA of type ShaderNodeTree has been removed'.
+        #Заметка: Оказывается, Ctrl-Z делает (глобально сохранённую) ссылку на tree 'ReferenceError: StructRNA of type ShaderNodeTree has been removed'.
     @classmethod
     def BringTranslations(cls):
         tran = GetAnnotFromCls(cls,'toolMode').items
@@ -4880,7 +4885,7 @@ dict_vqdtQuickDimensionsMain = {
 def FindAnySk(nd, list_ftgSksIn, list_ftgSksOut): #Todo0NA нужно обобщение!, с лямбдой. И внешний цикл по спискам, а не два цикла.
     ftgSkOut, ftgSkIn = None, None
     for ftg in list_ftgSksOut:
-        if (ftg.blid!='NodeSocketVirtual')and(Equestrian.IsSimRepCorrectSk(nd, ftg.tar)):
+        if (ftg.blid!='NodeSocketVirtual')and(Equestrian.IsSimRepCorrectSk(nd, ftg.tar)): #todo1v6 эта функция везде используется в паре с !=NodeSocketVirtual, нужно пределать топологию.
             ftgSkOut = ftg
             break
     for ftg in list_ftgSksIn:
@@ -4899,7 +4904,6 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
     bl_idname = 'node.voronoi_interfacer'
     bl_label = "Voronoi Interfacer"
     usefulnessForCustomTree = False
-    canDrawInAddonDiscl = False
     toolMode: bpy.props.EnumProperty(name="Mode", default='NEW', items=fitVitModeItems)
     def CallbackDrawTool(self, drata):
         match self.toolMode:
@@ -4908,7 +4912,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             case 'CREATE':
                 ftgMain = self.fotagoSkMain
                 if ftgMain:
-                    TemplateDrawSksToolHh(drata, ftgMain, isFlipSide=True)
+                    TemplateDrawSksToolHh(drata, ftgMain, sideMarkerHh=-2)
                 ftgNdTar = self.fotagoNdTar
                 if ftgNdTar:
                     TemplateDrawNodeFull(drata, ftgNdTar)
@@ -4924,8 +4928,8 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             nd = ftgNd.tar
             if nd.type=='REROUTE':
                 continue
-            if (self.toolMode=='PASTE')and(nd.type not in Equestrian.set_equestrianNodeTypes):
-                continue #Курсор должен быть рядом со всадником (или групповым нодом). А ещё с `continue` не будет высокоуровневой отмены.
+            if (not prefs.vitPasteToAnySocket)and(self.toolMode=='PASTE')and(nd.type not in Equestrian.set_equestrianNodeTypes):
+                break #Курсор должен быть рядом со всадником (или групповым нодом) (для не vitPasteToAnySocket). А ещё с `continue` не будет высокоуровневой отмены.
             list_ftgSksIn, list_ftgSksOut = self.ToolGetNearestSockets(nd)
             self.fotagoSkMain = FindAnySk(nd, list_ftgSksIn, list_ftgSksOut)
             if self.fotagoSkMain:
@@ -4938,7 +4942,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             if nd.type=='REROUTE':
                 continue
             if nd.type not in Equestrian.set_equestrianNodeTypes:
-                continue #Курсор должен быть рядом со всадником (или групповым нодом). А ещё с `continue` не будет высокоуровневой отмены.
+                break #Курсор должен быть рядом со всадником (или групповым нодом); но отмену можно сделать и выбором одного и того же сокета, так что это не точно.
             if (self.fotagoSkRosw)and(self.fotagoSkRosw.tar.node!=nd):
                 continue
             list_ftgSksIn, list_ftgSksOut = self.ToolGetNearestSockets(nd)
@@ -4999,6 +5003,10 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
                             break
                         if nd.type not in Equestrian.set_equestrianNodeTypes:
                             continue
+                        if (skMain.is_output)and(nd.type=='GROUP_INPUT'):
+                            continue
+                        if (not skMain.is_output)and(nd.type=='GROUP_OUTPUT'):
+                            continue
                         self.fotagoNdTar = ftgNd
             break
     def NextAssignmentTool(self, isFirstActivation, prefs, tree):
@@ -5028,8 +5036,12 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             case 'COPY':
                 self.clipboard = GetSkLabelName(self.fotagoSkMain.tar)
             case 'PASTE':
+                #tovo1v6 добавить клавишу, нажатие которой приведёт к "отмене" -- вставки не будет; поскольку этот режим гарантированно прилипает (см. опцию) к любому сокету, и нужно как-то обслужить хотение "дать заднюю".
                 skMain = self.fotagoSkMain.tar
-                Equestrian(skMain).GetSkfFromSk(skMain).name = self.clipboard
+                if (skMain.node.type not in Equestrian.set_equestrianNodeTypes)and(prefs.vitPasteToAnySocket):
+                    skMain.name = self.clipboard
+                else:
+                    Equestrian(skMain).GetSkfFromSk(skMain).name = self.clipboard
             case 'SWAP'|'FLIP':
                 skMain = self.fotagoSkMain.tar
                 equr = Equestrian(skMain)
@@ -5088,7 +5100,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
                 #    self.NextAssignmentRoot(True)
                 #    if self.fotagoSkRosw:
                 #        tgl = self.fotagoSkRosw.blid!='NodeSocketVirtual'
-                if True: #todo1v6 что-нибудь придумать с этим ради эстетики.
+                if True: #todo1v6 что-нибудь придумать с ^ этим ради эстетики.
                         for nd in tree.nodes:
                             if nd.bl_idname in set_utilEquestrianPortalBlids:
                                 if nd.inputs:
@@ -5103,6 +5115,9 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             case 'CREATE':
                 self.fotagoNdTar = None #Омг.
         VoronoiInterfacerTool.clipboard = property(lambda _:bpy.context.window_manager.clipboard, lambda _,v:setattr(bpy.context.window_manager,'clipboard', v))
+    @staticmethod
+    def LyDrawInAddonDiscl(col, prefs):
+        LyAddLeftProp(col, prefs,'vitPasteToAnySocket')
     @classmethod
     def BringTranslations(cls):
         tran = GetAnnotFromCls(cls,'toolMode').items
@@ -5142,6 +5157,10 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
         with VlTrMapForKey(tran.CREATE.description) as dm:
             dm[ru_RU] = "Создать интерфейс из выбранного сокета, и вставить его на указанное место."
 #            dm[zh_CN] = ""
+        ##
+        with VlTrMapForKey(GetPrefsRnaProp('vitPasteToAnySocket').name) as dm:
+            dm[ru_RU] = "Разрешить вставку в любой сокет"
+#            dm[zh_CN] = ""
 
 SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "SC#_A", {'toolMode':'NEW'})
 SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "S#A_A", {'toolMode':'CREATE'})
@@ -5150,6 +5169,9 @@ SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "S#A_V", {'toolMode':'PASTE'
 SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "S#A_X", {'toolMode':'SWAP'})
 SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "S#A_Z", {'toolMode':'FLIP'})
 dict_setKmiCats['spc'].add(VoronoiInterfacerTool.bl_idname)
+
+class VoronoiAddonPrefs(VoronoiAddonPrefs):
+    vitPasteToAnySocket: bpy.props.BoolProperty(name="Include paste to any socket", default=True)
 
 with VlTrMapForKey(VoronoiInterfacerTool.bl_label) as dm:
     dm[zh_CN] = "Voronoi在节点组里快速复制粘贴端口名给节点组输入输出端"
@@ -5580,7 +5602,7 @@ class VoronoiResetNodeTool(VoronoiToolNd):
     def VrntDoResetNode(self, ndTar, tree):
         ndNew = tree.nodes.new(ndTar.bl_idname)
         ndNew.location = ndTar.location
-        with TryAndPass(): #SimRep'ы
+        with TryAndPass(): #SimRep'ы.
             for cyc, sk in enumerate(ndTar.outputs):
                 for lk in sk.vl_sold_links_final:
                     tree.links.new(ndNew.outputs[cyc], lk.to_socket)
@@ -5768,9 +5790,9 @@ def GetVlKeyconfigAsPy(): #Взято из 'bl_keymap_utils.io'. Понятия 
     result += "    bl_keymap_utils.io.keyconfig_init_from_data(kc, kd)"
     return result
 def GetVaSettAsPy(prefs):
-    set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'dsIsFieldDebug', 'dsIsTestDrawing',
+    set_ignoredAddonPrefs = {'bl_idname', 'vaUiTabs', 'vaInfoRestore', 'dsIsFieldDebug', 'dsIsTestDrawing', #tovo2v6 все ли?
                              'vaKmiMainstreamDiscl', 'vaKmiOtjersDiscl', 'vaKmiSpecialDiscl', 'vaKmiQqmDiscl', 'vaKmiCustomDiscl'}
-    for cls in list_toolClasses:
+    for cls in dict_vtClasses:
         set_ignoredAddonPrefs.add(cls.disclBoxPropName)
         set_ignoredAddonPrefs.add(cls.disclBoxPropNameInfo)
     txt_vasp = ""
@@ -5827,18 +5849,18 @@ def GetFirstUpperLetters(txt):
             list_result.append(ch2)
     return "".join(list_result)
 def SolderClsToolNames():
-    for cls in list_toolClasses:
+    for cls in dict_vtClasses:
         cls.vlTripleName = GetFirstUpperLetters(cls.bl_label)+"T" #Изначально было создано "потому что прикольно", но теперь это нужно; см. SetPieData().
         cls.disclBoxPropName = cls.vlTripleName[:-1].lower()+"BoxDiscl"
         cls.disclBoxPropNameInfo = cls.disclBoxPropName+"Info"
 SolderClsToolNames()
 
-for cls in list_toolClasses:
+for cls in dict_vtClasses:
     exec(f"class VoronoiAddonPrefs(VoronoiAddonPrefs): {cls.disclBoxPropName}: bpy.props.BoolProperty(name=\"\", default=False)")
     exec(f"class VoronoiAddonPrefs(VoronoiAddonPrefs): {cls.disclBoxPropNameInfo}: bpy.props.BoolProperty(name=\"\", default=False)")
 
 list_langDebEnumItems = []
-for li in ["Free", "Special", "AddonPrefs"]+[cls.bl_label for cls in list_toolClasses]:
+for li in ["Free", "Special", "AddonPrefs"]+[cls.bl_label for cls in dict_vtClasses]:
     list_langDebEnumItems.append( (li.upper(), GetFirstUpperLetters(li), "") )
 
 def VaUpdateTestDraw(self, context):
@@ -5849,7 +5871,6 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
     dsIsFieldDebug: bpy.props.BoolProperty(name="Field debug", default=False)
     dsIsTestDrawing: bpy.props.BoolProperty(name="Testing draw", default=False, update=VaUpdateTestDraw)
     dsIncludeDev: bpy.props.BoolProperty(name="IncludeDev", default=False)
-    dev: bpy.props.FloatProperty(name="", default=0)
 
 #Оставлю здесь маленький список моих личных "хотелок" (по хронологии интеграции), которые перекочевали из других моих личных аддонов в VL:
 #Hider
@@ -6103,7 +6124,7 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
             return None
         colMain = where.column()
         LyAddThinSep(colMain, 0.1)
-        for cls in list_toolClasses:
+        for cls in dict_vtClasses:
             if cls.canDrawInAddonDiscl:
                 if colDiscl:=LyAddAddonBoxDiscl(colMain, self, cls.disclBoxPropName, txt=TxtClsBlabToolSett(cls), align=True):
                     cls.LyDrawInAddonDiscl(colDiscl, self)
@@ -6120,7 +6141,7 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
                 LyAddHandSplitProp(colBox, self,'vOwZoomMin')
                 LyAddHandSplitProp(colBox, self,'vOwZoomMax')
         ##
-        for cls in list_toolClasses:
+        for cls in dict_vtClasses:
             if cls.canDrawInAppearance:
                 cls.LyDrawInAppearance(colMain, self)
     def LyDrawTabDraw(self, where):
@@ -6229,7 +6250,7 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
         kmiCats.oth.LCond = lambda a: a.idname in kmiCats.oth.set_idn
         kmiCats.spc.LCond = lambda a:True
         #В старых версиях аддона с другим методом поиска, на вкладке "keymap" порядок отображался в обратном порядке вызовов регистрации kmidef с одинаковыми `cls`.
-        #Теперь сделал так. Как работал предыдущий метод -- для меня загадка.
+        #Теперь сделал так. Как работал предыдущий метод -- понятия не имею.
         scoAll = 0
         for li in kmUNe.keymap_items:
             if li.idname.startswith("node.voronoi_"):
@@ -6312,7 +6333,7 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
         row.prop(view,'use_translate_tooltips', text="Tooltips")
         ##
         colVlTools = colMain.column(align=True)
-        for cls in list_toolClasses:
+        for cls in dict_vtClasses:
             if txtToolInfo:=dict_toolLangSpecifDataPool.get((cls, langCode), ""):
                 colDiscl = colVlTools.column(align=True)
                 rowLabel = colDiscl.row(align=True)
@@ -6423,13 +6444,13 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
                                 col2.label(text=ti[0])
                 case 'ADDONPREFS':
                     col = LyAddAlertNested(colLangDebug, "[AddonPrefs]")
-                    set_toolBoxDisctPropNames = set([cls.disclBoxPropName for cls in list_toolClasses])|set([cls.disclBoxPropNameInfo for cls in list_toolClasses])
+                    set_toolBoxDisctPropNames = set([cls.disclBoxPropName for cls in dict_vtClasses])|set([cls.disclBoxPropNameInfo for cls in dict_vtClasses])
                     set_toolBoxDisctPropNames.update({'vaLangDebEnum'})
                     for pr in self.bl_rna.properties[2:]:
                         if pr.identifier not in set_toolBoxDisctPropNames:
                             LyAddTranDataForProp(col, pr)
                 case _:
-                    dict_toolBlabToCls = {cls.bl_label.upper():cls for cls in list_toolClasses}
+                    dict_toolBlabToCls = {cls.bl_label.upper():cls for cls in dict_vtClasses}
                     set_alreadyDone = set() #Учитывая разделение с помощью vaLangDebEnum, уже бесполезно.
                     col0 = colLangDebug.column(align=True)
                     cls = dict_toolBlabToCls[self.vaLangDebEnum]
@@ -6477,21 +6498,24 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
         except Exception as ex:
             LyAddEtb(colMain) #colMain.label(text=str(ex), icon='ERROR', translate=False)
 
-list_classes += [VoronoiOpAddonTabs, VoronoiAddonPrefs]
+dict_classes[VoronoiOpAddonTabs] = True
+dict_classes[VoronoiAddonPrefs] = True
 
 list_addonKeymaps = []
 
 isRegisterFromMain = False
 def register():
-    for li in list_classes:
-        bpy.utils.register_class(li)
+    for dk in dict_classes:
+        bpy.utils.register_class(dk)
     ##
     prefs = Prefs()
-    prefs.dev = random.random()
-    if not isRegisterFromMain:
+    if isRegisterFromMain:
+        if hasattr(bpy.types.SpaceNodeEditor,'handle'):
+            bpy.types.SpaceNodeEditor.nsReg = perf_counter_ns()
+    else:
         prefs.vlnstLastExecError = ""
         prefs.vaLangDebDiscl = False
-        for cls in list_toolClasses:
+        for cls in dict_vtClasses:
             setattr(prefs, cls.disclBoxPropNameInfo, False)
         prefs.dsIsTestDrawing = False
     ##
@@ -6515,8 +6539,8 @@ def unregister():
         kmANe.keymap_items.remove(li)
     list_addonKeymaps.clear()
     ##
-    for li in reversed(list_classes):
-        bpy.utils.unregister_class(li)
+    for dk in dict_classes:
+        bpy.utils.unregister_class(dk)
 
 #Мой гит в bl_info, это конечно же круто, однако было бы неплохо иметь ещё и явно указанные способы связи:
 #  coaltangle@gmail.com
