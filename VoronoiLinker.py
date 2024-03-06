@@ -9,7 +9,7 @@
 #P.s. Меня напрягают шатанины с лицензиями, так что лучше полюбуйтесь на предупреждения о вредоносном коде (о да он тут есть, иначе накой смысол?).
 
 bl_info = {'name':"Voronoi Linker", 'author':"ugorek", #Так же спасибо "Oxicid" за важную для VL'а помощь.
-           'version':(5,0,1), 'blender':(4,0,2), 'created':"2024.02.29", #Ключ 'created' для внутренних нужд.
+           'version':(5,0,2), 'blender':(4,0,2), 'created':"2024.03.06", #Ключ 'created' для внутренних нужд.
            'info_supported_blvers': "b4.0.2 – b4.0.2", #Тоже внутреннее.
            'description':"Various utilities for nodes connecting, based on distance field.", 'location':"Node Editor", #Раньше была надпись 'Node Editor > Alt + RMB' в честь того, ради чего всё; но теперь VL "повсюду"!
            'warning':"", #Надеюсь не настанет тот момент, когда у VL будет предупреждение. Неработоспособность в Linux'е была очень близко к этому.
@@ -651,7 +651,7 @@ tup_whiteCol4 = (1.0, 1.0, 1.0, 1.0)
 class VlDrawData():
     shaderLine = None
     shaderArea = None
-    worldZoom = -1.0
+    worldZoom = 0.0
     def DrawPathLL(self, vpos, vcol, *, wid):
         gpu.state.blend_set('ALPHA') #Рисование текста сбрасывает метку об альфе, поэтому устанавливается каждый раз.
         self.shaderLine.bind()
@@ -877,7 +877,7 @@ def TemplateDrawNodeFull(drata, ftgNd, *, side=1): #Шаблон переосм�
 
 #Высокоуровневый шаблон рисования для сокетов. Теперь в названии есть "Sk", поскольку ноды полноценно вошли в VL.
 #Пользоваться этим шаблоном невероятно кайфово, после того хардкора что был в старых версиях (даже не заглядывайте туда, там около-ад).
-def TemplateDrawSksToolHh(drata, *args_ftgSks, sideMarkerHh=1, isDrawText=True, isClassicFlow=False, isDrawMarkersMoreTharOne=False): #Ура, шаблон переосмыслен. По ощущениям, лучше не стало.
+def TemplateDrawSksToolHh(drata, *args_ftgSks, sideMarkHh=1, isDrawText=True, isClassicFlow=False, isDrawMarkersMoreTharOne=False): #Ура, шаблон переосмыслен. По ощущениям, лучше не стало.
     def GetPosFromFtg(ftg):
         return ftg.pos+Vec2((drata.dsPointOffsetX*ftg.dir, 0.0))
     list_ftgSks = [ar for ar in args_ftgSks if ar]
@@ -923,12 +923,12 @@ def TemplateDrawSksToolHh(drata, *args_ftgSks, sideMarkerHh=1, isDrawText=True, 
     if isDrawText: #Текст должен быть над всеми остальными ^.
         list_ftgSksIn = [ftg for ftg in list_ftgSks if ftg.dir<0]
         list_ftgSksOut = [ftg for ftg in list_ftgSks if ftg.dir>0]
-        soldOverrideDir = abs(sideMarkerHh)>1 and (1 if sideMarkerHh>0 else -1)
+        soldOverrideDir = abs(sideMarkHh)>1 and (1 if sideMarkHh>0 else -1)
         for list_ftgs in list_ftgSksIn, list_ftgSksOut: #"Накапливать", гениально! Головная боль со спагетти-кодом исчезла.
             hig = length(list_ftgs)-1
             for cyc, ftg in enumerate(list_ftgs):
                 ofsY = 0.75*hig-1.5*cyc
-                dir = soldOverrideDir if soldOverrideDir else ftg.dir*sideMarkerHh
+                dir = soldOverrideDir if soldOverrideDir else ftg.dir*sideMarkHh
                 frameDim = DrawVlSkText(drata, cursorLoc, (drata.dsDistFromCursor*dir, ofsY-0.5), ftg)
                 if (drata.dsIsDrawMarker)and( (ftg.tar.vl_sold_is_final_linked_cou)and(not isDrawMarkersMoreTharOne)or(ftg.tar.vl_sold_is_final_linked_cou>1) ):
                     DrawVlMarker(drata, cursorLoc, ofsHh=(frameDim[0]*dir, frameDim[1]*ofsY), col=GetSkColSafeTup4(ftg.tar))
@@ -951,7 +951,6 @@ class TestDraw:
             cls.rand = random.random()*32.0
             cls.time = 0.0
             cls.state = [0.5, 0.5, 0.5, 0.5]
-            cls.ctView2d = View2D.GetFields(context.region.view2d)
             stNe.nsReg = stNe.nsReg if hasattr(stNe,'nsReg') else -2
             stNe.nsCur = stNe.nsReg
             stNe.handle = stNe.draw_handler_add(cls.CallbackDrawTest, (context,), 'WINDOW', 'POST_PIXEL')
@@ -971,6 +970,7 @@ class TestDraw:
             Prefs().dsIsTestDrawing = True
             return #Не знаю, обязательно ли выходить.
         drata = VlDrawData(context, context.space_data.cursor_location, context.preferences.system.dpi/72, Prefs())
+        cls.ctView2d = View2D.GetFields(context.region.view2d)
         drata.worldZoom = cls.ctView2d.GetZoom()
         ##
         for cyc in range(4):
@@ -1009,10 +1009,11 @@ class TestDraw:
         DrawWorldText(drata, loc, (-1, 2), "█GJKLPgjklp!?", colText=col, colBg=col)
         DrawWorldText(drata, loc, (-1, .33), "abcdefghijklmnopqrstuvwxyz", colText=tup_whiteCol4, colBg=col)
         DrawWorldText(drata, loc, (0, -.33), "ABCDEFGHIJKLMNOPQRSTUVWXYZ", colText=col2, colBg=col2)
-        DrawWorldText(drata, loc+Vec2((0,-256)), (0, 0), "абфуabfy", colText=col, colBg=col)
-        DrawWorldText(drata, loc+Vec2((0,-256)), (200, 0), "аa", colText=col, colBg=col)
-        DrawWorldText(drata, loc+Vec2((0,-256)), (300, 0), "абab", colText=col, colBg=col)
-        DrawWorldText(drata, loc+Vec2((0,-256)), (500, 0), "ауay", colText=col, colBg=col)
+        vec = Vec2((0,-192/drata.worldZoom))
+        DrawWorldText(drata, loc+vec, (0, 0), "абфуabfy", colText=col, colBg=col)
+        DrawWorldText(drata, loc+vec, (200, 0), "аa", colText=col, colBg=col)
+        DrawWorldText(drata, loc+vec, (300, 0), "абab", colText=col, colBg=col)
+        DrawWorldText(drata, loc+vec, (500, 0), "ауay", colText=col, colBg=col)
         DrawMarker(drata, center+Vec2((-50,-60)), col, style=0)
         DrawMarker(drata, center+Vec2((-100,-60)), col, style=1)
         DrawMarker(drata, center+Vec2((-150,-60)), col, style=2)
@@ -1031,7 +1032,7 @@ class VoronoiOpTool(bpy.types.Operator):
     def poll(cls, context):
         return context.area.type=='NODE_EDITOR' #Не знаю, зачем это нужно, но пусть будет.
 
-class VoronoiToolFiller: #-1
+class VoronoiToolFillers: #-1
     usefulnessForCustomTree = None
     usefulnessForUndefTree = None
     usefulnessForNoneTree = None
@@ -1048,7 +1049,7 @@ class VoronoiToolFiller: #-1
     def LyDrawInAddonDiscl(col, prefs): pass
     @classmethod
     def BringTranslations(cls): pass
-class VoronoiToolRoot(VoronoiOpTool, VoronoiToolFiller): #0
+class VoronoiToolRoot(VoronoiOpTool, VoronoiToolFillers): #0
     usefulnessForUndefTree = False
     usefulnessForNoneTree = False
     canDrawInAddonDiscl = True
@@ -1482,7 +1483,7 @@ def ViaVerSkfRemove(tree, isSide, name):
 
 class Equestrian():
     set_equestrianNodeTypes = {'GROUP', 'GROUP_INPUT', 'GROUP_OUTPUT', 'SIMULATION_INPUT', 'SIMULATION_OUTPUT', 'REPEAT_INPUT', 'REPEAT_OUTPUT'}
-    is_simrep = property(lambda a: a.type in ('SIM','REP'))
+    is_simrep = property(lambda a: a.type in {'SIM','REP'})
     @staticmethod
     def IsSocketDefinitely(ess):
         base = ess.bl_rna
@@ -1837,7 +1838,7 @@ class VoronoiLinkerTool(VoronoiToolPairSk): #Святая святых. То р�
     usefulnessForCustomTree = True
     usefulnessForUndefTree = True
     def CallbackDrawTool(self, drata):
-        TemplateDrawSksToolHh(drata, self.fotagoSkOut, self.fotagoSkIn, sideMarkerHh=-1, isClassicFlow=True)
+        TemplateDrawSksToolHh(drata, self.fotagoSkOut, self.fotagoSkIn, sideMarkHh=-1, isClassicFlow=True)
     @staticmethod
     def SkPriorityIgnoreCheck(sk): #False -- игнорировать.
         #Эта функция была добавлена по запросам извне (как и VLNST).
@@ -1904,7 +1905,8 @@ class VoronoiLinkerTool(VoronoiToolPairSk): #Святая святых. То р�
                     else:
                         self.NextAssignmentRoot(False)
                 case self.kmi.type|'ESC':
-                    return True
+                    if event.value=='RELEASE':
+                        return True
         return False
     def MatterPurposePoll(self):
         return self.fotagoSkOut and self.fotagoSkIn
@@ -2872,7 +2874,7 @@ dict_setKmiCats['grt'].add(VoronoiMixerTool.bl_idname)
 class VoronoiAddonPrefs(VoronoiAddonPrefs):
     vmtReroutesCanInAnyType: bpy.props.BoolProperty(name="Reroutes can be mixed to any type", default=True)
     ##
-    vmtPieType:               bpy.props.EnumProperty( name="Pie Type", default='CONTROL', items=( ('CONTROL',"Control",""), ('SPEED',"Speed","") ))
+    vmtPieType:               bpy.props.EnumProperty( name="Pie Type", default='CONTROL', items=( ('CONTROL',"Control","Control"), ('SPEED',"Speed","Speed") ))
     vmtPieScale:              bpy.props.FloatProperty(name="Pie scale",                default=1.5, min=1.0, max=2.0, subtype="FACTOR")
     vmtPieAlignment:          bpy.props.IntProperty(  name="Alignment between items",  default=1,   min=0,   max=2, description="0 – Flat.\n1 – Rounded docked.\n2 – Gap")
     vmtPieSocketDisplayType:  bpy.props.IntProperty(  name="Display socket type info", default=1,   min=-1,  max=1, description="0 – Disable.\n1 – From above.\n-1 – From below (VMT)")
@@ -3092,7 +3094,7 @@ class VqmtData(PieRootData):
     canProcHideSks = True
     dict_lastOperation = {}
     isFirstDone = False #https://github.com/ugorek000/VoronoiLinker/issues/20
-    list_existingValues = []
+    dict_existingValues = {}
 
 set_vqmtSkTypeFields = {'VALUE', 'RGBA', 'VECTOR', 'INT', 'BOOLEAN', 'ROTATION'}
 
@@ -3202,7 +3204,8 @@ class VoronoiQuickMathTool(VoronoiToolTripleSk):
                     else:
                         self.NextAssignmentRoot(False)
                 case self.kmi.type|'ESC':
-                    return True
+                    if event.value=='RELEASE':
+                        return True
         return False
     def MatterPurposePoll(self):
         return (self.fotagoSk0)and(self.isCanFromOne or self.fotagoSk1)
@@ -3258,8 +3261,9 @@ class VoronoiQuickMathTool(VoronoiToolTripleSk):
     def LyDrawInAddonDiscl(col, prefs):
         LyAddLeftProp(col, prefs,'vqmtIncludeThirdSk')
         tgl = prefs.vqmtPieType=='CONTROL'
-        LyAddLeftProp(col, prefs,'vqmtIncludeQuickPresets', active=tgl)
+        LyAddLeftProp(col, prefs,'vqmtIncludeQuickPresets',   active=tgl)
         LyAddLeftProp(col, prefs,'vqmtIncludeExistingValues', active=tgl)
+        LyAddLeftProp(col, prefs,'vqmtDisplayIcons',          active=tgl)
         LyAddKeyTxtProp(col, prefs,'vqmtRepickKey')
     @classmethod
     def LyDrawInAppearance(cls, colLy, prefs):
@@ -3315,6 +3319,9 @@ class VoronoiQuickMathTool(VoronoiToolTripleSk):
         with VlTrMapForKey(GetPrefsRnaProp('vqmtIncludeExistingValues').name) as dm:
             dm[ru_RU] = "Включить существующие значения"
 #            dm[zh_CN] = ""
+        with VlTrMapForKey(GetPrefsRnaProp('vqmtDisplayIcons').name) as dm:
+            dm[ru_RU] = "Отображать иконки"
+#            dm[zh_CN] = ""
         #См. перевод vqmtRepickKey в VLT.
         #Переводы vqmtPie такие же, как и в VMT.
 
@@ -3334,12 +3341,13 @@ SmartAddToRegAndAddToKmiDefs(VoronoiQuickMathTool, "S#A_4", {'justPieCall':4}) #
 dict_setKmiCats['grt'].add(VoronoiQuickMathTool.bl_idname)
 
 class VoronoiAddonPrefs(VoronoiAddonPrefs):
-    vqmtIncludeThirdSk:        bpy.props.BoolProperty(name="Include third socket", default=True)
-    vqmtIncludeQuickPresets:   bpy.props.BoolProperty(name="Include quick presets", default=True)
+    vqmtIncludeThirdSk:        bpy.props.BoolProperty(name="Include third socket",    default=True)
+    vqmtIncludeQuickPresets:   bpy.props.BoolProperty(name="Include quick presets",   default=True)
     vqmtIncludeExistingValues: bpy.props.BoolProperty(name="Include existing values", default=True)
+    vqmtDisplayIcons:          bpy.props.BoolProperty(name="Display icons",           default=True)
     vqmtRepickKey: bpy.props.StringProperty(name="Repick Key", default='LEFT_ALT')
     ##
-    vqmtPieType:               bpy.props.EnumProperty( name="Pie Type", default='CONTROL', items=( ('CONTROL',"Control",""), ('SPEED',"Speed","") ))
+    vqmtPieType:               bpy.props.EnumProperty( name="Pie Type", default='CONTROL', items=( ('CONTROL',"Control","Control"), ('SPEED',"Speed","Speed") ))
     vqmtPieScale:              bpy.props.FloatProperty(name="Pie scale",                default=1.5,  min=1.0, max=2.0, subtype="FACTOR")
     vqmtPieScaleExtra:         bpy.props.FloatProperty(name="Pie scale extra",          default=1.25, min=1.0, max=2.0, subtype="FACTOR")
     vqmtPieAlignment:          bpy.props.IntProperty(  name="Alignment between items",  default=1,    min=0,   max=2, description="0 – Flat.\n1 – Rounded docked.\n2 – Gap")
@@ -3570,7 +3578,7 @@ class VqmtOpMain(VoronoiOpTool):
                     VqmtData.list_speedPieDisplayItems = [ti[0] for ti in dict_vqmtQuickMathMain[VqmtData.qmSkType]]
                 else:
                     VqmtData.depth += 1
-                    VqmtData.list_existingValues.clear()
+                    VqmtData.dict_existingValues.clear()
                     if VqmtData.prefs.vqmtIncludeExistingValues:
                         for nd in tree.nodes:
                             if (VqmtData.qmSkType=='VECTOR')and(nd.type=='VECT_MATH')or(VqmtData.qmSkType=='VALUE')and(nd.type=='MATH'):
@@ -3584,7 +3592,9 @@ class VqmtOpMain(VoronoiOpTool):
                                         canSk |= tgl
                                     list_sks.append((sk, tgl))
                                 if (canLk and canSk)and(length(list_sks)>1):
-                                    VqmtData.list_existingValues.append((nd, list_sks))
+                                    #Заметка: те, у кого ничего нет, игнорируются выщестоящей топологией
+                                    key = tuple(li[0].default_value if type(li[0].default_value)==float else li[0].default_value[:] for li in list_sks if li[1])
+                                    VqmtData.dict_existingValues[key] = (nd, list_sks)
             case 1:
                 assert VqmtData.isSpeedPie #См. ^ `+= 1`.
                 VqmtData.list_speedPieDisplayItems = [ti[1] for ti in dict_vqmtQuickMathMain[VqmtData.qmSkType] if ti[0]==self.operation][0] #Заметка: Вычленяется кортеж из генератора.
@@ -3612,7 +3622,7 @@ class VqmtPieMath(bpy.types.Menu):
                 ly = ly.split(factor=( abs( (soldPdsc>0)-.01*abs(soldPdsc)/(1+(soldPdsc>0)) ) )/VqmtData.uiScale, align=True)
             if soldPdsc<0:
                 ly.prop(VqmtData.prefs,'vaDecorColSk', text="")
-            LyVqmAddOp(ly, text=txt, icon=ico)
+            LyVqmAddOp(ly, text=txt, icon=ico if VqmtData.prefs.vqmtDisplayIcons else 'NONE')
             if soldPdsc>0:
                 ly.prop(VqmtData.prefs,'vaDecorColSk', text="")
         pie = self.layout.menu_pie()
@@ -3666,7 +3676,7 @@ class VqmtPieMath(bpy.types.Menu):
                             ly.operator(VqmtOpMain.bl_idname, text=dv.replace(" ",""), translate=False).operation = dk
                     ##
                     nonlocal colLeft
-                    canExist = (VqmtData.prefs.vqmtIncludeExistingValues)and(VqmtData.list_existingValues)
+                    canExist = (VqmtData.prefs.vqmtIncludeExistingValues)and(VqmtData.dict_existingValues)
                     if canExist:
                         colLeft.ui_units_x *= 2.05
                     rowLeft = colLeft.row()
@@ -3674,7 +3684,7 @@ class VqmtPieMath(bpy.types.Menu):
                         colLeftExt = rowLeft.column(align=isGap)
                         colLeftExt.ui_units_x = uiUnitsX
                         colLeftExt.scale_y = VqmtData.prefs.vqmtPieScaleExtra/VqmtData.pieScale
-                        for nd, list_sks in VqmtData.list_existingValues[-16:]:
+                        for nd, list_sks in list(VqmtData.dict_existingValues.values())[-16:]:
                             ly = colLeftExt.row() if VqmtData.pieAlignment else colLeftExt
                             rowItem = ly.row(align=True)
                             rowAdd = rowItem.row(align=True)
@@ -3941,9 +3951,9 @@ def VrtDoRecursiveAutomaticNodeTopologyOrganization(rada, ndRoot):
     rada.kapibara = "kapibara"
 
 
-fitVstModeItems = ( ('SWAP', "Swap",     "All links from the first socket will be on the second, from the second on the first."),
-                    ('ADD',  "Add",      "Add all links from the second socket to the first one."),
-                    ('TRAN', "Transfer", "Move all links from the second socket to the first one with replacement.") )
+fitVstModeItems = ( ('SWAP', "Swap",     "All links from the first socket will be on the second, from the second on the first"),
+                    ('ADD',  "Add",      "Add all links from the second socket to the first one"),
+                    ('TRAN', "Transfer", "Move all links from the second socket to the first one with replacement") )
 class VoronoiSwapperTool(VoronoiToolPairSk):
     bl_idname = 'node.voronoi_swaper'
     bl_label = "Voronoi Swapper"
@@ -4051,19 +4061,19 @@ class VoronoiSwapperTool(VoronoiToolPairSk):
             dm[ru_RU] = "Поменять"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SWAP.description) as dm:
-            dm[ru_RU] = "Все линки у первого сокета будут на втором, у второго на первом."
+            dm[ru_RU] = "Все линки у первого сокета будут на втором, у второго на первом"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.ADD.name) as dm:
             dm[ru_RU] = "Добавить"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.ADD.description) as dm:
-            dm[ru_RU] = "Добавить все линки со второго сокета на первый. Второй будет пустым."
+            dm[ru_RU] = "Добавить все линки со второго сокета на первый. Второй будет пустым"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.TRAN.name) as dm:
             dm[ru_RU] = "Переместить"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.TRAN.description) as dm:
-            dm[ru_RU] = "Переместить все линки со второго сокета на первый с заменой."
+            dm[ru_RU] = "Переместить все линки со второго сокета на первый с заменой"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(GetAnnotFromCls(cls,'isCanAnyType').name) as dm:
             dm[ru_RU] = "Может меняться с любым типом"
@@ -4083,9 +4093,9 @@ dict_toolLangSpecifDataPool[VoronoiSwapperTool, zh_CN] = "Alt是批量替换输�
 
 #Нужен только для наведения порядка и эстетики в дереве.
 #Для тех, кого (например меня) напрягают "торчащие без дела" пустые сокеты выхода, или нулевые (чьё значение 0.0, чёрный, и т.п.) незадействованные сокеты входа.
-fitVhtModeItems = ( ('NODE',      "Auto-node",    "Automatically processing of hiding of sockets for a node."),
-                    ('SOCKET',    "Socket",       "Hiding the socket."),
-                    ('SOCKETVAL', "Socket value", "Switching the visibility of a socket contents.") )
+fitVhtModeItems = ( ('NODE',      "Auto-node",    "Automatically processing of hiding of sockets for a node"),
+                    ('SOCKET',    "Socket",       "Hiding the socket"),
+                    ('SOCKETVAL', "Socket value", "Switching the visibility of a socket contents") )
 class VoronoiHiderTool(VoronoiToolAny):
     bl_idname = 'node.voronoi_hider'
     bl_label = "Voronoi Hider"
@@ -4162,16 +4172,16 @@ class VoronoiHiderTool(VoronoiToolAny):
             dm[ru_RU] = "Авто-нод"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.NODE.description) as dm:
-            dm[ru_RU] = "Автоматически обработать сокрытие сокетов для нода."
+            dm[ru_RU] = "Автоматически обработать сокрытие сокетов для нода"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SOCKET.description) as dm:
-            dm[ru_RU] = "Сокрытие сокета."
+            dm[ru_RU] = "Сокрытие сокета"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SOCKETVAL.name) as dm:
             dm[ru_RU] = "Значение сокета"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SOCKETVAL.description) as dm:
-            dm[ru_RU] = "Переключение видимости содержимого сокета."
+            dm[ru_RU] = "Переключение видимости содержимого сокета"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(GetAnnotFromCls(cls,'isTriggerOnCollapsedNodes').name) as dm:
             dm[ru_RU] = "Триггериться на свёрнутые ноды"
@@ -4207,12 +4217,12 @@ SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "##A_E", {'toolMode':'SOCKETVAL'}
 SmartAddToRegAndAddToKmiDefs(VoronoiHiderTool, "#C#_E", {'toolMode':'NODE'})
 dict_setKmiCats['oth'].add(VoronoiHiderTool.bl_idname)
 
-list_itemsProcBoolSocket = [('ALWAYS',"Always",""), ('IF_FALSE',"If false",""), ('NEVER',"Never",""), ('IF_TRUE',"If true","")]
+list_itemsProcBoolSocket = [('ALWAYS',"Always","Always"), ('IF_FALSE',"If false","If false"), ('NEVER',"Never","Never"), ('IF_TRUE',"If true","If true")]
 
 class VoronoiAddonPrefs(VoronoiAddonPrefs):
     vhtHideBoolSocket:       bpy.props.EnumProperty(name="Hide boolean sockets",             default='IF_FALSE', items=list_itemsProcBoolSocket)
     vhtHideHiddenBoolSocket: bpy.props.EnumProperty(name="Hide hidden boolean sockets",      default='ALWAYS',   items=list_itemsProcBoolSocket)
-    vhtNeverHideGeometry:    bpy.props.EnumProperty(name="Never hide geometry input socket", default='FALSE',    items=( ('FALSE',"False",""), ('ONLY_FIRST',"Only first",""), ('TRUE',"True","") ))
+    vhtNeverHideGeometry:    bpy.props.EnumProperty(name="Never hide geometry input socket", default='FALSE',    items=( ('FALSE',"False","False"), ('ONLY_FIRST',"Only first","Only first"), ('TRUE',"True","True") ))
     vhtIsUnhideVirtual:      bpy.props.BoolProperty(name="Unhide virtual sockets",           default=False)
     vhtIsToggleNodesOnDrag:  bpy.props.BoolProperty(name="Toggle nodes on drag",             default=True)
 
@@ -4672,8 +4682,8 @@ dict_classes[VestPieBox] = True
 
 #См.: VlrtData, VlrtRememberLastSockets() и NewLinkHhAndRemember().
 
-fitVlrtModeItems = ( ('SOCKET', "For socket", "Using the last link created by some from the tools, create the same for the specified socket."),
-                     ('NODE',   "For node",   "Using name of the last socket, find and connect for a selected node.") )
+fitVlrtModeItems = ( ('SOCKET', "For socket", "Using the last link created by some from the tools, create the same for the specified socket"),
+                     ('NODE',   "For node",   "Using name of the last socket, find and connect for a selected node") )
 class VoronoiLinkRepeatingTool(VoronoiToolAny): #Вынесено в отдельный инструмент, чтобы не осквернять святая святых спагетти-кодом (изначально был только для VLT).
     bl_idname = 'node.voronoi_link_repeating'
     bl_label = "Voronoi Link Repeating"
@@ -4747,13 +4757,13 @@ class VoronoiLinkRepeatingTool(VoronoiToolAny): #Вынесено в отдел�
             dm[ru_RU] = "Для сокета"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SOCKET.description) as dm:
-            dm[ru_RU] = "Используя последний линк, созданный каким-н. из инструментов, создать такой же для указанного сокета."
+            dm[ru_RU] = "Используя последний линк, созданный каким-н. из инструментов, создать такой же для указанного сокета"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.NODE.name) as dm:
             dm[ru_RU] = "Для нода"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.NODE.description) as dm:
-            dm[ru_RU] = "Используя имя последнего сокета, найти и соединить для выбранного нода."
+            dm[ru_RU] = "Используя имя последнего сокета, найти и соединить для выбранного нода"
             dm[zh_CN] = "鼠标移动到节点旁自动恢复节点的连接"
 
 SmartAddToRegAndAddToKmiDefs(VoronoiLinkRepeatingTool, "###_V", {'toolMode':'SOCKET'})
@@ -4894,12 +4904,12 @@ def FindAnySk(nd, list_ftgSksIn, list_ftgSksOut): #Todo0NA нужно обобщ
             break
     return MinFromFtgs(ftgSkOut, ftgSkIn)
 
-fitVitModeItems = ( ('COPY',   "Copy",   "Copy a socket name to clipboard."),
-                    ('PASTE',  "Paste",  "Paste the contents of clipboard into an interface name."),
-                    ('SWAP',   "Swap",   "Swap a two interfaces."),
-                    ('FLIP',   "Flip",   "Move the interface to a new location, shifting everyone else."),
-                    ('NEW',    "New",    "Create an interface using virtual sockets."),
-                    ('CREATE', "Create", "Create an interface from a selected socket, and paste it into a specified location.") )
+fitVitModeItems = ( ('COPY',   "Copy",   "Copy a socket name to clipboard"),
+                    ('PASTE',  "Paste",  "Paste the contents of clipboard into an interface name"),
+                    ('SWAP',   "Swap",   "Swap a two interfaces"),
+                    ('FLIP',   "Flip",   "Move the interface to a new location, shifting everyone else"),
+                    ('NEW',    "New",    "Create an interface using virtual sockets"),
+                    ('CREATE', "Create", "Create an interface from a selected socket, and paste it into a specified location") )
 class VoronoiInterfacerTool(VoronoiToolPairSk):
     bl_idname = 'node.voronoi_interfacer'
     bl_label = "Voronoi Interfacer"
@@ -4912,7 +4922,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             case 'CREATE':
                 ftgMain = self.fotagoSkMain
                 if ftgMain:
-                    TemplateDrawSksToolHh(drata, ftgMain, sideMarkerHh=-2)
+                    TemplateDrawSksToolHh(drata, ftgMain, sideMarkHh=-2)
                 ftgNdTar = self.fotagoNdTar
                 if ftgNdTar:
                     TemplateDrawNodeFull(drata, ftgNdTar)
@@ -5036,7 +5046,7 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             case 'COPY':
                 self.clipboard = GetSkLabelName(self.fotagoSkMain.tar)
             case 'PASTE':
-                #tovo1v6 добавить клавишу, нажатие которой приведёт к "отмене" -- вставки не будет; поскольку этот режим гарантированно прилипает (см. опцию) к любому сокету, и нужно как-то обслужить хотение "дать заднюю".
+                #tovo1v6 добавить клавишу, нажатие которой приведёт к "отмене" -- вставки не будет; поскольку этот режим гарантированно прилипает (см. опцию) к любому сокету, и нужно как-то обслужить желание "дать заднюю".
                 skMain = self.fotagoSkMain.tar
                 if (skMain.node.type not in Equestrian.set_equestrianNodeTypes)and(prefs.vitPasteToAnySocket):
                     skMain.name = self.clipboard
@@ -5125,37 +5135,37 @@ class VoronoiInterfacerTool(VoronoiToolPairSk):
             dm[ru_RU] = "Копировать"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.COPY.description) as dm:
-            dm[ru_RU] = "Копировать имя сокета в буфер обмена."
+            dm[ru_RU] = "Копировать имя сокета в буфер обмена"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.PASTE.name) as dm:
             dm[ru_RU] = "Вставить"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.PASTE.description) as dm:
-            dm[ru_RU] = "Вставить содержимое буфера обмена в имя интерфейса."
+            dm[ru_RU] = "Вставить содержимое буфера обмена в имя интерфейса"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SWAP.name) as dm:
             dm[ru_RU] = "Поменять местами"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.SWAP.description) as dm:
-            dm[ru_RU] = "Поменять местами два интерфейса."
+            dm[ru_RU] = "Поменять местами два интерфейса"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.FLIP.name) as dm:
             dm[ru_RU] = "Сдвинуть"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.FLIP.description) as dm:
-            dm[ru_RU] = "Переместить интерфейс на новое место, сдвигая всех остальных."
+            dm[ru_RU] = "Переместить интерфейс на новое место, сдвигая всех остальных"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.NEW.name) as dm:
             dm[ru_RU] = "Добавить"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.NEW.description) as dm:
-            dm[ru_RU] = "Добавить интерфейс с помощью виртуальных сокетов."
+            dm[ru_RU] = "Добавить интерфейс с помощью виртуальных сокетов"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.CREATE.name) as dm:
             dm[ru_RU] = "Создать"
 #            dm[zh_CN] = ""
         with VlTrMapForKey(tran.CREATE.description) as dm:
-            dm[ru_RU] = "Создать интерфейс из выбранного сокета, и вставить его на указанное место."
+            dm[ru_RU] = "Создать интерфейс из выбранного сокета, и вставить его на указанное место"
 #            dm[zh_CN] = ""
         ##
         with VlTrMapForKey(GetPrefsRnaProp('vitPasteToAnySocket').name) as dm:
@@ -5957,7 +5967,7 @@ class VoronoiAddonPrefs(VoronoiAddonPrefs):
     dsCursorColor:      bpy.props.FloatVectorProperty(name="Cursor color",              default=(0.730461, 0.539480, 0.964686, 1.0), min=0, max=1, size=4, subtype='COLOR') #1.0, 1.0, 1.0, 1.0
     dsCursorColorAvailability: bpy.props.IntProperty(name="Cursor color availability", default=2, min=0, max=2, description="If a line is drawn to the cursor, color part of it in the cursor color.\n0 – Disable.\n1 – For one line.\n2 – Always")
     ##
-    dsDisplayStyle: bpy.props.EnumProperty(name="Display frame style", default='CLASSIC', items=( ('CLASSIC',"Classic",""), ('SIMPLIFIED',"Simplified",""), ('ONLY_TEXT',"Only text","") ))
+    dsDisplayStyle: bpy.props.EnumProperty(name="Display frame style", default='CLASSIC', items=( ('CLASSIC',"Classic","Classic"), ('SIMPLIFIED',"Simplified","Simplified"), ('ONLY_TEXT',"Only text","Only text") ))
     dsFontFile:     bpy.props.StringProperty(name="Font file",    default='C:\Windows\Fonts\consola.ttf', subtype='FILE_PATH') #"Пользователи Линукса негодуют".
     dsLineWidth:    bpy.props.FloatProperty( name="Line Width",   default=1.5, min=0.5, max=8.0, subtype="FACTOR")
     dsPointScale:   bpy.props.FloatProperty( name="Point scale",  default=1.0, min=0.0, max=3.0)
