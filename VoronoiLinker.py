@@ -3593,7 +3593,7 @@ class VqmtOpMain(VoronoiOpTool):
                                     list_sks.append((sk, tgl))
                                 if (canLk and canSk)and(length(list_sks)>1):
                                     #Заметка: те, у кого ничего нет, игнорируются выщестоящей топологией
-                                    key = tuple(li[0].default_value if type(li[0].default_value)==float else li[0].default_value[:] for li in list_sks if li[1])
+                                    key = (nd.operation, *[li[0].default_value if type(li[0].default_value)==float else li[0].default_value[:] for li in list_sks if li[1]])
                                     VqmtData.dict_existingValues[key] = (nd, list_sks)
             case 1:
                 assert VqmtData.isSpeedPie #См. ^ `+= 1`.
@@ -3615,6 +3615,7 @@ class VqmtPieMath(bpy.types.Menu):
         def LyVqmAddOp(where, text, icon='NONE'):
             #Автоматический перевод выключен, ибо оригинальные операции у нода математики тоже не переводятся; по крайней мере для Русского.
             where.operator(VqmtOpMain.bl_idname, text=text.replace("_"," ").capitalize(), icon=icon, translate=False).operation = text
+        soldCanIcons = VqmtData.prefs.vqmtDisplayIcons
         def LyVqmAddItem(where, txt, ico='NONE'):
             ly = where.row(align=VqmtData.pieAlignment==0)
             soldPdsc = VqmtData.pieDisplaySocketColor# if not VqmtData.isJustPie else 0
@@ -3622,7 +3623,7 @@ class VqmtPieMath(bpy.types.Menu):
                 ly = ly.split(factor=( abs( (soldPdsc>0)-.01*abs(soldPdsc)/(1+(soldPdsc>0)) ) )/VqmtData.uiScale, align=True)
             if soldPdsc<0:
                 ly.prop(VqmtData.prefs,'vaDecorColSk', text="")
-            LyVqmAddOp(ly, text=txt, icon=ico if VqmtData.prefs.vqmtDisplayIcons else 'NONE')
+            LyVqmAddOp(ly, text=txt, icon=ico if soldCanIcons else 'NONE')
             if soldPdsc>0:
                 ly.prop(VqmtData.prefs,'vaDecorColSk', text="")
         pie = self.layout.menu_pie()
@@ -5181,7 +5182,7 @@ SmartAddToRegAndAddToKmiDefs(VoronoiInterfacerTool, "S#A_Z", {'toolMode':'FLIP'}
 dict_setKmiCats['spc'].add(VoronoiInterfacerTool.bl_idname)
 
 class VoronoiAddonPrefs(VoronoiAddonPrefs):
-    vitPasteToAnySocket: bpy.props.BoolProperty(name="Include paste to any socket", default=True)
+    vitPasteToAnySocket: bpy.props.BoolProperty(name="Allow paste to any socket", default=True)
 
 with VlTrMapForKey(VoronoiInterfacerTool.bl_label) as dm:
     dm[zh_CN] = "Voronoi在节点组里快速复制粘贴端口名给节点组输入输出端"
