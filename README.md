@@ -28,8 +28,8 @@ First appearance of the addon: 2022.12.10 [[8f80e9f](https://github.com/ugorek00
 Full refactoring v2.0.0 done: 2023.04.22 [[bf328ac](https://github.com/ugorek000/VoronoiLinker/commit/bf328ac72d817ad16d92566403c45f8a19cf5251)]  
 Complete refactoring v3.0.0 done: 2023.09.09 [[ba8483e](https://github.com/ugorek000/VoronoiLinker/commit/ba8483e33abe948e6453f6e6f4d286dad2d394fb)]  
 Many new features v4.0.0 update: 2023.12.10 [[6401515](https://github.com/ugorek000/VoronoiLinker/commit/64015156738b38a4318dc230143cb5e72bfad88b)]  
-Major serious v5.0.0 update: 2024.02.26 [[d7a34f37](https://github.com/ugorek000/VoronoiLinker/commit/d7a34f3747137e843399b1e3f52928f2b9798251)]  
-**Latest version 5.0.1 created: 2024.02.29**
+Major serious v5.0.0 update: 2024.02.26 [[d7a34f3](https://github.com/ugorek000/VoronoiLinker/commit/d7a34f3747137e843399b1e3f52928f2b9798251)]  
+**Latest version 5.0.2 created: 2024.03.06**
 
 ![](https://github.com/ugorek000/VoronoiLinker/assets/120259754/3dc18017-feb4-49ce-a5fa-2062c5b49d9f)
 
