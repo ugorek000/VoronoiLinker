@@ -2599,9 +2599,10 @@ def DoPreviewCore(skTar, list_distAnchs, cursorLoc):
             if cyc==higWay:
                 portalSkFrom = skTar
             else:
-                if not cyc: #assert cyc
+                try:
+                    portalSkFrom = GetBridgeSk(portalNdFrom.outputs)
+                except:
                     return list_way
-                portalSkFrom = GetBridgeSk(portalNdFrom.outputs)
         assert portalSkFrom
         #Определить принимающий сокет:
         portalSkTo = None
